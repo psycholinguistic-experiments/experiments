@@ -410,6 +410,7 @@
       dot.classList.remove('off');
       label.textContent = `${vals.length} ${vals.length === 1 ? 'person' : 'people'} so far · updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       LAB.stripPlot(host, [{ label: '', values: vals }], {
+        domain: [-40, 120],
         xLabel: 'Priming effect (ms): positive = faster after a translation',
         ariaLabel: `Class priming effects: ${incl.length} people, mean ${Math.round(LAB.mean(incl.map(v => v.v)))} ms`
       });

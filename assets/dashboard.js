@@ -140,7 +140,7 @@
         { label: 'Masked', sub: '60 ms prime', values: m.map(r => ({ v: num(r.effect), excluded: String(r.include) !== '1' })) },
         { label: 'Visible', sub: '200 ms prime', values: v.map(r => ({ v: num(r.effect), excluded: String(r.include) !== '1' })) }
       ], {
-        width: 1000, r: 7,
+        width: 1000, r: 7, domain: [-40, 120],
         xLabel: 'Priming effect (ms): unrelated − translation',
         ariaLabel: `Masked mean ${Math.round(M.mean)} ms (n ${M.nInc}); visible mean ${Math.round(V.mean)} ms (n ${V.nInc})`
       });
