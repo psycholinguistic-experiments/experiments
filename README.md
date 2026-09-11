@@ -4,9 +4,9 @@ Browser experiments for **LT5461 Cognition and Language Differences** (City
 University of Hong Kong). Students run them in class. Their anonymous data go
 into a Google Sheet, and the class results update live on the projector.
 
-- **Students:** https://psycholinguistic-experiments.github.io/lt5461/
-- **Projector:** https://psycholinguistic-experiments.github.io/lt5461/results.html
-- **Code:** https://github.com/psycholinguistic-experiments/lt5461 (GitHub Pages, `main` branch)
+- **Students:** https://psycholinguistic-experiments.github.io/experiments/
+- **Projector:** https://psycholinguistic-experiments.github.io/experiments/results.html
+- **Code:** https://github.com/psycholinguistic-experiments/experiments (GitHub Pages, `main` branch)
 
 | Page | For | What it is |
 |---|---|---|
