@@ -7,25 +7,14 @@
     <title>In-class experiments · LT5461</title>
     <meta name="description" content="Browser experiments for LT5461 Cognition and Language Differences, City University of Hong Kong.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="assets/lab.css?v=1">
+    <link rel="stylesheet" href="assets/lab.css?v=2">
     <style>
         .runs { list-style: none; margin: 2rem 0 0; border-top: 3px solid var(--text); }
-        .run { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr) auto; gap: 0.25rem 1.25rem; align-items: baseline; padding: 1.4rem 0; border-bottom: 1px solid var(--border); }
-        .run-no { font-weight: 700; font-size: 1.5rem; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+        .run { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; padding: 1.3rem 0; border-bottom: 1px solid var(--border); }
         .run h2 { margin: 0; font-size: 1.3rem; }
         .run h2::before { display: none; }
-        .run p { grid-column: 2; color: var(--text-secondary); margin: 0.35rem 0 0; font-size: 0.97rem; }
-        .run .meta { font-size: 0.84rem; color: var(--text-light); white-space: nowrap; }
-        .run .go { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
-        .run.done .run-no::after { content: ' ✓'; font-size: 0.9rem; color: var(--mint-deep); }
-        @media (max-width: 640px) {
-            .run { grid-template-columns: 2.5rem minmax(0, 1fr); }
-            .run .go { grid-column: 2; grid-row: auto; justify-self: start; margin-top: 0.9rem; }
-        }
-        .aside { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.25rem 3rem; }
-        .aside h2 { margin-top: 0; font-size: 1.05rem; }
-        .aside h2::before { width: 1.75rem; }
-        .aside p { font-size: 0.93rem; color: var(--text-secondary); }
+        .run .meta { display: block; font-size: 0.84rem; font-weight: 400; color: var(--text-light); margin-top: 0.25rem; letter-spacing: 0; }
+        .run.done h2::after { content: ' ✓'; font-size: 0.95rem; color: var(--mint-deep); }
     </style>
 </head>
 <body>
@@ -39,51 +28,21 @@
 
     <main id="main">
         <div class="page">
-            <div class="column">
-                <p class="eyebrow">Department of Linguistics and Translation</p>
-                <h1>In-class experiments</h1>
-                <p class="lead">Three short experiments. Please do them in this order, one after the other.</p>
-            </div>
-
-            <ol class="runs" id="runs">
+            <h1>In-class experiments</h1>
+            <ul class="runs">
                 <li class="run" data-exp="masked">
-                    <span class="run-no">1</span>
-                    <h2>Word task 1</h2>
-                    <p>Decide, as fast as you can, whether letter strings are English words. <span class="meta">About 5 minutes · keyboard</span></p>
-                    <a class="btn go" href="word-task-1.html">Start <span class="arrow" aria-hidden="true">→</span></a>
+                    <h2>Word task 1<span class="meta">About 5 minutes · keyboard</span></h2>
+                    <a class="btn" href="word-task-1.html">Start <span class="arrow" aria-hidden="true">→</span></a>
                 </li>
                 <li class="run" data-exp="visible">
-                    <span class="run-no">2</span>
-                    <h2>Word task 2</h2>
-                    <p>The same decision, with a twist you will see straight away. <span class="meta">About 5 minutes · keyboard</span></p>
-                    <a class="btn go" href="word-task-2.html">Start <span class="arrow" aria-hidden="true">→</span></a>
+                    <h2>Word task 2<span class="meta">About 5 minutes · keyboard</span></h2>
+                    <a class="btn" href="word-task-2.html">Start <span class="arrow" aria-hidden="true">→</span></a>
                 </li>
                 <li class="run" data-exp="bouba">
-                    <span class="run-no">3</span>
-                    <h2>Shape task</h2>
-                    <p>Match made-up words to shapes. No right or wrong answers. <span class="meta">About 3 minutes · keyboard or touch</span></p>
-                    <a class="btn go" href="shape-task.html">Start <span class="arrow" aria-hidden="true">→</span></a>
+                    <h2>Shape task<span class="meta">About 3 minutes · keyboard or touch</span></h2>
+                    <a class="btn" href="shape-task.html">Start <span class="arrow" aria-hidden="true">→</span></a>
                 </li>
-            </ol>
-        </div>
-
-        <div class="band">
-            <div class="page">
-                <div class="aside">
-                    <div>
-                        <h2>Why this order?</h2>
-                        <p>Word task 1 only works if you don't know what to look for. Doing Word task 2 first would give it away.</p>
-                    </div>
-                    <div>
-                        <h2>Your data</h2>
-                        <p>Everything is anonymous. Each device gets a random code, and no names or student numbers are collected. The class results are shown together on the projector.</p>
-                    </div>
-                    <div>
-                        <h2>For the best timing</h2>
-                        <p>Use a laptop with a keyboard, close other tabs, plug in if your battery is low, and don't switch windows during a task.</p>
-                    </div>
-                </div>
-            </div>
+            </ul>
         </div>
     </main>
 
@@ -97,10 +56,7 @@
             try {
                 var done = JSON.parse(localStorage.getItem('lt5461:done') || '{}');
                 document.querySelectorAll('.run').forEach(function (li) {
-                    if (done[li.dataset.exp]) {
-                        li.classList.add('done');
-                        li.querySelector('.run-no').setAttribute('aria-label', li.querySelector('.run-no').textContent + ', done');
-                    }
+                    if (done[li.dataset.exp]) li.classList.add('done');
                 });
             } catch (e) { /* storage blocked */ }
         })();

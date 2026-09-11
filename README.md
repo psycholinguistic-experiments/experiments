@@ -10,7 +10,7 @@ into a Google Sheet, and the class results update live on the projector.
 
 | Page | For | What it is |
 |---|---|---|
-| `index.html` | students | Start page listing the three tasks in order |
+| `index.html` | students | Start page listing the three experiments |
 | `word-task-1.html` | students | Masked translation priming (60 ms prime), lexical decision |
 | `word-task-2.html` | students | Visible translation priming (200 ms prime), lexical decision |
 | `shape-task.html` | students | Sound symbolism (bouba/kiki), 3 × 2 |
@@ -25,9 +25,7 @@ dependencies.
 1. **Before class, rehearse** by adding `?test` to any task address, for example
    `…/word-task-1.html?test`. Test runs are filed under a separate
    `test-<date>` class, so they never mix with the real data.
-2. **Put the start page on a slide**, as a link or QR code. Students should do
-   Word task 1 (masked) before Word task 2 (visible). Seeing the visible primes
-   first would spoil the masked task.
+2. **Put the start page on a slide**, as a link or QR code.
 3. **Open `results.html` on the projector.**
    - It shows **today's class** and updates every 5 seconds.
    - *Hide results* shows only the running counts while students are still
