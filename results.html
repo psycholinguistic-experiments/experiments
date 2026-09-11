@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Class results · LT5461</title>
+    <meta name="description" content="Live, anonymous class results for the LT5461 in-class experiments.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=1">
+    <style>
+        :root { --wide: 76rem; }
+        .dash-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--border); }
+        .dash-controls label { font-size: 0.86rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.5rem; }
+        .dash-controls select { font: 600 0.95rem var(--font); color: var(--text); padding: 0.45rem 2rem 0.45rem 0.7rem; border: 1px solid var(--border-strong); border-radius: 3px; background: #fff; min-height: 2.5rem; }
+        .toggle { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.9rem; color: var(--text); cursor: pointer; }
+        .toggle input { width: 1.1rem; height: 1.1rem; accent-color: #111; }
+        .tabs { display: flex; gap: 0.25rem; margin: 1.75rem 0 0; border-bottom: 1px solid var(--border); }
+        .tab { font: 650 1rem var(--font); color: var(--text-secondary); background: none; border: 0; border-bottom: 3px solid transparent; padding: 0.7rem 1rem 0.6rem; margin-bottom: -1px; cursor: pointer; min-height: 2.75rem; }
+        .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
+        .tab:hover { color: var(--text); }
+        .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
+        .panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 3rem; }
+        @media (min-width: 1100px) { .panel-grid.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+        .bars { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
+        .bar-row { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr 3.5rem; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
+        .bar-track { height: 0.9rem; background: var(--bg-alt); border: 1px solid var(--border); }
+        .bar-fill { height: 100%; background: var(--text); width: 0; transition: width 0.6s var(--ease); }
+        .bar-row .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); font-weight: 650; }
+        .hidden-results .results-body { display: none; }
+        .veil { display: none; padding: 3rem 0; }
+        .hidden-results .veil { display: block; }
+        .veil .big { font-size: clamp(4rem, 12vw, 8rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+        .veil-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 2rem; }
+        .empty { padding: 2rem 0; color: var(--text-light); }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="index.html">LT5461 <span>Cognition and Language Differences</span></a>
+            <span class="masthead-meta">Class results</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <div class="page" style="padding-top:2rem">
+            <div class="result-head">
+                <h1>Class results</h1>
+                <div class="status-line" id="status" aria-live="polite"><span class="live-dot off" aria-hidden="true"></span><span class="label">Connecting…</span></div>
+            </div>
+
+            <div class="dash-controls">
+                <label>Class <select id="session"></select></label>
+                <label class="toggle"><input type="checkbox" id="live" checked> Update every 5 s</label>
+                <label class="toggle"><input type="checkbox" id="hide"> Hide results (show counts only)</label>
+                <button class="btn-quiet" id="csv" type="button">Download this class (CSV)</button>
+            </div>
+
+            <p class="note warn" id="not-connected" hidden>This page is not connected to the class data yet. Paste the Apps Script web-app URL into <code>assets/config.js</code> (see README).</p>
+
+            <div class="tabs" role="tablist" aria-label="Experiment">
+                <button class="tab" role="tab" id="tab-words" aria-controls="panel-words" aria-selected="true">Word tasks<span class="n" id="n-words"></span></button>
+                <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape task<span class="n" id="n-shapes"></span></button>
+            </div>
+
+            <!-- Word tasks -->
+            <section id="panel-words" role="tabpanel" aria-labelledby="tab-words">
+                <div class="veil">
+                    <div class="veil-grid">
+                        <div><span class="stat-label">Word task 1 · masked</span><div class="big" id="veil-masked">0</div></div>
+                        <div><span class="stat-label">Word task 2 · visible</span><div class="big" id="veil-visible">0</div></div>
+                    </div>
+                </div>
+                <div class="results-body">
+                    <div class="stats" id="w-stats"></div>
+                    <h2>Translation priming, one dot per person</h2>
+                    <figure class="figure">
+                        <div id="w-strip"></div>
+                        <figcaption>Positive values: faster to recognise an English word after its Chinese translation than after an unrelated Chinese word. Black bar: class mean. Green band: 95% confidence interval of the mean. Dashed dots: runs excluded (low accuracy, too few usable trials, or not a reader of Chinese).</figcaption>
+                    </figure>
+                    <div class="panel-grid two">
+                        <div>
+                            <h2>Condition means</h2>
+                            <div class="table-wrap"><table class="data" id="w-table"></table></div>
+                            <p class="small muted">Correct responses to real words only, RTs between 200 and 5,000 ms, as in Chaouch-Orozco et al. (2021, 2023). Means of each person's mean.</p>
+                        </div>
+                        <div>
+                            <h2>Did people see the masked primes?</h2>
+                            <div class="bars" id="w-aware"></div>
+                            <p class="small muted" id="w-aware-note" style="margin-top:0.9rem"></p>
+                        </div>
+                    </div>
+                    <h2>Whose screen showed what</h2>
+                    <p class="small muted column" id="w-screens"></p>
+                </div>
+            </section>
+
+            <!-- Shape task -->
+            <section id="panel-shapes" role="tabpanel" aria-labelledby="tab-shapes" hidden>
+                <div class="veil">
+                    <span class="stat-label">Shape task</span><div class="big" id="veil-shapes">0</div>
+                </div>
+                <div class="results-body">
+                    <div class="stats" id="s-stats"></div>
+                    <div class="panel-grid two">
+                        <div>
+                            <h2>Round-shape choices by sound</h2>
+                            <figure class="figure"><div id="s-plot"></div></figure>
+                            <div class="legend" aria-hidden="true">
+                                <span><i class="sw-a"></i>vowels u o (back, rounded)</span>
+                                <span><i class="sw-b"></i>vowels i e (front)</span>
+                                <span>Whiskers: 95% CI</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h2>Cell means</h2>
+                            <div class="table-wrap"><table class="data" id="s-table"></table></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="page">Anonymous class data. Each person is a random code; no names or student numbers are collected. Rehearsal runs (task address + <code>?test</code>) appear under a separate “test” class.</div>
+    </footer>
+
+    <script src="assets/config.js?v=1"></script>
+    <script src="assets/lab.js?v=1"></script>
+    <script src="assets/dashboard.js?v=1"></script>
+</body>
+</html>

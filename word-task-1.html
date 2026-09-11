@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Word task 1 · LT5461</title>
+    <meta name="description" content="An in-class lexical decision experiment for LT5461 at City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=1">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="index.html">LT5461 <span>Cognition and Language Differences</span></a>
+            <span class="masthead-meta">Word task 1 of 2</span>
+        </div>
+    </header>
+
+    <main id="main">
+
+        <!-- 1 · Introduction + about you -->
+        <section class="screen page" id="s-intro" aria-labelledby="intro-title">
+            <div class="column">
+                <p class="eyebrow">In-class experiment · about 5 minutes</p>
+                <h1 id="intro-title">Is it a word?</h1>
+                <p class="lead">Strings of letters will appear one at a time. For each one, decide as quickly as you can whether it is a real English word.</p>
+
+                <ol class="steps">
+                    <li><span>Press one key if it is a real English word and another if it is not. Be fast, but try not to make mistakes.</span></li>
+                    <li><span>You get 8 practice trials with feedback, then 80 trials with a short break halfway.</span></li>
+                </ol>
+
+                <form id="form-about" novalidate>
+                    <fieldset>
+                        <legend>Which Chinese characters do you read most easily?</legend>
+                        <p class="hint">The task is in English. This helps us make sense of the class results.</p>
+                        <div class="choices cols-2">
+                            <label class="choice"><input type="radio" name="script" value="hans"><span>简体 · Simplified</span></label>
+                            <label class="choice"><input type="radio" name="script" value="hant"><span>繁體 · Traditional</span></label>
+                            <label class="choice"><input type="radio" name="script" value="none"><span>I don't read Chinese</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Which hand do you write with?</legend>
+                        <p class="hint">Your writing hand answers "yes, it's a word".</p>
+                        <div class="choices cols-2">
+                            <label class="choice"><input type="radio" name="hand" value="right"><span>Right hand</span></label>
+                            <label class="choice"><input type="radio" name="hand" value="left"><span>Left hand</span></label>
+                        </div>
+                    </fieldset>
+
+                    <p class="note">Your answers are stored anonymously under a random code, with no name and no student number. They are pooled with the rest of the class so that we can discuss the results together.</p>
+
+                    <p class="form-error" id="about-error" role="alert"></p>
+                    <div class="actions">
+                        <button class="btn" id="btn-about" type="submit" aria-describedby="about-error">Continue <span class="arrow" aria-hidden="true">→</span></button>
+                        <span class="key-hint">A laptop with a keyboard works best. Close other tabs first.</span>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- 2 · Keys -->
+        <section class="screen page" id="s-keys" aria-labelledby="keys-title" hidden>
+            <div class="column">
+                <p class="eyebrow">Before you start</p>
+                <h1 id="keys-title">Your two keys</h1>
+                <p class="lead" id="keys-lead">Rest one finger on each key now. Answer as soon as you know. There is no time limit, but the faster the better.</p>
+                <div class="keymap" id="keymap"></div>
+                <p class="muted small keys-only">These are the number keys along the top row of the keyboard.</p>
+                <div class="actions">
+                    <button class="btn" id="btn-practice" type="button">Start practice <span class="arrow" aria-hidden="true">→</span></button>
+                    <button class="btn-quiet" id="btn-back" type="button">Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3 · After the task -->
+        <section class="screen page" id="s-after" aria-labelledby="after-title" hidden>
+            <div class="column">
+                <p class="eyebrow">Done: two last questions</p>
+                <h1 id="after-title">Before your results</h1>
+                <form id="form-after">
+                    <fieldset>
+                        <legend>Apart from the ######## and the letter strings, did you notice anything else on the screen?</legend>
+                        <div class="choices">
+                            <label class="choice"><input type="radio" name="aware" value="nothing" required><span>No, nothing else</span></label>
+                            <label class="choice"><input type="radio" name="aware" value="flicker"><span>Something flickered, but I couldn't tell what</span></label>
+                            <label class="choice"><input type="radio" name="aware" value="saw_chinese"><span>I saw Chinese characters, but couldn't read them</span></label>
+                            <label class="choice"><input type="radio" name="aware" value="read_chinese"><span>I could read some of the Chinese words</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>How would you rate your English reading ability? <span class="muted">(optional)</span></legend>
+                        <div class="choices cols-7" role="radiogroup" aria-label="English reading ability, 1 to 7">
+                            <label class="choice"><input type="radio" name="english" value="1" aria-label="1, beginner"><span>1</span></label>
+                            <label class="choice"><input type="radio" name="english" value="2"><span>2</span></label>
+                            <label class="choice"><input type="radio" name="english" value="3"><span>3</span></label>
+                            <label class="choice"><input type="radio" name="english" value="4"><span>4</span></label>
+                            <label class="choice"><input type="radio" name="english" value="5"><span>5</span></label>
+                            <label class="choice"><input type="radio" name="english" value="6"><span>6</span></label>
+                            <label class="choice"><input type="radio" name="english" value="7" aria-label="7, like a native speaker"><span>7</span></label>
+                        </div>
+                        <div class="scale-ends" aria-hidden="true"><span>Beginner</span><span>Like a native speaker</span></div>
+                    </fieldset>
+                    <div class="actions">
+                        <button class="btn" type="submit">See my results <span class="arrow" aria-hidden="true">→</span></button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- 4 · Results -->
+        <section class="screen" id="s-results" aria-labelledby="results-title" hidden>
+            <div class="page">
+                <p class="eyebrow">Word task 1 · results</p>
+                <div class="result-head">
+                    <h1 id="results-title">Your results</h1>
+                    <p class="code-chip">Your anonymous code <b id="r-code"></b></p>
+                </div>
+                <p class="lead column" id="r-sentence"></p>
+                <div class="stats" id="r-stats"></div>
+                <p class="small muted" id="r-upload" aria-live="polite"></p>
+                <p class="note" id="r-excluded" hidden></p>
+
+                <div id="r-class-wrap">
+                <h2>You and the class</h2>
+                <div class="status-line" id="r-class-status" aria-live="polite">
+                    <span class="live-dot off" aria-hidden="true"></span><span class="label"></span>
+                    <button class="btn-quiet" id="btn-refresh" type="button">Refresh</button>
+                </div>
+                <figure class="figure">
+                    <div id="r-class"></div>
+                    <figcaption>Each dot is one person's priming effect: how much faster they recognised English words after their translation than after an unrelated word. The black bar is the class average and the green band its 95% confidence interval. Dashed dots are runs not counted in the average.</figcaption>
+                </figure>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="actions" style="margin-top:0">
+                    <a class="btn" href="word-task-2.html">Next: Word task 2 <span class="arrow" aria-hidden="true">→</span></a>
+                    <button class="btn-quiet" id="btn-csv" type="button">Download my data (CSV)</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Task stage (full screen while trials run) -->
+    <div class="stage" id="stage" hidden>
+        <div class="progress">
+            <div class="progress-meta"><span class="progress-label"></span><span class="progress-count"></span></div>
+            <div class="progress-track" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+        </div>
+        <div class="stage-center">
+            <div class="stim-box" aria-hidden="true">
+                <span class="l-fwd"></span><span class="l-prime"></span><span class="l-target"></span>
+            </div>
+            <p class="stage-msg" aria-live="polite"></p>
+            <div class="stage-panel" id="panel" hidden></div>
+        </div>
+        <div class="pads">
+            <button class="pad" type="button"></button>
+            <button class="pad" type="button"></button>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="page">LT5461 · Department of Linguistics and Translation, City University of Hong Kong · Adel Chaouch-Orozco</div>
+    </footer>
+
+    <script src="assets/config.js?v=1"></script>
+    <script src="assets/stimuli.js?v=1"></script>
+    <script src="assets/lab.js?v=1"></script>
+    <script>
+        window.LDT_CONFIG = {
+            exp: 'masked',
+            forward: { text: '########', ms: 500, cls: 'l-mask' },
+            primeMs: 60
+        };
+    </script>
+    <script src="assets/ldt.js?v=1"></script>
+</body>
+</html>

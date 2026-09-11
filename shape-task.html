@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Shape task · LT5461</title>
+    <meta name="description" content="An in-class sound–shape matching experiment for LT5461 at City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=1">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="index.html">LT5461 <span>Cognition and Language Differences</span></a>
+            <span class="masthead-meta">Shape task</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="screen page" id="s-intro" aria-labelledby="intro-title">
+            <div class="column">
+                <p class="eyebrow">In-class experiment · about 3 minutes</p>
+                <h1 id="intro-title">Which one is it?</h1>
+                <p class="lead">You will see made-up words from a language nobody speaks, each with two shapes. Decide which shape the word is the name of.</p>
+                <ol class="steps">
+                    <li><span>Read the word and say it quietly to yourself.</span></li>
+                    <li><span>Pick one of the two shapes. There are no right or wrong answers. Go with your first impression.</span></li>
+                    <li><span>36 words, one at a time. Every pair of shapes is new.</span></li>
+                </ol>
+                <p class="note">Your answers are stored anonymously under a random code, with no name and no student number, and pooled with the rest of the class.</p>
+                <div class="actions">
+                    <button class="btn" id="btn-start" type="button">Start <span class="arrow" aria-hidden="true">→</span></button>
+                    <span class="key-hint">Keys: <kbd>F</kbd> left · <kbd>J</kbd> right, or click / tap a shape</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="screen" id="s-task" aria-label="Shape task" hidden>
+            <div class="task-wrap">
+                <div class="progress progress-inline">
+                    <div class="progress-meta"><span class="progress-label">Shape task</span><span class="progress-count" id="t-count"></span></div>
+                    <div class="progress-track" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="36" aria-valuenow="0"><i></i></div>
+                </div>
+                <div class="t-stage blank" id="t-stage">
+                    <p class="task-q">Which one is a<span class="task-word" id="t-word"></span></p>
+                    <div class="shape-pair">
+                        <button class="shape-btn" type="button" data-side="left" aria-label="Left shape (F)"></button>
+                        <button class="shape-btn" type="button" data-side="right" aria-label="Right shape (J)"></button>
+                    </div>
+                </div>
+                <div class="shape-keys key-hint" aria-hidden="true"><span><kbd>F</kbd> left</span><span>right <kbd>J</kbd></span></div>
+            </div>
+        </section>
+
+        <section class="screen" id="s-results" aria-labelledby="results-title" hidden>
+            <div class="page">
+                <p class="eyebrow">Shape task · results</p>
+                <div class="result-head">
+                    <h1 id="results-title" tabindex="-1">Your results</h1>
+                    <p class="code-chip">Your anonymous code <b id="r-code"></b></p>
+                </div>
+                <p class="lead column" id="r-sentence"></p>
+                <div class="stats" id="r-stats"></div>
+                <p class="small muted" id="r-upload" aria-live="polite"></p>
+                <p class="note" id="r-excluded" hidden></p>
+
+                <h2 id="r-class-h">You and the class</h2>
+                <div class="status-line" id="r-class-status" aria-live="polite">
+                    <span class="live-dot off" aria-hidden="true"></span><span class="label"></span>
+                    <button class="btn-quiet" id="btn-refresh" type="button">Refresh</button>
+                </div>
+                <div class="multiples">
+                    <figure class="figure">
+                        <h3>You</h3>
+                        <div id="r-you"></div>
+                    </figure>
+                    <figure class="figure" id="r-class-fig">
+                        <h3>The class</h3>
+                        <div id="r-class"></div>
+                    </figure>
+                </div>
+                <div class="legend" aria-hidden="true">
+                    <span><i class="sw-a"></i>vowels u o (back, rounded)</span>
+                    <span><i class="sw-b"></i>vowels i e (front)</span>
+                    <span id="r-ci-note">Whiskers on the class chart: 95% confidence intervals</span>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="actions" style="margin-top:0">
+                                        <a class="btn" href="index.html">All tasks <span class="arrow" aria-hidden="true">→</span></a>
+                    <button class="btn-quiet" id="btn-csv" type="button">Download my data (CSV)</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="page">LT5461 · Department of Linguistics and Translation, City University of Hong Kong · Adel Chaouch-Orozco</div>
+    </footer>
+
+    <script src="assets/config.js?v=1"></script>
+    <script src="assets/lab.js?v=1"></script>
+    <script src="assets/shapes.js?v=1"></script>
+</body>
+</html>
