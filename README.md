@@ -100,6 +100,35 @@ the target until response.
 **Visible task** follows Chaouch-Orozco et al. (2023, *SSLA*): a fixation
 cross for 500 ms, then a 200 ms prime.
 
+## How the priming data are analysed
+
+Per student, then averaged across students (means of each person's own mean,
+with 95% CIs across students):
+
+**Reaction times** — word trials only; nonword trials never enter the effect.
+- Correct responses only.
+- RTs between 200 and 5,000 ms (Baayen & Milin, 2010; as in both papers).
+- Trials dropped if the browser skipped a frame during the prime
+  (`timing_ok = 0`) or the student left the tab (`interrupted = 1`).
+- `effect` = mean RT control − mean RT related. Positive = faster after the
+  translation.
+
+**Accuracy** — the same word trials, but every one the student saw properly,
+right or wrong. No RT trimming, since errors are the measure.
+- `acc_related`, `acc_control`, and their error counterparts `err_related`,
+  `err_control`.
+- `err_effect` = error rate control − error rate related. Positive = more
+  errors without the translation, i.e. priming in accuracy as well as speed.
+  A negative RT effect with a positive error effect is a speed–accuracy
+  trade-off, which is worth showing the class.
+- `acc_nonwords` is reported separately as a check that students were doing
+  the task.
+
+**A run is excluded** from the class averages (but still stored) if the
+student does not read Chinese, overall accuracy is below 75%, or fewer than 8
+usable trials remain in either condition. `rt_trimmed` records how many
+correct trials the 200–5,000 ms window removed.
+
 **Both word tasks:**
 - **Timing.** Durations are counted in whole screen frames, and the actual
   durations are measured and stored on every trial.
