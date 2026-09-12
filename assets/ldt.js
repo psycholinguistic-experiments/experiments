@@ -320,12 +320,20 @@
 
   function summarise() {
     const main = state.data.filter(d => d.phase === 'main');
-    const words = main.filter(d => d.lex === 'word');
-    const nons = main.filter(d => d.lex === 'nonword');
-    const valid = d => d.correct && d.rt >= 200 && d.rt <= 5000 && !d.interrupted && d.timing_ok;
-    const rel = words.filter(d => d.cond === 'related' && valid(d)).map(d => d.rt);
-    const ctl = words.filter(d => d.cond === 'control' && valid(d)).map(d => d.rt);
-    const acc = main.filter(d => d.correct).length / main.length;
+    // A trial counts at all only if the student saw it properly: no dropped
+    // frame during the prime, no tab switch.
+    const usable = main.filter(d => !d.interrupted && d.timing_ok);
+    const words = usable.filter(d => d.lex === 'word');
+    const nons = usable.filter(d => d.lex === 'nonword');
+    const byCond = c => words.filter(d => d.cond === c);
+    // RT analysis: word trials, correct responses only, 200–5,000 ms.
+    const inRange = d => d.rt >= 200 && d.rt <= 5000;
+    const rtOf = c => byCond(c).filter(d => d.correct && inRange(d)).map(d => d.rt);
+    const rel = rtOf('related'), ctl = rtOf('control');
+    // Accuracy analysis: every usable trial in the condition, correct or not.
+    const accOf = rows => rows.length ? rows.filter(d => d.correct).length / rows.length : NaN;
+    const accRel = accOf(byCond('related')), accCtl = accOf(byCond('control'));
+    const acc = accOf(usable);
     const primeDur = main.map(d => d.prime_ms);
     const reasons = [];
     if (state.script === 'none') reasons.push('does not read Chinese');
@@ -339,13 +347,25 @@
       prime_ms_target: C.primeMs, prime_frames: frames(C.primeMs),
       prime_ms_median: LAB.round(LAB.median(primeDur), 1),
       timing_drops: main.filter(d => !d.timing_ok).length,
+      interrupted_trials: main.filter(d => d.interrupted).length,
+      // accuracy
       acc: LAB.round(acc, 3),
-      acc_words: LAB.round(words.filter(d => d.correct).length / words.length, 3),
-      acc_nonwords: LAB.round(nons.filter(d => d.correct).length / nons.length, 3),
+      acc_words: LAB.round(accOf(words), 3),
+      acc_nonwords: LAB.round(accOf(nons), 3),
+      acc_related: LAB.round(accRel, 3),
+      acc_control: LAB.round(accCtl, 3),
+      err_related: LAB.round(1 - accRel, 3),
+      err_control: LAB.round(1 - accCtl, 3),
+      // positive = more errors after an unrelated prime (priming in accuracy)
+      err_effect: LAB.round((1 - accCtl) - (1 - accRel), 3),
+      n_related_trials: byCond('related').length,
+      n_control_trials: byCond('control').length,
+      // reaction times
       rt_related: LAB.round(LAB.mean(rel), 1),
       rt_control: LAB.round(LAB.mean(ctl), 1),
       effect: LAB.round(LAB.mean(ctl) - LAB.mean(rel), 1),
       n_related: rel.length, n_control: ctl.length,
+      rt_trimmed: byCond('related').concat(byCond('control')).filter(d => d.correct && !inRange(d)).length,
       awareness: state.awareness, english: state.english,
       include: reasons.length ? 0 : 1, exclude_reason: reasons.join('; ')
     };
@@ -369,7 +389,7 @@
         <span class="stat-note">${s.n_control} words</span></div>
       <div class="stat"><span class="stat-label">Accuracy</span>
         <span class="stat-value">${Math.round(s.acc * 100)}<small>%</small></span>
-        <span class="stat-note">words ${Math.round(s.acc_words * 100)}% · non-words ${Math.round(s.acc_nonwords * 100)}%</span></div>`;
+        <span class="stat-note">translation ${Math.round(s.acc_related * 100)}% · unrelated ${Math.round(s.acc_control * 100)}% · non-words ${Math.round(s.acc_nonwords * 100)}%</span></div>`;
     let sentence;
     if (!isFinite(eff)) sentence = 'There were not enough correct answers to calculate your result.';
     else if (Math.round(eff) > 0) sentence = `You responded <strong>${Math.round(eff)} ms faster</strong> to English words after their translation than after an unrelated word.`;
