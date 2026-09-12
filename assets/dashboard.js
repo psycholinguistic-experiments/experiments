@@ -153,22 +153,29 @@
 
     const pct1 = v => isFinite(v) ? (v * 100).toFixed(1) + '%' : '–';
     const signedPct = v => isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v * 100).toFixed(1) : '–';
-    const row = (name, S) => `<tr><th scope="row">${name}</th><td class="num">${S.nInc} / ${S.n}</td>` +
-      `<td class="num">${fmtMs(S.rel)}</td><td class="num">${fmtMs(S.ctl)}</td><td class="num"><strong>${isFinite(S.mean) ? LAB.signed(S.mean) + ' ms' : '–'}</strong></td>` +
-      `<td class="num sep">${pct1(S.errRel)}</td><td class="num">${pct1(S.errCtl)}</td><td class="num"><strong>${signedPct(S.errEffMean)}${isFinite(S.errEffMean) ? ' pts' : ''}</strong></td>` +
+
+    const rtRow = (name, S) => `<tr><th scope="row">${name}</th><td class="num">${S.nInc} / ${S.n}</td>` +
+      `<td class="num">${fmtMs(S.rel)}</td><td class="num">${fmtMs(S.ctl)}</td>` +
+      `<td class="num"><strong>${isFinite(S.mean) ? LAB.signed(S.mean) + ' ms' : '–'}</strong></td></tr>`;
+    $('#w-rt-table').innerHTML =
+      `<thead><tr><th scope="col">Task</th><th class="num" scope="col">n</th><th class="num" scope="col">Translation</th>` +
+      `<th class="num" scope="col">Unrelated</th><th class="num" scope="col">Priming</th></tr></thead>` +
+      `<tbody>${rtRow('Masked', M)}${rtRow('Visible', V)}</tbody>`;
+
+    const accRow = (name, S) => `<tr><th scope="row">${name}</th><td class="num">${S.nInc} / ${S.n}</td>` +
+      `<td class="num">${pct1(S.errRel)}</td><td class="num">${pct1(S.errCtl)}</td>` +
+      `<td class="num"><strong>${signedPct(S.errEffMean)}${isFinite(S.errEffMean) ? ' pts' : ''}</strong></td>` +
       `<td class="num sep">${LAB.pct(S.accN)}</td></tr>`;
-    $('#w-table').innerHTML =
-      `<thead><tr><th scope="col" rowspan="2">Task</th><th class="num" scope="col" rowspan="2">n</th>` +
-      `<th class="num" scope="colgroup" colspan="3">Reaction time (correct words)</th>` +
-      `<th class="num sep" scope="colgroup" colspan="3">Errors (all word trials)</th>` +
-      `<th class="num sep" scope="col" rowspan="2">Non-words correct</th></tr>` +
-      `<tr><th class="num" scope="col">Translation</th><th class="num" scope="col">Unrelated</th><th class="num" scope="col">Effect</th>` +
-      `<th class="num sep" scope="col">Translation</th><th class="num" scope="col">Unrelated</th><th class="num" scope="col">Effect</th></tr></thead>` +
-      `<tbody>${row('Masked', M)}${row('Visible', V)}</tbody>`;
+    $('#w-acc-table').innerHTML =
+      `<thead><tr><th scope="col">Task</th><th class="num" scope="col">n</th><th class="num" scope="col">Errors after translation</th>` +
+      `<th class="num" scope="col">Errors after unrelated</th><th class="num" scope="col">Priming</th>` +
+      `<th class="num sep" scope="col">Non-words correct</th></tr></thead>` +
+      `<tbody>${accRow('Masked', M)}${accRow('Visible', V)}</tbody>`;
+
     const errLine = (name, S) => S.errEff.length >= 2
       ? `${name}: ${signedPct(S.errEffMean)} points (95% CI ${signedPct(S.errCI[0])} to ${signedPct(S.errCI[1])}, n = ${S.errEff.length})`
       : `${name}: not enough runs yet`;
-    $('#w-err-note').textContent = 'Error-rate priming (unrelated − translation, positive = more errors without the translation). ' +
+    $('#w-err-note').textContent = 'Error-rate priming (unrelated − translation; positive = more errors without the translation). ' +
       errLine('Masked', M) + '. ' + errLine('Visible', V) + '.';
 
     // Awareness of the masked primes
