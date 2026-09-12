@@ -155,7 +155,7 @@
     const signedPct = v => isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v * 100).toFixed(1) : '–';
     const row = (name, S) => `<tr><th scope="row">${name}</th><td class="num">${S.nInc} / ${S.n}</td>` +
       `<td class="num">${fmtMs(S.rel)}</td><td class="num">${fmtMs(S.ctl)}</td><td class="num"><strong>${isFinite(S.mean) ? LAB.signed(S.mean) + ' ms' : '–'}</strong></td>` +
-      `<td class="num sep">${pct1(S.errRel)}</td><td class="num">${pct1(S.errCtl)}</td><td class="num"><strong>${signedPct(S.errEffMean)}</strong></td>` +
+      `<td class="num sep">${pct1(S.errRel)}</td><td class="num">${pct1(S.errCtl)}</td><td class="num"><strong>${signedPct(S.errEffMean)}${isFinite(S.errEffMean) ? ' pts' : ''}</strong></td>` +
       `<td class="num sep">${LAB.pct(S.accN)}</td></tr>`;
     $('#w-table').innerHTML =
       `<thead><tr><th scope="col" rowspan="2">Task</th><th class="num" scope="col" rowspan="2">n</th>` +
