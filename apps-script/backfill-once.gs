@@ -45,6 +45,16 @@ function backfillAccuracy() {
     values[0] = header.slice();   // keep the new column names when writing back
     var col = {};
     header.forEach(function (k, i) { col[k] = i; });
+
+    // Sheets guesses a date format for fresh columns, which turns 0.05 into a
+    // time value. Force plain numbers on every column that is not text or a
+    // timestamp, so the results page can read them back.
+    var textCols = ['pid', 'session', 'submission_id', 'exp', 'script', 'hand', 'input',
+      'awareness', 'english', 'exclude_reason', 'started_at', 'submitted_at', 'received_at'];
+    var lastRow = Math.max(people.getMaxRows(), values.length);
+    header.forEach(function (k, i) {
+      if (textCols.indexOf(k) < 0) people.getRange(2, i + 1, lastRow - 1, 1).setNumberFormat('0.######');
+    });
     var width = header.length;
     var idCol = col['submission_id'];
     var filled = 0, missing = 0;
@@ -54,7 +64,7 @@ function backfillAccuracy() {
       while (row.length < width) row.push('');
       var a = agg[String(row[idCol])];
       if (!a) { missing++; continue; }
-      if (row[col['err_related']] !== '' && row[col['err_related']] !== null) continue;
+
       var rate = function (p) { return p[1] ? p[0] / p[1] : ''; };
       var accRel = rate(a.related), accCtl = rate(a.control);
       if (accRel === '' || accCtl === '') continue;

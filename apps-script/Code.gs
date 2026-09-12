@@ -148,9 +148,11 @@ function append_(sh, objs) {
     sh.getRange(1, start, 1, added.length).setValues([added]).setFontWeight('bold');
     // Keep codes and class dates as text so Sheets never turns them into dates.
     added.forEach(function (k, i) {
-      if (k === 'pid' || k === 'session' || k === 'submission_id') {
-        sh.getRange(2, start + i, sh.getMaxRows() - 1, 1).setNumberFormat('@');
-      }
+      var rng = sh.getRange(2, start + i, sh.getMaxRows() - 1, 1);
+      if (k === 'pid' || k === 'session' || k === 'submission_id') rng.setNumberFormat('@');
+      // Otherwise force plain numbers: a fresh column would otherwise be given
+      // a date format, and 0.05 would be stored as a time.
+      else if (k.indexOf('_at') !== k.length - 3) rng.setNumberFormat('0.######');
     });
     header = header.concat(added);
     sh.setFrozenRows(1);
