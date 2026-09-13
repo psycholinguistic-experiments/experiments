@@ -4,15 +4,13 @@ Browser experiments for **LT5461 Cognition and Language Differences** (City
 University of Hong Kong). Students run them in class. Their anonymous data go
 into a Google Sheet, and the class results update live on the projector.
 
-- **Students:** give them the task links directly (there is no start page):
-  - https://psycholinguistic-experiments.github.io/experiments/word-task-1.html
-  - https://psycholinguistic-experiments.github.io/experiments/word-task-2.html
-  - https://psycholinguistic-experiments.github.io/experiments/shape-task.html
+- **Students:** https://psycholinguistic-experiments.github.io/experiments/ (lists all experiments)
 - **Projector:** https://psycholinguistic-experiments.github.io/experiments/results.html
 - **Code:** https://github.com/psycholinguistic-experiments/experiments (GitHub Pages, `main` branch)
 
 | Page | For | What it is |
 |---|---|---|
+| `index.html` | students | Start page listing all experiments |
 | `word-task-1.html` | students | Masked translation priming (60 ms prime), lexical decision |
 | `word-task-2.html` | students | Visible translation priming (200 ms prime), lexical decision |
 | `shape-task.html` | students | Sound symbolism (bouba/kiki), 3 × 2 |
@@ -27,7 +25,7 @@ dependencies.
 1. **Before class, rehearse** by adding `?test` to any task address, for example
    `…/word-task-1.html?test`. Test runs are filed under a separate
    `test-<date>` class, so they never mix with the real data.
-2. **Put the task links on a slide**, as links or QR codes.
+2. **Put the start page on a slide**, as a link or QR code.
 3. **Open `results.html` on the projector.**
    - It shows **today's class** and updates every 5 seconds.
    - *Hide results* shows only the running counts while students are still

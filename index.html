@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>In-class experiments · LT5461</title>
+    <meta name="description" content="Browser experiments for LT5461 Cognition and Language Differences, City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=3">
+    <style>
+        .runs { list-style: none; margin: 2rem 0 0; border-top: 3px solid var(--text); }
+        .run { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; padding: 1.3rem 0; border-bottom: 1px solid var(--border); }
+        .run h2 { margin: 0; font-size: 1.3rem; }
+        .run h2::before { display: none; }
+        .run .meta { display: block; font-size: 0.84rem; font-weight: 400; color: var(--text-light); margin-top: 0.25rem; letter-spacing: 0; }
+        .run.done h2::after { content: ' ✓'; font-size: 0.95rem; color: var(--mint-deep); }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <span class="brand">LT5461 <span>Cognition and Language Differences</span></span>
+            <span class="masthead-meta">City University of Hong Kong</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <div class="page">
+            <h1>In-class experiments</h1>
+            <ul class="runs">
+                <li class="run" data-exp="masked">
+                    <h2>Word task 1<span class="meta">About 5 minutes · keyboard</span></h2>
+                    <a class="btn" href="word-task-1.html">Start <span class="arrow" aria-hidden="true">→</span></a>
+                </li>
+                <li class="run" data-exp="visible">
+                    <h2>Word task 2<span class="meta">About 5 minutes · keyboard</span></h2>
+                    <a class="btn" href="word-task-2.html">Start <span class="arrow" aria-hidden="true">→</span></a>
+                </li>
+                <li class="run" data-exp="bouba">
+                    <h2>Shape task<span class="meta">About 3 minutes · keyboard or touch</span></h2>
+                    <a class="btn" href="shape-task.html">Start <span class="arrow" aria-hidden="true">→</span></a>
+                </li>
+            </ul>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="page">LT5461 · Department of Linguistics and Translation, City University of Hong Kong · Adel Chaouch-Orozco</div>
+    </footer>
+
+    <script>
+        // Tick off tasks already completed on this device.
+        (function () {
+            try {
+                var done = JSON.parse(localStorage.getItem('lt5461:done') || '{}');
+                document.querySelectorAll('.run').forEach(function (li) {
+                    if (done[li.dataset.exp]) li.classList.add('done');
+                });
+            } catch (e) { /* storage blocked */ }
+        })();
+    </script>
+</body>
+</html>
