@@ -17,7 +17,7 @@
   const T = {
     zh: {
       htmlLang: 'zh-Hans',
-      title: '判断任务',
+      title: '判断任务', skip: '跳到主要内容', progress: '进度',
       intro: ['这是一个匿名课堂活动，不计分。',
         '请独立完成，不要与同学讨论，也不要使用翻译工具、词典或其他语言辅助。请直接使用本问卷所显示的语言作答。没有“正确”答案，请根据你的第一反应选择。'],
       l1: { q: '中文（任何汉语变体，例如普通话、粤语）是否是你的第一语言或母语之一？', o: [['yes', '是'], ['no', '否']] },
@@ -58,7 +58,7 @@
     },
     en: {
       htmlLang: 'en',
-      title: 'Judgement task',
+      title: 'Judgement task', skip: 'Skip to content', progress: 'Progress',
       intro: ['This is an anonymous class activity and is not graded.',
         'Please complete it individually. Do not discuss the questions and do not use translation tools, dictionaries, or other language aids. Answer directly in the language shown. There are no “correct” answers; use your first reaction.'],
       l1: { q: 'Is Chinese (any variety, such as Mandarin or Cantonese) one of your first/native languages?', o: [['yes', 'Yes'], ['no', 'No']] },
@@ -110,6 +110,7 @@
   document.documentElement.lang = t.htmlLang;
   document.title = t.title + ' · LT5461';
   $('.masthead-meta').textContent = t.title;
+  $('.skip-link').textContent = t.skip;
 
   const state = { pid: LAB.pid(), session: LAB.session(), data: [], startedAt: new Date().toISOString() };
 
@@ -171,7 +172,7 @@
     host.innerHTML = `<div class="item-wrap">
         <div class="progress progress-inline">
           <div class="progress-meta"><span>${t.parts[it.part - 1].title}</span><span>${idx + 1} / ${total}</span></div>
-          <div class="progress-track" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${idx}"><i style="width:${idx / total * 100}%"></i></div>
+          <div class="progress-track" role="progressbar" aria-label="${t.progress}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${idx}"><i style="width:${idx / total * 100}%"></i></div>
         </div>
         <p class="item-text" id="item-text" tabindex="-1">${it.text}</p>
         <div class="resp" role="group" aria-labelledby="item-text">${resp}</div>

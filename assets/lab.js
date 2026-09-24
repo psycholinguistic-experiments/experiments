@@ -461,12 +461,12 @@
   LAB.PROF_SKILLS = ['reading', 'listening', 'writing', 'speaking', 'overall'];
   const PROF_TEXT = {
     en: {
-      q: 'How would you rate your English?', lo: 'very limited', hi: 'native-like',
+      q: 'How would you rate your English?', lo: 'very limited', hi: 'native-like', to: 'to',
       skills: { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', overall: 'Overall' },
       missing: 'Please rate all five.'
     },
     zh: {
-      q: '请评价你的英语水平。', lo: '非常有限', hi: '接近母语',
+      q: '请评价你的英语水平。', lo: '非常有限', hi: '接近母语', to: '至',
       skills: { reading: '阅读', listening: '听力', writing: '写作', speaking: '口语', overall: '总体' },
       missing: '请完成全部五项评分。'
     }
@@ -480,7 +480,7 @@
       `<fieldset class="prof"><legend>${t.q}</legend>` +
       `<div class="prof-ends" aria-hidden="true"><span>1 = ${t.lo}</span><span>7 = ${t.hi}</span></div>` +
       LAB.PROF_SKILLS.map(v =>
-        `<div class="prof-row" role="radiogroup" aria-label="${t.skills[v]}, 1 ${t.lo} to 7 ${t.hi}">` +
+        `<div class="prof-row" role="radiogroup" aria-label="${t.skills[v]}, 1 ${t.lo} ${t.to} 7 ${t.hi}">` +
         `<span class="prof-skill">${t.skills[v]}</span><div class="choices cols-7">${scale(v)}</div></div>`).join('') +
       `</fieldset>`;
     return {
