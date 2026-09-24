@@ -7,7 +7,7 @@
     <title>Class results · LT5461</title>
     <meta name="description" content="Live, anonymous class results for the LT5461 in-class experiments.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="assets/lab.css?v=3">
+    <link rel="stylesheet" href="assets/lab.css?v=5">
     <style>
         :root { --wide: 76rem; }
         .dash-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--border); }
@@ -65,6 +65,7 @@
             <div class="tabs" role="tablist" aria-label="Experiment">
                 <button class="tab" role="tab" id="tab-words" aria-controls="panel-words" aria-selected="true">Word tasks<span class="n" id="n-words"></span></button>
                 <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape task<span class="n" id="n-shapes"></span></button>
+                <button class="tab" role="tab" id="tab-fle" aria-controls="panel-fle" aria-selected="false" tabindex="-1">Judgement task<span class="n" id="n-fle"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -128,6 +129,42 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Judgement task (foreign-language effect) -->
+            <section id="panel-fle" role="tabpanel" aria-labelledby="tab-fle" hidden>
+                <div class="veil">
+                    <div class="veil-grid">
+                        <div><span class="stat-label">Chinese version</span><div class="big" id="veil-fle-zh">0</div></div>
+                        <div><span class="stat-label">English version</span><div class="big" id="veil-fle-en">0</div></div>
+                    </div>
+                </div>
+                <div class="results-body">
+                    <div class="stats" id="f-stats"></div>
+                    <p class="small muted" id="f-excluded"></p>
+
+                    <h2>Gambles accepted</h2>
+                    <figure class="figure"><div id="f-gamble"></div></figure>
+
+                    <h2>Continuing after a sunk cost</h2>
+                    <figure class="figure"><div id="f-sunk"></div></figure>
+
+                    <h2>Superstition</h2>
+                    <figure class="figure"><div id="f-sup"></div></figure>
+
+                    <div class="panel-grid two">
+                        <div>
+                            <h2>All measures</h2>
+                            <div class="table-wrap"><table class="data" id="f-table"></table></div>
+                            <p class="small muted">Means of each student's own score. Difference = English − Chinese, with a 95% confidence interval (Welch). Only students with Chinese as a first language who used no translation aid.</p>
+                        </div>
+                        <div>
+                            <h2>English self-ratings</h2>
+                            <div class="table-wrap"><table class="data" id="f-prof"></table></div>
+                            <p class="small muted">1 = very limited, 7 = native-like. The two groups should be similar.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -136,7 +173,7 @@
     </footer>
 
     <script src="assets/config.js?v=2"></script>
-    <script src="assets/lab.js?v=1"></script>
-    <script src="assets/dashboard.js?v=5"></script>
+    <script src="assets/lab.js?v=2"></script>
+    <script src="assets/dashboard.js?v=7"></script>
 </body>
 </html>

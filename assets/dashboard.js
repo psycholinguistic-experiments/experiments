@@ -4,10 +4,10 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle'];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [] },
     timer: null,
     loadedOnce: false
   };
@@ -18,7 +18,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])} to ${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -39,7 +39,8 @@
     });
   });
   const savedTab = LAB.store.get('dash-tab', null);
-  if (savedTab === 'tab-shapes') selectTab(tabs[1]);
+  const saved = tabs.find(t => t.id === savedTab);
+  if (saved && saved !== tabs[0]) selectTab(saved);
 
   /* ---------- controls ---------- */
   const hide = $('#hide'), live = $('#live'), sel = $('#session');
@@ -97,19 +98,100 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
+    $('#n-fle').textContent = f.length;
     $('#veil-masked').textContent = m.length;
     $('#veil-visible').textContent = v.length;
     $('#veil-shapes').textContent = b.length;
+    $('#veil-fle-zh').textContent = f.filter(r => r.lang === 'zh').length;
+    $('#veil-fle-en').textContent = f.filter(r => r.lang === 'en').length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid)]) + $('#tab-words').getAttribute('aria-selected');
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang)]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
     if (!$('#panel-shapes').hidden) renderShapes(b);
+    if (!$('#panel-fle').hidden) renderFLE(f);
+  }
+
+  /* ---------- judgement task: Chinese vs English ---------- */
+  const signed1 = v => isFinite(v) ? (v >= 0.05 ? '+' : v <= -0.05 ? '−' : '') + Math.abs(v).toFixed(1) : '–';
+  const FLE = [
+    { key: 'gamble_accept', label: 'Gambles accepted', short: 'Gambles accepted', scale: 100, unit: '%', predicted: 'English higher',
+      fmt: v => isFinite(v) ? Math.round(v) + '%' : '–', dfmt: v => isFinite(v) ? LAB.signed(v) + ' pts' : '–',
+      plot: { host: '#f-gamble', domain: [0, 100], signed: false, xLabel: 'Share of the 8 favourable gambles accepted (%)' } },
+    { key: 'sunk_mean', label: 'Sunk-cost continuation (1–7)', short: 'Sunk-cost continuation', scale: 1, predicted: 'English lower',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–',
+      plot: { host: '#f-sunk', domain: [1, 7], signed: false, xLabel: 'Likelihood of continuing (1 = definitely not, 7 = definitely)' } },
+    { key: 'sup_intensity', label: 'Superstition intensity (−4 to 4)', short: 'Superstition intensity', scale: 1, predicted: 'English lower',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–',
+      plot: { host: '#f-sup', domain: [-4, 4], signed: true, xLabel: 'Superstition intensity = (good-luck feeling − bad-luck feeling) / 2' } },
+    { key: 'sup_bad', label: 'Feeling: bad-luck items (1–9)', scale: 1, predicted: 'English higher',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–' },
+    { key: 'sup_good', label: 'Feeling: good-luck items (1–9)', scale: 1, predicted: 'English lower',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–' },
+    { key: 'sup_neutral', label: 'Feeling: neutral controls (1–9)', scale: 1, predicted: 'Similar',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–' },
+    { key: 'difficulty', label: 'Language difficulty (1–7)', scale: 1, predicted: 'English higher',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–' },
+    { key: 'eng_mean', label: 'English self-rating (1–7)', scale: 1, predicted: 'Similar',
+      fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–' }
+  ];
+
+  function renderFLE(rows) {
+    const inc = included(rows);
+    const zh = inc.filter(r => r.lang === 'zh'), en = inc.filter(r => r.lang === 'en');
+    const vals = (rs, k, sc) => rs.map(r => num(r[k]) * sc).filter(isFinite);
+    const stat = M => {
+      const a = vals(zh, M.key, M.scale), b = vals(en, M.key, M.scale);
+      const r = LAB.diffCI(a, b);
+      return { a, b, ma: LAB.mean(a), mb: LAB.mean(b), d: r.d, ci: r.ci };
+    };
+    const S = FLE.map(stat);
+    const ciText = (M, x) => isFinite(x.ci[0]) ? `95% CI ${M.dfmt(x.ci[0])} to ${M.dfmt(x.ci[1])}` : '95% CI –';
+
+    $('#f-stats').innerHTML =
+      `<div class="stat"><span class="stat-label">Took part</span><span class="stat-value">${zh.length} · ${en.length}</span><span class="stat-note">Chinese · English (included)</span></div>` +
+      [0, 1, 2].map(i => {
+        const M = FLE[i], x = S[i];
+        return `<div class="stat${isFinite(x.d) ? ' key' : ''}"><span class="stat-label">${M.short}</span>` +
+          `<span class="stat-value">${M.dfmt(x.d)}</span>` +
+          `<span class="stat-note">English − Chinese (${M.fmt(x.mb)} vs ${M.fmt(x.ma)}) · ${ciText(M, x)}</span></div>`;
+      }).join('');
+    const excl = rows.length - inc.length;
+    $('#f-excluded').textContent = excl ? `${excl} run${excl > 1 ? 's' : ''} not counted (Chinese not a first language, or used a language aid).` : '';
+
+    FLE.filter(M => M.plot).forEach(M => {
+      const host = $(M.plot.host);
+      if (!rows.length) { host.innerHTML = '<p class="empty">No runs yet for this class.</p>'; return; }
+      const pts = lg => rows.filter(r => r.lang === lg).map(r => ({ v: num(r[M.key]) * M.scale, excluded: String(r.include) !== '1' }));
+      LAB.stripPlot(host, [
+        { label: 'Chinese', sub: `n = ${zh.length}`, values: pts('zh') },
+        { label: 'English', sub: `n = ${en.length}`, values: pts('en') }
+      ], {
+        width: 1000, r: 6, domain: M.plot.domain, fixed: true, signed: M.plot.signed, unit: '',
+        fmt: v => M.fmt(v), xLabel: M.plot.xLabel,
+        ariaLabel: `${M.label}: Chinese ${M.fmt(LAB.mean(vals(zh, M.key, M.scale)))}, English ${M.fmt(LAB.mean(vals(en, M.key, M.scale)))}`
+      });
+    });
+
+    $('#f-table').innerHTML =
+      `<thead><tr><th scope="col">Measure</th><th class="num" scope="col">Chinese</th><th class="num" scope="col">English</th>` +
+      `<th class="num" scope="col">English − Chinese</th><th class="num" scope="col">95% CI</th><th scope="col">Predicted</th></tr></thead><tbody>` +
+      FLE.map((M, i) => { const x = S[i];
+        return `<tr><th scope="row">${M.label}</th><td class="num">${M.fmt(x.ma)}</td><td class="num">${M.fmt(x.mb)}</td>` +
+          `<td class="num"><strong>${M.dfmt(x.d)}</strong></td><td class="num">${isFinite(x.ci[0]) ? M.dfmt(x.ci[0]) + ' to ' + M.dfmt(x.ci[1]) : '–'}</td><td>${M.predicted}</td></tr>`;
+      }).join('') + '</tbody>';
+
+    const skills = [['reading', 'Reading'], ['listening', 'Listening'], ['writing', 'Writing'], ['speaking', 'Speaking'], ['overall', 'Overall']];
+    const m2 = a => isFinite(LAB.mean(a)) ? LAB.mean(a).toFixed(2) : '–';
+    $('#f-prof').innerHTML =
+      `<thead><tr><th scope="col">Skill</th><th class="num" scope="col">Chinese</th><th class="num" scope="col">English</th></tr></thead><tbody>` +
+      skills.map(([k, l]) => `<tr><th scope="row">${l}</th><td class="num">${m2(vals(zh, 'eng_' + k, 1))}</td><td class="num">${m2(vals(en, 'eng_' + k, 1))}</td></tr>`).join('') +
+      '</tbody>';
   }
 
   function taskStats(rows) {

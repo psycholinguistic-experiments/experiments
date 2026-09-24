@@ -163,12 +163,21 @@
   };
   const T975 = [0, 12.71, 4.30, 3.18, 2.78, 2.57, 2.45, 2.36, 2.31, 2.26, 2.23, 2.20, 2.18, 2.16, 2.14, 2.13,
     2.12, 2.11, 2.10, 2.09, 2.09, 2.08, 2.07, 2.07, 2.06, 2.06, 2.06, 2.05, 2.05, 2.05, 2.04];
+  LAB.t975 = df => df < 1 ? NaN : df < T975.length ? T975[Math.round(df)] || T975[T975.length - 1] : 1.96 + 2.4 / df;
   LAB.ci95 = a => {
     const n = a.length;
     if (n < 2) return [NaN, NaN];
-    const t = n - 1 < T975.length ? T975[n - 1] : 1.96 + 2.4 / (n - 1);
-    const h = t * LAB.sd(a) / Math.sqrt(n), m = LAB.mean(a);
+    const h = LAB.t975(n - 1) * LAB.sd(a) / Math.sqrt(n), m = LAB.mean(a);
     return [m - h, m + h];
+  };
+  /* Difference b − a between two independent groups, with a Welch 95% CI. */
+  LAB.diffCI = (a, b) => {
+    if (a.length < 2 || b.length < 2) return { d: LAB.mean(b) - LAB.mean(a), ci: [NaN, NaN] };
+    const va = Math.pow(LAB.sd(a), 2) / a.length, vb = Math.pow(LAB.sd(b), 2) / b.length;
+    const se = Math.sqrt(va + vb);
+    const df = Math.pow(va + vb, 2) / (va * va / (a.length - 1) + vb * vb / (b.length - 1));
+    const d = LAB.mean(b) - LAB.mean(a), h = LAB.t975(df) * se;
+    return { d, ci: [d - h, d + h] };
   };
 
   LAB.shuffle = function (a) {
@@ -238,10 +247,14 @@
     opts = Object.assign({ unit: 'ms', xLabel: '', zeroLabel: '', width: 760, r: 6 }, opts || {});
     host.textContent = '';
     const all = groups.flatMap(g => g.values.map(d => d.v)).filter(isFinite);
-    let lo = Math.min(0, ...all), hi = Math.max(0, ...all);
+    const signed = opts.signed !== false;
+    const fmt = opts.fmt || (v => signed ? LAB.signed(v) : String(Math.round(v)));
+    let lo = Math.min(signed ? 0 : Infinity, ...all), hi = Math.max(signed ? 0 : -Infinity, ...all);
     if (opts.domain) { lo = Math.min(lo, opts.domain[0]); hi = Math.max(hi, opts.domain[1]); }
+    if (opts.fixed) { lo = opts.domain[0]; hi = opts.domain[1]; }
+    if (!isFinite(lo) || !isFinite(hi)) { lo = 0; hi = 1; }
     const step = niceStep(hi - lo || 100, 6);
-    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    if (!opts.fixed) { lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step; }
     const labelW = groups.length > 1 || groups[0].label ? 128 : 0;
     const W = opts.width, left = labelW + 12, right = 18;
     const x = v => left + (v - lo) / (hi - lo) * (W - left - right);
@@ -274,8 +287,9 @@
     // grid + zero
     const top = 8, bottom = H - axisH;
     for (let v = lo; v <= hi + 1e-9; v += step) {
-      LAB.svg('line', { class: v === 0 ? 'zero' : 'grid', x1: x(v), x2: x(v), y1: top, y2: bottom }, svg);
-      LAB.text(svg, x(v), bottom + 17, (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), { 'text-anchor': 'middle' });
+      LAB.svg('line', { class: v === 0 && signed ? 'zero' : 'grid', x1: x(v), x2: x(v), y1: top, y2: bottom }, svg);
+      const tick = +v.toFixed(6);
+      LAB.text(svg, x(v), bottom + 17, opts.tickFmt ? opts.tickFmt(tick) : signed ? (tick > 0 ? '+' : tick < 0 ? '−' : '') + Math.abs(tick) : String(tick), { 'text-anchor': 'middle' });
     }
     if (opts.xLabel) LAB.text(svg, (left + W - right) / 2, H - 6, opts.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
     if (opts.zeroLabel) LAB.text(svg, x(0) - 6, top + 12, opts.zeroLabel, { 'text-anchor': 'end' });
@@ -297,7 +311,7 @@
         const m = LAB.mean(vals);
         LAB.svg('line', { class: 'mean', x1: x(m), x2: x(m), y1: cy - row.half + 4, y2: cy + row.half - 4 }, svg);
         const lx = x(m), anchor = lx > W - 120 ? 'end' : 'start';
-        LAB.text(svg, lx + (anchor === 'end' ? -7 : 7), cy - row.half + 15, 'mean ' + LAB.signed(m) + ' ' + opts.unit, { class: 'mean-label', 'text-anchor': anchor });
+        LAB.text(svg, lx + (anchor === 'end' ? -7 : 7), cy - row.half + 15, 'mean ' + fmt(m) + (opts.unit ? ' ' + opts.unit : ''), { class: 'mean-label', 'text-anchor': anchor });
       }
       const you = row.placed.filter(p => p.you);
       row.placed.filter(p => !p.you).forEach(p => {
@@ -346,6 +360,55 @@
       pts.forEach(p => { if (p) LAB.svg('circle', { class: 'series-' + k, cx: p[0], cy: p[1], r: 5, 'stroke-width': 2 }, svg); });
     });
     return svg;
+  };
+
+  /* ---------- self-rated English proficiency, 1–7 per skill ---------- */
+  LAB.PROF_SKILLS = ['reading', 'listening', 'writing', 'speaking', 'overall'];
+  const PROF_TEXT = {
+    en: {
+      q: 'How would you rate your English?', lo: 'very limited', hi: 'native-like',
+      skills: { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', overall: 'Overall' },
+      missing: 'Please rate all five.'
+    },
+    zh: {
+      q: '请评价你的英语水平。', lo: '非常有限', hi: '接近母语',
+      skills: { reading: '阅读', listening: '听力', writing: '写作', speaking: '口语', overall: '总体' },
+      missing: '请完成全部五项评分。'
+    }
+  };
+  LAB.proficiency = function (host, lang) {
+    const t = PROF_TEXT[lang] || PROF_TEXT.en;
+    const saved = LAB.store.get('proficiency', {}) || {};
+    const scale = v => [1, 2, 3, 4, 5, 6, 7].map(n =>
+      `<label class="choice"><input type="radio" name="eng_${v}" value="${n}"${String(saved[v]) === String(n) ? ' checked' : ''} aria-label="${t.skills[v]} ${n}"><span>${n}</span></label>`).join('');
+    host.innerHTML =
+      `<fieldset class="prof"><legend>${t.q}</legend>` +
+      `<div class="prof-ends" aria-hidden="true"><span>1 = ${t.lo}</span><span>7 = ${t.hi}</span></div>` +
+      LAB.PROF_SKILLS.map(v =>
+        `<div class="prof-row" role="radiogroup" aria-label="${t.skills[v]}, 1 ${t.lo} to 7 ${t.hi}">` +
+        `<span class="prof-skill">${t.skills[v]}</span><div class="choices cols-7">${scale(v)}</div></div>`).join('') +
+      `</fieldset>`;
+    return {
+      missingText: t.missing,
+      /* Returns the five ratings, or null (and focuses the first gap) if any is missing. */
+      read() {
+        const out = {};
+        for (const v of LAB.PROF_SKILLS) {
+          const r = host.querySelector(`input[name="eng_${v}"]:checked`);
+          if (!r) { host.querySelector(`input[name="eng_${v}"]`).focus(); return null; }
+          out[v] = Number(r.value);
+        }
+        LAB.store.set('proficiency', out);
+        return out;
+      },
+      /* Flat fields for the data: eng_reading … eng_overall, eng_mean. */
+      fields(vals) {
+        const f = {};
+        LAB.PROF_SKILLS.forEach(v => { f['eng_' + v] = vals[v]; });
+        f.eng_mean = LAB.round(LAB.mean(LAB.PROF_SKILLS.map(v => vals[v])), 2);
+        return f;
+      }
+    };
   };
 
   window.LAB = LAB;

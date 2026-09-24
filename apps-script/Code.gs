@@ -13,7 +13,8 @@
  * per-person summaries: a random code, the class date, and the numbers.
  */
 
-var EXPS = ['masked', 'visible', 'bouba'];
+// Any short lower-case name is accepted, so new tasks need no script change.
+var EXP_RE = /^[a-z][a-z0-9_]{1,19}$/;
 var MAX_BYTES = 500000;
 var CACHE_SECONDS = 5;
 
@@ -23,7 +24,7 @@ function doPost(e) {
     var raw = e && e.postData && e.postData.contents;
     if (!raw || raw.length > MAX_BYTES) return json_({ ok: false, error: 'payload missing or too large' });
     var p = JSON.parse(raw);
-    if (EXPS.indexOf(p.exp) < 0) return json_({ ok: false, error: 'unknown experiment' });
+    if (!EXP_RE.test(p.exp || '')) return json_({ ok: false, error: 'unknown experiment' });
     if (!/^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(p.pid)) return json_({ ok: false, error: 'bad code' });
     if (!/^(test-)?\d{4}-\d{2}-\d{2}$/.test(p.session)) return json_({ ok: false, error: 'bad session' });
     if (!/^[A-Z0-9]{8,20}$/.test(p.submissionId)) return json_({ ok: false, error: 'bad id' });
@@ -67,7 +68,7 @@ function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (q.action === 'summary') {
-      if (EXPS.indexOf(q.exp) < 0) return json_({ ok: false, error: 'unknown experiment' });
+      if (!EXP_RE.test(q.exp || '')) return json_({ ok: false, error: 'unknown experiment' });
       // A class is one Hong Kong date (2026-09-11); a bare year (2026) pools
       // every real class of that year, leaving rehearsal runs out.
       var yearMode = /^\d{4}$/.test(q.session || '');
@@ -86,8 +87,10 @@ function doGet(e) {
     }
     if (q.action === 'sessions') {
       var counts = {};
-      EXPS.forEach(function (exp) {
-        readObjects_(ss, exp + '_people').forEach(function (r) {
+      ss.getSheets().map(function (sh) { return sh.getName(); }).filter(function (n) {
+        return /_people$/.test(n);
+      }).forEach(function (name) {
+        readObjects_(ss, name).forEach(function (r) {
           counts[r.session] = (counts[r.session] || 0) + 1;
         });
       });

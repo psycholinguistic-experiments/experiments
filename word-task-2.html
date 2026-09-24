@@ -7,7 +7,7 @@
     <title>Word task 2 · LT5461</title>
     <meta name="description" content="An in-class lexical decision experiment for LT5461 at City University of Hong Kong.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="assets/lab.css?v=3">
+    <link rel="stylesheet" href="assets/lab.css?v=5">
 </head>
 <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -77,22 +77,11 @@
         <!-- 3 · After the task -->
         <section class="screen page" id="s-after" aria-labelledby="after-title" hidden>
             <div class="column">
-                <p class="eyebrow">Done: one last question</p>
+                <p class="eyebrow">Done: last questions</p>
                 <h1 id="after-title">Before your results</h1>
                 <form id="form-after">
-                    <fieldset>
-                        <legend>How would you rate your English reading ability? <span class="muted">(optional)</span></legend>
-                        <div class="choices cols-7" role="radiogroup" aria-label="English reading ability, 1 to 7">
-                            <label class="choice"><input type="radio" name="english" value="1" aria-label="1, beginner"><span>1</span></label>
-                            <label class="choice"><input type="radio" name="english" value="2"><span>2</span></label>
-                            <label class="choice"><input type="radio" name="english" value="3"><span>3</span></label>
-                            <label class="choice"><input type="radio" name="english" value="4"><span>4</span></label>
-                            <label class="choice"><input type="radio" name="english" value="5"><span>5</span></label>
-                            <label class="choice"><input type="radio" name="english" value="6"><span>6</span></label>
-                            <label class="choice"><input type="radio" name="english" value="7" aria-label="7, like a native speaker"><span>7</span></label>
-                        </div>
-                        <div class="scale-ends" aria-hidden="true"><span>Beginner</span><span>Like a native speaker</span></div>
-                    </fieldset>
+                    <div id="prof"></div>
+                    <p class="form-error" id="after-error" role="alert"></p>
                     <div class="actions">
                         <button class="btn" type="submit">See my results <span class="arrow" aria-hidden="true">→</span></button>
                     </div>
@@ -160,7 +149,7 @@
 
     <script src="assets/config.js?v=2"></script>
     <script src="assets/stimuli.js?v=1"></script>
-    <script src="assets/lab.js?v=1"></script>
+    <script src="assets/lab.js?v=2"></script>
     <script>
         window.LDT_CONFIG = {
             exp: 'visible',
@@ -168,6 +157,6 @@
             primeMs: 200
         };
     </script>
-    <script src="assets/ldt.js?v=4"></script>
+    <script src="assets/ldt.js?v=6"></script>
 </body>
 </html>

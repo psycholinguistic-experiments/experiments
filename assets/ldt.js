@@ -295,17 +295,16 @@
 
   /* ---------- after the task ---------- */
   const after = $('#form-after');
-  const savedEnglish = LAB.store.get('english', '');
-  if (savedEnglish) {
-    const r = after.querySelector(`input[name="english"][value="${savedEnglish}"]`);
-    if (r) r.checked = true;
-  }
+  const prof = LAB.proficiency($('#prof'), 'en');
+  after.addEventListener('change', () => { $('#after-error').textContent = ''; });
   after.addEventListener('submit', async e => {
     e.preventDefault();
     const f = new FormData(after);
+    const ratings = prof.read();
+    if (!ratings) { $('#after-error').textContent = prof.missingText; return; }
+    $('#after-error').textContent = '';
     state.awareness = f.get('aware') || '';
-    state.english = f.get('english') || '';
-    LAB.store.set('english', state.english);
+    state.proficiency = prof.fields(ratings);
     const summary = summarise();
     LAB.markDone(C.exp);
     renderResults(summary);
@@ -366,7 +365,8 @@
       effect: LAB.round(LAB.mean(ctl) - LAB.mean(rel), 1),
       n_related: rel.length, n_control: ctl.length,
       rt_trimmed: byCond('related').concat(byCond('control')).filter(d => d.correct && !inRange(d)).length,
-      awareness: state.awareness, english: state.english,
+      awareness: state.awareness,
+      ...state.proficiency,
       include: reasons.length ? 0 : 1, exclude_reason: reasons.join('; ')
     };
     state.summary = s;
