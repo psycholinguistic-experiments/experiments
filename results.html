@@ -7,7 +7,7 @@
     <title>Class results · LT5461</title>
     <meta name="description" content="Live, anonymous class results for the LT5461 in-class experiments.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="assets/lab.css?v=5">
+    <link rel="stylesheet" href="assets/lab.css?v=6">
     <style>
         :root { --wide: 76rem; }
         .dash-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--border); }
@@ -35,6 +35,10 @@
         .veil .big { font-size: clamp(4rem, 12vw, 8rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
         .veil-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 2rem; }
         .empty { padding: 2rem 0; color: var(--text-light); }
+        .fle-multiples { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+        .dash-controls label { flex-wrap: wrap; max-width: 100%; }
+        .dash-controls select { max-width: 100%; }
+        .fle-multiples h3 { font-size: 1rem; margin: 0 0 0.25rem; }
     </style>
 </head>
 <body>
@@ -151,6 +155,22 @@
                     <h2>Superstition</h2>
                     <figure class="figure"><div id="f-sup"></div></figure>
 
+                    <h2>English proficiency and the effect</h2>
+                    <div class="dash-controls" style="border:0;padding-top:0">
+                        <label>Proficiency <select id="f-prof-key">
+                            <option value="eng_mean">Mean of the five self-ratings</option>
+                            <option value="eng_reading">Reading</option>
+                            <option value="eng_listening">Listening</option>
+                            <option value="eng_writing">Writing</option>
+                            <option value="eng_speaking">Speaking</option>
+                            <option value="eng_overall">Overall</option>
+                        </select></label>
+                    </div>
+                    <div class="multiples fle-multiples" id="f-scatter"></div>
+                    <p class="small muted column">Each dot is a student in the English version. Black line: regression on English self-rating, with its 95% band. Dashed line: the Chinese group's mean. If the effect fades as English improves, the line moves toward the dashed line at higher ratings.</p>
+                    <div class="table-wrap"><table class="data" id="f-inter"></table></div>
+                    <p class="small muted column">Slope = change in the score per 1-point rise in the self-rating. Interaction = English slope − Chinese slope, with a 95% CI; in the Chinese version, English proficiency should not matter.</p>
+
                     <div class="panel-grid two">
                         <div>
                             <h2>All measures</h2>
@@ -173,7 +193,7 @@
     </footer>
 
     <script src="assets/config.js?v=2"></script>
-    <script src="assets/lab.js?v=2"></script>
-    <script src="assets/dashboard.js?v=7"></script>
+    <script src="assets/lab.js?v=3"></script>
+    <script src="assets/dashboard.js?v=8"></script>
 </body>
 </html>

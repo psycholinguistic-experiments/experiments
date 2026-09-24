@@ -362,6 +362,79 @@
     return svg;
   };
 
+  /* ---------- simple regression ---------- */
+  /* Ordinary least squares y = a + b·x, with the slope's 95% CI and a helper
+     for the 95% CI of the fitted line at any x. */
+  LAB.ols = function (xs, ys) {
+    const n = xs.length;
+    if (n < 3) return null;
+    const mx = LAB.mean(xs), my = LAB.mean(ys);
+    let sxx = 0, sxy = 0, syy = 0;
+    for (let i = 0; i < n; i++) {
+      sxx += (xs[i] - mx) * (xs[i] - mx); sxy += (xs[i] - mx) * (ys[i] - my); syy += (ys[i] - my) * (ys[i] - my);
+    }
+    if (sxx === 0) return null;
+    const b = sxy / sxx, a = my - b * mx, df = n - 2;
+    const sse = Math.max(0, syy - b * sxy), s = Math.sqrt(sse / df);
+    const seB = s / Math.sqrt(sxx), t = LAB.t975(df);
+    return {
+      n, a, b, df, seB, mx, sxx,
+      r: syy > 0 ? sxy / Math.sqrt(sxx * syy) : NaN,
+      ciB: [b - t * seB, b + t * seB],
+      at: x => a + b * x,
+      band: x => t * s * Math.sqrt(1 / n + (x - mx) * (x - mx) / sxx)
+    };
+  };
+
+  /* Scatter plot with an optional fitted line (+ 95% band) and a dashed
+     horizontal reference line (e.g. the other group's mean). */
+  LAB.scatterPlot = function (host, o) {
+    o = Object.assign({ width: 380, height: 280, r: 4.5 }, o);
+    host.textContent = '';
+    const W = o.width, H = o.height, left = 50, right = 14, top = 14, bottom = 46;
+    const [x0, x1] = o.xDomain, [y0, y1] = o.yDomain;
+    const X = v => left + (v - x0) / (x1 - x0) * (W - left - right);
+    const Y = v => top + (1 - (v - y0) / (y1 - y0)) * (H - top - bottom);
+    const svg = LAB.svg('svg', { class: 'chart', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': o.ariaLabel || '' }, host);
+    const yStep = o.yStep || niceStep(y1 - y0, 4);
+    for (let v = y0; v <= y1 + 1e-9; v += yStep) {
+      LAB.svg('line', { class: 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, svg);
+      LAB.text(svg, left - 8, Y(v) + 4, o.yFmt ? o.yFmt(v) : String(+v.toFixed(2)), { 'text-anchor': 'end' });
+    }
+    for (let v = x0; v <= x1 + 1e-9; v += (o.xStep || 1)) {
+      LAB.svg('line', { class: 'grid', x1: X(v), x2: X(v), y1: top, y2: H - bottom }, svg);
+      LAB.text(svg, X(v), H - bottom + 17, String(v), { 'text-anchor': 'middle' });
+    }
+    if (o.xLabel) LAB.text(svg, (left + W - right) / 2, H - 6, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
+    if (o.ref && isFinite(o.ref.value)) {
+      LAB.svg('line', { class: 'chance', x1: left, x2: W - right, y1: Y(o.ref.value), y2: Y(o.ref.value) }, svg);
+    }
+    const f = o.fit;
+    if (f) {
+      const xs = o.points.map(p => p.x), lo = Math.min(...xs), hi = Math.max(...xs);
+      if (hi > lo) {
+        const steps = 24, up = [], dn = [];
+        for (let i = 0; i <= steps; i++) {
+          const x = lo + (hi - lo) * i / steps, yv = f.at(x), h = f.band(x);
+          up.push([X(x), Y(Math.min(y1, yv + h))]); dn.unshift([X(x), Y(Math.max(y0, yv - h))]);
+        }
+        LAB.svg('path', { class: 'ci', d: 'M' + up.concat(dn).map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L') + 'Z' }, svg);
+        LAB.svg('line', { class: 'mean', x1: X(lo), x2: X(hi), y1: Y(Math.max(y0, Math.min(y1, f.at(lo)))), y2: Y(Math.max(y0, Math.min(y1, f.at(hi)))) }, svg);
+      }
+    }
+    o.points.forEach((p, i) => {
+      const c = LAB.svg('circle', { class: 'dot', cx: X(p.x), cy: Y(p.y), r: o.r }, svg);
+      c.style.setProperty('--i', i);
+    });
+    // Reference label last, so nothing covers it; above the line unless that
+    // would leave the plot.
+    if (o.ref && isFinite(o.ref.value)) {
+      const yr = Y(o.ref.value), above = yr - 6 > top + 10;
+      LAB.text(svg, left + 6, above ? yr - 6 : yr + 14, o.ref.label, { class: 'ref-label' });
+    }
+    return svg;
+  };
+
   /* ---------- self-rated English proficiency, 1–7 per skill ---------- */
   LAB.PROF_SKILLS = ['reading', 'listening', 'writing', 'speaking', 'overall'];
   const PROF_TEXT = {

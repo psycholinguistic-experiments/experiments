@@ -141,6 +141,53 @@
       fmt: v => isFinite(v) ? v.toFixed(2) : '–', dfmt: v => isFinite(v) ? signed1(v) : '–' }
   ];
 
+  /* Does the English group's score depend on English proficiency? Regress each
+     measure on the chosen self-rating, per language; the interaction is the
+     difference between the two slopes. */
+  function renderProficiency(zh, en, S) {
+    const pk = $('#f-prof-key').value;
+    const pairs = (rs, M) => rs.map(r => ({ x: num(r[pk]), y: num(r[M.key]) * M.scale })).filter(p => isFinite(p.x) && isFinite(p.y));
+    const fitOf = pts => LAB.ols(pts.map(p => p.x), pts.map(p => p.y));
+    const host = $('#f-scatter');
+    host.innerHTML = '';
+    const rowsOut = [];
+    FLE.filter(M => M.plot).forEach((M, i) => {
+      const pe = pairs(en, M), pz = pairs(zh, M);
+      const fe = fitOf(pe), fz = fitOf(pz);
+      const fig = document.createElement('figure');
+      fig.className = 'figure';
+      fig.innerHTML = `<h3>${M.short}</h3><div></div>`;
+      host.appendChild(fig);
+      const yd = M.plot.domain;
+      LAB.scatterPlot(fig.querySelector('div'), {
+        points: pe, fit: fe, xDomain: [1, 7], yDomain: yd,
+        yStep: M.key === 'gamble_accept' ? 25 : M.key === 'sunk_mean' ? 1 : 2,
+        yFmt: M.key === 'gamble_accept' ? v => v + '%' : v => (v > 0 && M.plot.signed ? '+' : '') + v,
+        xLabel: 'English self-rating (1–7)',
+        ref: { value: S[i].ma, label: 'Chinese mean ' + M.fmt(S[i].ma) },
+        ariaLabel: `${M.short} by English self-rating, English version, n = ${pe.length}` + (fe ? `, slope ${fe.b.toFixed(2)}` : '')
+      });
+      let inter = null;
+      if (fe && fz) {
+        const d = fe.b - fz.b, se = Math.sqrt(fe.seB * fe.seB + fz.seB * fz.seB), h = LAB.t975(fe.df + fz.df) * se;
+        inter = [d, d - h, d + h];
+      }
+      rowsOut.push({ M, fe, fz, inter, ne: pe.length, nz: pz.length });
+    });
+    const sl = (M, v) => !isFinite(v) ? '–' : M.key === 'gamble_accept' ? LAB.signed(v) + ' pts' : (v >= 0.005 ? '+' : v <= -0.005 ? '−' : '') + Math.abs(v).toFixed(2);
+    const ci = (M, a, b) => isFinite(a) ? `${sl(M, a)} to ${sl(M, b)}` : '–';
+    $('#f-inter').innerHTML =
+      `<thead><tr><th scope="col">Measure</th><th class="num" scope="col">English slope</th><th class="num" scope="col">95% CI</th><th class="num" scope="col">r</th><th class="num" scope="col">n</th>` +
+      `<th class="num sep" scope="col">Chinese slope</th><th class="num" scope="col">n</th><th class="num sep" scope="col">Interaction</th><th class="num" scope="col">95% CI</th></tr></thead><tbody>` +
+      rowsOut.map(o => `<tr><th scope="row">${o.M.short}</th>` +
+        `<td class="num"><strong>${o.fe ? sl(o.M, o.fe.b) : '–'}</strong></td><td class="num">${o.fe ? ci(o.M, o.fe.ciB[0], o.fe.ciB[1]) : '–'}</td>` +
+        `<td class="num">${o.fe && isFinite(o.fe.r) ? o.fe.r.toFixed(2).replace('-', '−') : '–'}</td><td class="num">${o.ne}</td>` +
+        `<td class="num sep">${o.fz ? sl(o.M, o.fz.b) : '–'}</td><td class="num">${o.nz}</td>` +
+        `<td class="num sep"><strong>${o.inter ? sl(o.M, o.inter[0]) : '–'}</strong></td><td class="num">${o.inter ? ci(o.M, o.inter[1], o.inter[2]) : '–'}</td></tr>`).join('') +
+      '</tbody>';
+  }
+  $('#f-prof-key').addEventListener('change', () => { lastKey = ''; render(); });
+
   function renderFLE(rows) {
     const inc = included(rows);
     const zh = inc.filter(r => r.lang === 'zh'), en = inc.filter(r => r.lang === 'en');
@@ -185,6 +232,8 @@
         return `<tr><th scope="row">${M.label}</th><td class="num">${M.fmt(x.ma)}</td><td class="num">${M.fmt(x.mb)}</td>` +
           `<td class="num"><strong>${M.dfmt(x.d)}</strong></td><td class="num">${isFinite(x.ci[0]) ? M.dfmt(x.ci[0]) + ' to ' + M.dfmt(x.ci[1]) : '–'}</td><td>${M.predicted}</td></tr>`;
       }).join('') + '</tbody>';
+
+    renderProficiency(zh, en, S);
 
     const skills = [['reading', 'Reading'], ['listening', 'Listening'], ['writing', 'Writing'], ['speaking', 'Speaking'], ['overall', 'Overall']];
     const m2 = a => isFinite(LAB.mean(a)) ? LAB.mean(a).toFixed(2) : '–';

@@ -115,6 +115,13 @@ A/B links or QR codes.
   mean per language, and English − Chinese with a Welch 95% CI.
 - Students see only a "submitted" message. No results are shown, so the
   conditions stay hidden until you reveal them.
+- **Proficiency × language.** For each measure, the results page regresses
+  the score on English self-rating, separately in each language. You can use
+  the mean of the five self-ratings or any single skill. It plots the English
+  group with its fitted line against the Chinese mean, and reports each slope
+  and the interaction (English slope − Chinese slope) with 95% CIs. If the
+  effect fades as English improves, the English line approaches the Chinese
+  mean at higher ratings.
 
 ## English self-ratings
 
