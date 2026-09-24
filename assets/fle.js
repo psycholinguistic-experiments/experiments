@@ -243,6 +243,7 @@
         trials: state.data.map(d => Object.assign({ pid: state.pid, session: state.session, lang }, d))
       });
       if (st.pending) $('#done-status').textContent = t.saved;
+      document.addEventListener('lab:sent', () => { $('#done-status').textContent = ''; });
     });
   }
 

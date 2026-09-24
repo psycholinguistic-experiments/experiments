@@ -58,8 +58,11 @@ numbers, e-mail or IP addresses are collected. These are teaching
 demonstrations. Using the data for research would need ethics approval and a
 consent procedure first.
 
-If the network drops, a student's results wait on their device and are sent
-the next time a task page is opened.
+Google's web-app endpoint occasionally answers with an error page (about 1
+request in 8 when several arrive together), so every request retries
+automatically. A submission that still fails waits on the student's device.
+It is retried every 20 seconds while the page stays open, and again the next
+time any task is opened. A repeated submission is never stored twice.
 
 ## One-time setup of the data connection
 

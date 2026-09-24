@@ -188,6 +188,7 @@
     $$('.screen').forEach(el => { el.hidden = el.id !== 's-results'; });
     window.scrollTo(0, 0);
     $('#results-title').focus({ preventScroll: true });
+    $('#r-upload').textContent = 'Sending your results…';
     LAB.submit({ v: 1, exp: 'bouba', pid: state.pid, session: state.session, submissionId: LAB.uid(), summary: s,
       trials: state.data.map(d => Object.assign({ pid: state.pid, session: state.session }, d)) })
       .then(reportUpload);
@@ -217,6 +218,7 @@
     $('#btn-csv').onclick = () => LAB.download(`lt5461-shapes-${state.pid}.csv`, LAB.toCSV(state.data.map(d => Object.assign({ pid: state.pid }, d))));
   }
 
+  document.addEventListener('lab:sent', () => { const el = $('#r-upload'); if (el && el.textContent) el.textContent = 'Your results were added to the class data anonymously.'; });
   function reportUpload(st) {
     const el = $('#r-upload');
     if (st.offline) el.textContent = 'Your results are saved on this device. If your instructor asks for them, use “Download my data” below.';

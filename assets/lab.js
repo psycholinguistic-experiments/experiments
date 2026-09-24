@@ -76,6 +76,26 @@
      Payloads wait in localStorage until the server confirms them, so a
      dropped Wi-Fi connection never loses a run. Content-Type text/plain keeps
      the request "simple" (no CORS preflight), which Apps Script requires. */
+  /* Google's web-app endpoint occasionally answers with an error page instead
+     of JSON (about 1 request in 8 when several arrive together). Retry with
+     short pauses; posts are safe to repeat because the script ignores a
+     submission id it has already stored. */
+  async function fetchJSON(url, init, tries) {
+    let last;
+    for (let i = 0; i < tries; i++) {
+      try {
+        const res = await fetch(url, init);
+        const text = await res.text();
+        try { return JSON.parse(text); } catch (e) { throw new Error('HTTP ' + res.status); }
+      } catch (e) {
+        last = e;
+        if (i < tries - 1) await LAB.wait([800, 2000, 4000][i] || 4000);
+      }
+    }
+    throw last;
+  }
+  let retryTimer = null;
+
   LAB.submit = async function (payload) {
     const box = LAB.store.get('outbox', []);
     box.push(payload);
@@ -89,22 +109,26 @@
     let sent = 0;
     for (const payload of box.slice()) {
       try {
-        const res = await fetch(LAB.endpoint(), {
+        const json = await fetchJSON(LAB.endpoint(), {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload),
           redirect: 'follow'
-        });
-        const json = await res.json();
+        }, 4);
         if (!json.ok) throw new Error(json.error || 'rejected');
         box = LAB.store.get('outbox', []).filter(p => p.submissionId !== payload.submissionId);
         LAB.store.set('outbox', box);
         sent++;
+        document.dispatchEvent(new CustomEvent('lab:sent', { detail: { submissionId: payload.submissionId } }));
       } catch (e) {
         break; // try again later
       }
     }
-    return { sent, pending: LAB.store.get('outbox', []).length, offline: false };
+    const pending = LAB.store.get('outbox', []).length;
+    // While the page stays open, keep trying every 20 s.
+    clearTimeout(retryTimer);
+    if (pending) retryTimer = setTimeout(LAB.flush, 20000);
+    return { sent, pending, offline: false };
   };
 
   LAB.fetchClass = async function (exp, session) {
@@ -114,8 +138,7 @@
     url.searchParams.set('exp', exp);
     url.searchParams.set('session', session);
     url.searchParams.set('_', Date.now());
-    const res = await fetch(url.toString(), { redirect: 'follow' });
-    const json = await res.json();
+    const json = await fetchJSON(url.toString(), { redirect: 'follow' }, 3);
     if (!json.ok) throw new Error(json.error || 'server error');
     return json;
   };
@@ -125,8 +148,7 @@
     const url = new URL(LAB.endpoint());
     url.searchParams.set('action', 'sessions');
     url.searchParams.set('_', Date.now());
-    const res = await fetch(url.toString(), { redirect: 'follow' });
-    const json = await res.json();
+    const json = await fetchJSON(url.toString(), { redirect: 'follow' }, 3);
     return json.ok ? json.sessions : [];
   };
 

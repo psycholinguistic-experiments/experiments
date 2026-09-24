@@ -80,9 +80,14 @@
       render();
       return;
     }
+    // One refresh at a time: if Google is slow, the next tick waits.
+    if (state.busy) return;
+    state.busy = true;
+    const session = state.session;
     // Each task is fetched on its own, so one failure (or a task the data
     // script does not know yet) never blanks the others.
-    const res = await Promise.allSettled(EXPS.map(e => LAB.fetchClass(e, state.session)));
+    const res = await Promise.allSettled(EXPS.map(e => LAB.fetchClass(e, session))).finally(() => { state.busy = false; });
+    if (session !== state.session) return refresh();   // class changed meanwhile
     const failed = [], unknown = [];
     EXPS.forEach((e, i) => {
       const r = res[i];

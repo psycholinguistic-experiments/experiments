@@ -309,6 +309,7 @@
     LAB.markDone(C.exp);
     renderResults(summary);
     show('s-results');
+    $('#r-upload').textContent = 'Sending your results…';
     const status = await LAB.submit({
       v: 1, exp: C.exp, pid: state.pid, session: state.session,
       submissionId: LAB.uid(), summary, trials: state.data.map(d => Object.assign({ pid: state.pid, session: state.session }, d))
@@ -409,6 +410,7 @@
     $('#btn-csv').onclick = () => LAB.download(`lt5461-${C.exp}-${state.pid}.csv`, LAB.toCSV(state.data.map(d => Object.assign({ pid: state.pid, exp: C.exp }, d))));
   }
 
+  document.addEventListener('lab:sent', () => { const el = $('#r-upload'); if (el && el.textContent) el.textContent = 'Your results were added to the class data anonymously.'; });
   function reportUpload(st) {
     const el = $('#r-upload');
     if (st.offline) el.textContent = 'Your results are saved on this device. If your instructor asks for them, use “Download my data” below.';
