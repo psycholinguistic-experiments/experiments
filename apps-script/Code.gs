@@ -175,6 +175,15 @@ function hasValue_(sh, col, value) {
   return false;
 }
 
+// A spreadsheet date is a day count from 1899-12-30 in the sheet's time zone.
+// Reading the wall-clock time in that zone avoids historical offsets (Hong
+// Kong's 1899 local mean time is +7:36:42), which break naive arithmetic.
+function toSerial_(d, tz) {
+  var m = Utilities.formatDate(d, tz, 'yyyy-MM-dd HH:mm:ss.SSS').match(/(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)\.(\d+)/);
+  var wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], +m[7]);
+  return Math.round((wall - Date.UTC(1899, 11, 30)) / 86400000 * 1e6) / 1e6;
+}
+
 function readObjects_(ss, name) {
   var sh = ss.getSheetByName(name);
   if (!sh || sh.getLastRow() < 2) return [];
@@ -185,7 +194,13 @@ function readObjects_(ss, name) {
     var o = {};
     header.forEach(function (k, i) {
       var v = row[i];
-      if (v instanceof Date) v = (k === 'session') ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : v.toISOString();
+      if (v instanceof Date) {
+        if (k === 'session') v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        else if (/_at$/.test(k)) v = v.toISOString();
+        // Any other column holds a number that Sheets displays as a date:
+        // turn it back into that number.
+        else v = toSerial_(v, tz);
+      }
       if (typeof v === 'string' && v.charAt(0) === "'") v = v.slice(1);
       o[k] = v;
     });

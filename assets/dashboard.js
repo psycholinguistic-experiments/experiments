@@ -80,15 +80,25 @@
       render();
       return;
     }
-    try {
-      const res = await Promise.all(EXPS.map(e => LAB.fetchClass(e, state.session)));
-      EXPS.forEach((e, i) => { state.rows[e] = res[i].rows || []; });
-      setStatus(`Live · updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`, true);
-      render();
-      if (!state.loadedOnce) { state.loadedOnce = true; loadSessions(); }
-    } catch (e) {
+    // Each task is fetched on its own, so one failure (or a task the data
+    // script does not know yet) never blanks the others.
+    const res = await Promise.allSettled(EXPS.map(e => LAB.fetchClass(e, state.session)));
+    const failed = [], unknown = [];
+    EXPS.forEach((e, i) => {
+      const r = res[i];
+      if (r.status === 'fulfilled') state.rows[e] = r.value.rows || [];
+      else if (/unknown experiment/.test(r.reason && r.reason.message)) { state.rows[e] = []; unknown.push(e); }
+      else failed.push(e);
+    });
+    $('#f-not-ready').hidden = !unknown.includes('fle');
+    if (failed.length === EXPS.length) {
       setStatus('Could not reach the class data. Retrying…', false);
+      return;
     }
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setStatus(`Live · updated ${time}` + (failed.length ? ' · some results could not be loaded, retrying' : ''), true);
+    render();
+    if (!state.loadedOnce) { state.loadedOnce = true; loadSessions(); }
   }
 
   function schedule() {

@@ -54,7 +54,7 @@
       aid: { q: '完成本问卷时，你是否使用了翻译工具、词典或其他语言辅助？', o: [['yes', '是'], ['no', '否']] },
       doneTitle: '已提交',
       done: '请不要与其他同学讨论题目，直到老师宣布活动结束。',
-      saved: '网络连接恢复后，你的回答会自动发送。'
+      saved: '你的回答已保存在本设备上，下次打开任何一个任务时会自动发送。'
     },
     en: {
       htmlLang: 'en',
@@ -95,7 +95,7 @@
       aid: { q: 'Did you use a translation tool, dictionary, or any other language aid while completing this questionnaire?', o: [['yes', 'Yes'], ['no', 'No']] },
       doneTitle: 'Submitted',
       done: 'Please do not discuss the questions with other students until the instructor ends the activity.',
-      saved: 'Your answers will be sent automatically once the connection is back.'
+      saved: 'Your answers are saved on this device and will be sent the next time you open any of the tasks.'
     }
   };
 

@@ -412,7 +412,7 @@
   function reportUpload(st) {
     const el = $('#r-upload');
     if (st.offline) el.textContent = 'Your results are saved on this device. If your instructor asks for them, use “Download my data” below.';
-    else if (st.pending) el.textContent = 'Could not reach the class server yet; your results are saved on this device and will be sent next time this page is opened.';
+    else if (st.pending) el.textContent = 'Could not reach the class server yet; your results are saved on this device and will be sent the next time you open any of the tasks.';
     else el.textContent = 'Your results were added to the class data anonymously.';
   }
 
