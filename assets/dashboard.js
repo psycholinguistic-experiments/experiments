@@ -38,9 +38,6 @@
       }
     });
   });
-  const savedTab = LAB.store.get('dash-tab', null);
-  const saved = tabs.find(t => t.id === savedTab);
-  if (saved && saved !== tabs[0]) selectTab(saved);
 
   /* ---------- controls ---------- */
   const hide = $('#hide'), live = $('#live'), sel = $('#session');
@@ -386,6 +383,11 @@
   state.waitTimer = setInterval(() => {
     if (/^Connecting/.test($('#status .label').textContent)) setStatus(`Connecting… ${Math.round((Date.now() - t0) / 1000)} s`, false);
   }, 1000);
+  // Reopen the last tab viewed. This must run after everything above is
+  // defined, because selecting a tab draws it.
+  const savedTab = LAB.store.get('dash-tab', null);
+  const saved = tabs.find(t => t.id === savedTab);
+  if (saved && saved !== tabs[0]) selectTab(saved);
   loadSessions();
   refresh();
   schedule();
