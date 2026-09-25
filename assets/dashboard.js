@@ -105,9 +105,11 @@
     });
     $('#f-not-ready').hidden = !unknown.includes('fle');
     if (failed.length === EXPS.length) {
-      setStatus('Could not reach the class data. Retrying…', false);
+      const why = res[0].reason;
+      setStatus(`Could not reach the class data (${why && why.name === 'AbortError' ? 'no answer' : (why && why.message) || 'error'}). Retrying…`, false);
       return;
     }
+    clearInterval(state.waitTimer);
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setStatus(`Live · updated ${time}` + (failed.length ? ' · some results could not be loaded, retrying' : ''), true);
     render();
@@ -378,6 +380,12 @@
   }
 
   if (!LAB.connected()) $('#not-connected').hidden = false;
+  // Count the seconds while the first answer is awaited, so a slow start
+  // is visibly different from a page that is not running.
+  const t0 = Date.now();
+  state.waitTimer = setInterval(() => {
+    if (/^Connecting/.test($('#status .label').textContent)) setStatus(`Connecting… ${Math.round((Date.now() - t0) / 1000)} s`, false);
+  }, 1000);
   loadSessions();
   refresh();
   schedule();

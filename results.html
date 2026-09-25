@@ -193,8 +193,16 @@
         <div class="page">Anonymous class data. Each person is a random code; no names or student numbers are collected. Rehearsal runs (task address + <code>?test</code>) appear under a separate “test” class.</div>
     </footer>
 
+    <script>
+        // A projector has no console: show any script error in the status line.
+        (function () {
+            function show(msg) { var l = document.querySelector('#status .label'); if (l) l.textContent = 'Page error: ' + msg; }
+            window.addEventListener('error', function (e) { show((e.message || 'unknown') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+            window.addEventListener('unhandledrejection', function (e) { show(String(e.reason && e.reason.message || e.reason)); });
+        })();
+    </script>
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=6"></script>
-    <script src="assets/dashboard.js?v=11"></script>
+    <script src="assets/dashboard.js?v=12"></script>
 </body>
 </html>
