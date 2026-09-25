@@ -98,8 +98,9 @@ stays the same. Copy the changes back into `apps-script/Code.gs`.
 
 ## Judgement task (foreign-language effect)
 
-Between-subjects. Each student is randomly assigned **Chinese (Simplified)
-or English** for the whole task, and stays in it if they reload. To force a
+Between-subjects. Each time a student opens the task (e.g. from the start
+page), a coin flip assigns **Chinese (Simplified) or English** for the whole
+task. Reloading the page keeps the same language. To force a
 language, add `?lang=zh` or `?lang=en` to the address, e.g. for two separate
 A/B links or QR codes.
 

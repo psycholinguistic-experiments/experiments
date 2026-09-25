@@ -4,7 +4,7 @@
      Part 2  4 sunk-cost scenarios, 1–7 likelihood to continue    -> sunk-cost bias
      Part 3  8 situations, 1–9 "how would you feel"               -> superstition
              (3 bad-luck, 3 good-luck, 2 neutral controls)
-   Each student is randomly assigned one language for the whole task
+   Each opening of the task flips a coin for one language for the whole task
    (?lang=zh or ?lang=en in the address forces one). Item order is randomised
    within each part. */
 (function () {
@@ -100,11 +100,16 @@
   };
 
   /* ---------- language assignment ---------- */
-  let lang = LAB.params.get('lang'), assigned = 'url';
+  // A fresh coin flip every time the task is opened without ?lang. The result
+  // goes into the address (and history.state), so a reload keeps the language.
+  let lang = LAB.params.get('lang');
+  let assigned = history.state && history.state.fleAssigned === 'random' ? 'random' : 'url';
   if (lang !== 'zh' && lang !== 'en') {
-    lang = LAB.store.get('fle-lang', null);
+    lang = Math.random() < 0.5 ? 'zh' : 'en';
     assigned = 'random';
-    if (lang !== 'zh' && lang !== 'en') { lang = Math.random() < 0.5 ? 'zh' : 'en'; LAB.store.set('fle-lang', lang); }
+    const q = new URLSearchParams(location.search);
+    q.set('lang', lang);
+    history.replaceState({ fleAssigned: 'random' }, '', location.pathname + '?' + q + location.hash);
   }
   const t = T[lang];
   document.documentElement.lang = t.htmlLang;
