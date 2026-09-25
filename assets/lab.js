@@ -79,17 +79,22 @@
   /* Google's web-app endpoint occasionally answers with an error page instead
      of JSON (about 1 request in 8 when several arrive together). Retry with
      short pauses; posts are safe to repeat because the script ignores a
-     submission id it has already stored. */
-  async function fetchJSON(url, init, tries) {
+     submission id it has already stored. Each attempt also has a time limit:
+     a request Google never answers would otherwise hang the page. */
+  async function fetchJSON(url, init, tries, limitMs) {
     let last;
     for (let i = 0; i < tries; i++) {
+      const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = ctrl && setTimeout(() => ctrl.abort(), limitMs || 25000);
       try {
-        const res = await fetch(url, init);
+        const res = await fetch(url, ctrl ? Object.assign({}, init, { signal: ctrl.signal }) : init);
         const text = await res.text();
         try { return JSON.parse(text); } catch (e) { throw new Error('HTTP ' + res.status); }
       } catch (e) {
         last = e;
         if (i < tries - 1) await LAB.wait([800, 2000, 4000][i] || 4000);
+      } finally {
+        clearTimeout(timer);
       }
     }
     throw last;
@@ -114,7 +119,7 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload),
           redirect: 'follow'
-        }, 4);
+        }, 4, 30000);
         if (!json.ok) throw new Error(json.error || 'rejected');
         box = LAB.store.get('outbox', []).filter(p => p.submissionId !== payload.submissionId);
         LAB.store.set('outbox', box);

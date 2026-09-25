@@ -57,9 +57,17 @@
     $('#status .live-dot').classList.toggle('off', !on);
   }
 
+  // The class menu shows today's class at once and fills in the other
+  // classes when the list arrives; the results never wait for it.
   async function loadSessions() {
-    let list = [];
-    try { list = await LAB.fetchSessions(); } catch (e) { list = []; }
+    if (!sel.options.length) renderSessions([]);
+    let list;
+    try { list = await LAB.fetchSessions(); } catch (e) { return; }
+    renderSessions(list);
+  }
+
+  function renderSessions(list) {
+    list = list.slice();
     const today = LAB.hkDate();
     if (!list.some(s => s.session === today)) list.push({ session: today, n: 0 });
     if (!/^\d{4}$/.test(state.session) && !list.some(s => s.session === state.session)) list.push({ session: state.session, n: 0 });
@@ -370,6 +378,7 @@
   }
 
   if (!LAB.connected()) $('#not-connected').hidden = false;
-  loadSessions().then(refresh);
+  loadSessions();
+  refresh();
   schedule();
 })();
