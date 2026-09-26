@@ -39,6 +39,52 @@
         .dash-controls label { flex-wrap: wrap; max-width: 100%; }
         .dash-controls select { max-width: 100%; }
         .fle-multiples h3 { font-size: 1rem; margin: 0 0 0.25rem; }
+        /* Summary: one finding per line, verdict first. */
+        .summary { margin-top: 2rem; }
+        .summary h2 { margin-top: 0; }
+        .summary ul { list-style: none; max-width: 56rem; border-top: 1px solid var(--border); }
+        .summary li { padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 1.02rem; line-height: 1.55; color: var(--text-body); }
+        .summary li strong { color: var(--text); font-weight: 700; }
+        .stats-inline { color: var(--text-secondary); font-size: 0.92em; }
+        /* Tiles: every column carries its own left rule and padding; the
+           first column's are clipped, so wrapped rows line up too. */
+        .results-body .stats { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-left: calc(-1.25rem - 1px); clip-path: inset(0 0 0 calc(1.25rem + 1px)); }
+        .results-body .stat, .results-body .stat + .stat { padding-left: 1.25rem; border-left: 1px solid var(--border); }
+        .stat-test { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-top: 0.65rem; font-size: 0.9rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+        .stat-test .sig { font-size: 0.94rem; }
+        .sig { display: inline-block; font-size: 0.8rem; font-weight: 650; line-height: 1.35; padding: 0.12rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+        .sig.yes { background: var(--highlight); color: var(--text); box-shadow: inset 0 0 0 1px var(--mint-deep); }
+        .sig.opp { background: #fbe9e4; color: var(--text); box-shadow: inset 0 0 0 1px var(--danger); }
+        .sig.no { color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border-strong); }
+        .sig.na { color: var(--text-light); padding-left: 0; }
+        .dir { font-weight: 600; color: var(--text); margin-left: 0.45rem; }
+        .stat-test .dir { margin-left: 0; }
+        table.data td.p-sig { font-weight: 700; color: var(--text); }
+        table.data .result { padding-left: 0.9rem; }
+        table.data tr.group th { font-size: 0.8rem; font-weight: 600; color: var(--text-light); padding-top: 1rem; border-bottom: 1px solid var(--border); }
+        #s-tests { width: auto; }
+        #s-tests th, #s-tests td { padding-right: 1.4rem; }
+        .test-line { font-size: 0.9rem; color: var(--text-secondary); margin: 0.2rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; }
+        .test-line .dir { margin-left: 0; }
+        .test-line .sig { font-size: 0.94rem; }
+        /* Judgement tiles: 4 across on a projector, 2 × 2 on a tablet, stacked on a phone. */
+        #f-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        @media (max-width: 999px) { #f-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 599px) { #f-stats { grid-template-columns: minmax(0, 1fr); } }
+        #f-table th, #f-table td, #f-inter th, #f-inter td { padding-right: 0.7rem; }
+        /* Long headers wrap and the direction words sit under the verdict, so
+           the wide tables fit a 1024-px projector. */
+        table.data thead th { white-space: normal; vertical-align: bottom; line-height: 1.3; }
+        table.data td.result .dir { display: block; margin: 0.2rem 0 0; font-size: 0.86rem; }
+        .table-wrap:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+        @media (max-width: 1100px) {
+            table.data tbody th[scope="row"] { white-space: normal; min-width: 8rem; max-width: 11rem; }
+        }
+        /* Narrow screens: tables scroll sideways; keep each row's label in view. */
+        @media (max-width: 900px) {
+            table.data tbody th[scope="row"], table.data thead th:first-child { position: sticky; left: 0; background: var(--bg); z-index: 1; box-shadow: -3px 0 0 var(--bg); white-space: normal; min-width: 5.5rem; max-width: min(8.5rem, 34vw); }
+            table.data tbody th[scope="row"]::after, table.data thead th:first-child::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--border-strong); }
+        }
     </style>
 </head>
 <body>
@@ -81,31 +127,32 @@
                     </div>
                 </div>
                 <div class="results-body">
+                    <section class="summary" aria-labelledby="w-sum-h"><h2 id="w-sum-h">Summary</h2><ul id="w-summary"></ul></section>
                     <div class="stats" id="w-stats"></div>
                     <h2>Translation priming, one dot per person</h2>
                     <figure class="figure">
                         <div id="w-strip"></div>
                         <figcaption>Positive values: faster to recognise an English word after its Chinese translation than after an unrelated Chinese word. Black bar: class mean. Green band: 95% confidence interval of the mean. Dashed dots: runs excluded (low accuracy, too few usable trials, or not a reader of Chinese).</figcaption>
                     </figure>
-                    <div class="panel-grid two">
-                        <div>
-                            <h2>Reaction times</h2>
-                            <div class="table-wrap"><table class="data" id="w-rt-table"></table></div>
-                            <p class="small muted">Correct responses to real words only, 200–5,000 ms, as in Chaouch-Orozco et al. (2021, 2023). Means of each person's own mean.</p>
+                    <h2>Reaction times</h2>
+                    <div class="table-wrap" data-label="Reaction times table"><table class="data" id="w-rt-table"></table></div>
+                    <p class="small muted column">Correct responses to real words only, 200–5,000 ms, as in Chaouch-Orozco et al. (2021, 2023). Means of each person's own mean. Test: each person's priming effect against 0 (a one-sample t-test, the same as a paired t-test of translation vs unrelated); d<sub>z</sub> = mean effect ÷ its SD. Two-tailed, α = .05.</p>
 
-                            <h2>Accuracy</h2>
-                            <div class="table-wrap"><table class="data" id="w-acc-table"></table></div>
-                            <p class="small muted" id="w-err-note"></p>
-                            <p class="small muted">Every word trial the student saw properly, right or wrong, with no reaction-time trimming. Non-words are shown as a check that students were doing the task.</p>
-                        </div>
+                    <h2>Accuracy</h2>
+                    <div class="table-wrap" data-label="Accuracy table"><table class="data" id="w-acc-table"></table></div>
+                    <p class="small muted column">Every word trial the student saw properly, right or wrong, with no reaction-time trimming. Priming = errors after unrelated − errors after translation, in percentage points; positive = more errors without the translation. Same test as for reaction times. Non-words are shown as a check that students were doing the task.</p>
+
+                    <div class="panel-grid two">
                         <div>
                             <h2>Did people see the masked primes?</h2>
                             <div class="bars" id="w-aware"></div>
                             <p class="small muted" id="w-aware-note" style="margin-top:0.9rem"></p>
                         </div>
+                        <div>
+                            <h2>Whose screen showed what</h2>
+                            <p class="small muted" id="w-screens"></p>
+                        </div>
                     </div>
-                    <h2>Whose screen showed what</h2>
-                    <p class="small muted column" id="w-screens"></p>
                 </div>
             </section>
 
@@ -115,6 +162,7 @@
                     <span class="stat-label">Shape task</span><div class="big" id="veil-shapes">0</div>
                 </div>
                 <div class="results-body">
+                    <section class="summary" aria-labelledby="s-sum-h"><h2 id="s-sum-h">Summary</h2><ul id="s-summary"></ul></section>
                     <div class="stats" id="s-stats"></div>
                     <div class="panel-grid two">
                         <div>
@@ -128,9 +176,12 @@
                         </div>
                         <div>
                             <h2>Cell means</h2>
-                            <div class="table-wrap"><table class="data" id="s-table"></table></div>
+                            <div class="table-wrap" data-label="Cell means table"><table class="data" id="s-table"></table></div>
                         </div>
                     </div>
+                    <h2>Tests</h2>
+                    <div class="table-wrap" data-label="Tests table"><table class="data" id="s-tests"></table></div>
+                    <p class="small muted column">Paired t-tests on each student's own percentages (comparisons), and one-sample t-tests against 50% (chance). Two-tailed, α = .05.</p>
                 </div>
             </section>
 
@@ -144,16 +195,20 @@
                     </div>
                 </div>
                 <div class="results-body">
+                    <section class="summary" aria-labelledby="f-sum-h"><h2 id="f-sum-h">Summary</h2><ul id="f-summary"></ul></section>
                     <div class="stats" id="f-stats"></div>
                     <p class="small muted" id="f-excluded"></p>
 
                     <h2>Gambles accepted</h2>
+                    <p class="test-line" id="f-gamble-test"></p>
                     <figure class="figure"><div id="f-gamble"></div></figure>
 
                     <h2>Continuing after a sunk cost</h2>
+                    <p class="test-line" id="f-sunk-test"></p>
                     <figure class="figure"><div id="f-sunk"></div></figure>
 
                     <h2>Superstition</h2>
+                    <p class="test-line" id="f-sup-test"></p>
                     <figure class="figure"><div id="f-sup"></div></figure>
 
                     <h2>English proficiency and the effect</h2>
@@ -169,21 +224,16 @@
                     </div>
                     <div class="multiples fle-multiples" id="f-scatter"></div>
                     <p class="small muted column">Each dot is a student in the English version. Black line: regression on English self-rating, with its 95% band. Dashed line: the Chinese group's mean. If the effect fades as English improves, the line moves toward the dashed line at higher ratings.</p>
-                    <div class="table-wrap"><table class="data" id="f-inter"></table></div>
-                    <p class="small muted column">Slope = change in the score per 1-point rise in the self-rating. Interaction = English slope − Chinese slope, with a 95% CI; in the Chinese version, English proficiency should not matter.</p>
+                    <div class="table-wrap" data-label="Proficiency slopes and interaction table"><table class="data" id="f-inter"></table></div>
+                    <p class="small muted column" id="f-inter-note">Slope = change in the score per 1-point rise in the self-rating, tested against 0. Interaction = English slope − Chinese slope, with a 95% CI and its test; a significant interaction means proficiency changes the effect. In the Chinese version, English proficiency should not matter.</p>
 
-                    <div class="panel-grid two">
-                        <div>
-                            <h2>All measures</h2>
-                            <div class="table-wrap"><table class="data" id="f-table"></table></div>
-                            <p class="small muted">Means of each student's own score. Difference = English − Chinese, with a 95% confidence interval (Welch). Only students with Chinese as a first language who used no translation aid.</p>
-                        </div>
-                        <div>
-                            <h2>English self-ratings</h2>
-                            <div class="table-wrap"><table class="data" id="f-prof"></table></div>
-                            <p class="small muted">1 = very limited, 7 = native-like. The two groups should be similar.</p>
-                        </div>
-                    </div>
+                    <h2>All measures</h2>
+                    <div class="table-wrap" data-label="All measures table"><table class="data" id="f-table"></table></div>
+                    <p class="small muted column">Means of each student's own score. Difference = English − Chinese, with a 95% confidence interval. Welch's t-test (unequal variances), two-tailed, α = .05; d = difference ÷ pooled SD. Only students with Chinese as a first language who used no translation aid.</p>
+
+                    <h2>English self-ratings</h2>
+                    <div class="table-wrap column" data-label="English self-ratings table"><table class="data" id="f-prof"></table></div>
+                    <p class="small muted column">1 = very limited, 7 = native-like. The two groups should be similar (Welch's t-test).</p>
                 </div>
             </section>
         </div>
@@ -202,7 +252,7 @@
         })();
     </script>
     <script src="assets/config.js?v=2"></script>
-    <script src="assets/lab.js?v=6"></script>
-    <script src="assets/dashboard.js?v=13"></script>
+    <script src="assets/lab.js?v=8"></script>
+    <script src="assets/dashboard.js?v=18"></script>
 </body>
 </html>

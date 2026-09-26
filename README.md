@@ -34,6 +34,9 @@ dependencies.
    - The *Class* menu shows earlier dates. *All 2026 classes* pools the whole
      year, which is useful for comparing years.
    - *Download this class (CSV)* gives one row per student.
+   - Each tab opens with a short **Summary**: one line per finding, with its
+     test and whether it is significant. It stays hidden while *Hide results*
+     is ticked.
 
 Nothing needs changing from one year to the next. Each class is simply the
 Hong Kong date on which the students did the tasks.
@@ -134,6 +137,20 @@ self-ratings of English: reading, listening, writing, speaking, and overall
 (`eng_reading` … `eng_overall`, plus `eng_mean`). A student who answers on
 one task finds the answers pre-filled on the next.
 
+## Significance tests on the results page
+
+All tests are two-tailed at α = .05, on one score per student. A result is
+labelled *Significant, as predicted*, *Significant, opposite to the
+prediction*, or *Not significant*. Each 95% CI excludes 0 exactly when
+p < .05. A test needs at least two students (two per group for the judgement
+task).
+
+| Task | Test |
+|---|---|
+| Word tasks | One-sample t-test of each person's priming effect (RT and errors) against 0 |
+| Shape task | Paired t-tests on each student's own percentages: u o vs i e, m n l vs p t k, m n l vs b d g, b d g vs p t k; one-sample t-tests of each sound class against 50% |
+| Judgement task | Welch's t-test, English vs Chinese, for every measure (d = difference ÷ pooled SD); proficiency slopes against 0; interaction = English slope − Chinese slope, Welch–Satterthwaite t |
+
 ## How the priming data are analysed
 
 Per student, then averaged across students (means of each person's own mean,
@@ -146,6 +163,8 @@ with 95% CIs across students):
   (`timing_ok = 0`) or the student left the tab (`interrupted = 1`).
 - `effect` = mean RT control − mean RT related. Positive = faster after the
   translation.
+- **Test:** each person's effect against 0 (one-sample t-test, the same as a
+  paired t-test of related vs control), with d<sub>z</sub> = mean ÷ SD.
 
 **Accuracy** — the same word trials, but every one the student saw properly,
 right or wrong. No RT trimming, since errors are the measure.
@@ -157,6 +176,9 @@ right or wrong. No RT trimming, since errors are the measure.
   trade-off, which is worth showing the class.
 - `acc_nonwords` is reported separately as a check that students were doing
   the task.
+- **Test:** `err_effect` against 0, as for reaction times.
+- **Awareness (masked task):** priming in students who saw Chinese vs those
+  who did not, Welch's t-test.
 
 **A run is excluded** from the class averages (but still stored) if the
 student does not read Chinese, overall accuracy is below 75%, or fewer than 8

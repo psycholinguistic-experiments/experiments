@@ -188,9 +188,17 @@
     const m = LAB.mean(a);
     return Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1));
   };
-  const T975 = [0, 12.71, 4.30, 3.18, 2.78, 2.57, 2.45, 2.36, 2.31, 2.26, 2.23, 2.20, 2.18, 2.16, 2.14, 2.13,
-    2.12, 2.11, 2.10, 2.09, 2.09, 2.08, 2.07, 2.07, 2.06, 2.06, 2.06, 2.05, 2.05, 2.05, 2.04];
-  LAB.t975 = df => df < 1 ? NaN : df < T975.length ? T975[Math.round(df)] || T975[T975.length - 1] : 1.96 + 2.4 / df;
+  /* Critical t for a two-tailed 95% interval, found exactly from LAB.pT so a
+     95% CI excludes 0 exactly when p < .05. */
+  const T975 = {};
+  LAB.t975 = df => {
+    if (!(df > 0)) return NaN;
+    const k = df.toFixed(3);
+    if (T975[k]) return T975[k];
+    let lo = 0, hi = 1000;
+    for (let i = 0; i < 90; i++) { const mid = (lo + hi) / 2; if (LAB.pT(mid, df) > 0.05) lo = mid; else hi = mid; }
+    return (T975[k] = (lo + hi) / 2);
+  };
   LAB.ci95 = a => {
     const n = a.length;
     if (n < 2) return [NaN, NaN];
@@ -199,13 +207,89 @@
   };
   /* Difference b − a between two independent groups, with a Welch 95% CI. */
   LAB.diffCI = (a, b) => {
-    if (a.length < 2 || b.length < 2) return { d: LAB.mean(b) - LAB.mean(a), ci: [NaN, NaN] };
-    const va = Math.pow(LAB.sd(a), 2) / a.length, vb = Math.pow(LAB.sd(b), 2) / b.length;
-    const se = Math.sqrt(va + vb);
-    const df = Math.pow(va + vb, 2) / (va * va / (a.length - 1) + vb * vb / (b.length - 1));
-    const d = LAB.mean(b) - LAB.mean(a), h = LAB.t975(df) * se;
-    return { d, ci: [d - h, d + h] };
+    const w = LAB.welch(a, b);
+    return { d: w.diff, ci: w.ci };
   };
+
+  /* ---------- significance tests (two-tailed) ---------- */
+  // Regularised incomplete beta I_x(a, b), by Lentz's continued fraction.
+  function lnGamma(z) {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let x = z, y = z, tmp = x + 5.5, ser = 1.000000000190015;
+    tmp -= (x + 0.5) * Math.log(tmp);
+    for (let j = 0; j < 6; j++) ser += c[j] / ++y;
+    return -tmp + Math.log(2.5066282746310005 * ser / x);
+  }
+  function betacf(x, a, b) {
+    const TINY = 1e-300;
+    let c = 1, d = 1 - (a + b) * x / (a + 1);
+    if (Math.abs(d) < TINY) d = TINY;
+    d = 1 / d;
+    let h = d;
+    for (let m = 1; m <= 300; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((a + m2 - 1) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < TINY) d = TINY;
+      c = 1 + aa / c; if (Math.abs(c) < TINY) c = TINY;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (a + b + m) * x / ((a + m2) * (a + m2 + 1));
+      d = 1 + aa * d; if (Math.abs(d) < TINY) d = TINY;
+      c = 1 + aa / c; if (Math.abs(c) < TINY) c = TINY;
+      d = 1 / d;
+      const del = d * c;
+      h *= del;
+      if (Math.abs(del - 1) < 3e-12) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const bt = Math.exp(lnGamma(a + b) - lnGamma(a) - lnGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(x, a, b) / a : 1 - bt * betacf(1 - x, b, a) / b;
+  }
+  /* Two-tailed p for Student's t with df degrees of freedom (df may be fractional). */
+  LAB.pT = (t, df) => (isFinite(t) && df > 0) ? Math.min(1, ibeta(df / (df + t * t), df / 2, 0.5)) : NaN;
+
+  /* One-sample t-test of a against mu (a paired test when a holds differences).
+     dz = mean / SD, the standardised effect for paired or one-sample designs. */
+  LAB.ttest = (a, mu) => {
+    const n = a.length, m = LAB.mean(a), sd = LAB.sd(a);
+    if (n < 2 || !(sd > 0)) return { n, m, diff: m - (mu || 0), t: NaN, df: n - 1, p: NaN, es: NaN, ci: LAB.ci95(a), reason: n < 2 ? 'few' : 'novar' };
+    const se = sd / Math.sqrt(n), t = (m - (mu || 0)) / se;
+    return { n, m, diff: m - (mu || 0), t, df: n - 1, p: LAB.pT(t, n - 1), es: (m - (mu || 0)) / sd, ci: LAB.ci95(a) };
+  };
+  /* Welch's t-test for b − a. es = Cohen's d with the pooled SD. */
+  LAB.welch = (a, b) => {
+    const diff = LAB.mean(b) - LAB.mean(a);
+    if (a.length < 2 || b.length < 2) return { diff, t: NaN, df: NaN, p: NaN, es: NaN, ci: [NaN, NaN], reason: 'few' };
+    const sa = LAB.sd(a), sb = LAB.sd(b);
+    const va = sa * sa / a.length, vb = sb * sb / b.length, se = Math.sqrt(va + vb);
+    if (!(se > 0)) return { diff, t: NaN, df: NaN, p: NaN, es: NaN, ci: [NaN, NaN], reason: 'novar' };
+    const df = Math.pow(va + vb, 2) / (va * va / (a.length - 1) + vb * vb / (b.length - 1));
+    const t = diff / se, h = LAB.t975(df) * se;
+    const sp = Math.sqrt(((a.length - 1) * sa * sa + (b.length - 1) * sb * sb) / (a.length + b.length - 2));
+    return { diff, t, df, p: LAB.pT(t, df), es: sp > 0 ? diff / sp : NaN, ci: [diff - h, diff + h] };
+  };
+  LAB.ALPHA = 0.05;
+  LAB.isSig = r => r && isFinite(r.p) && r.p < LAB.ALPHA;
+  /* APA style: no leading zero, exact p to 3 decimals below .10, else 2. */
+  // Non-breaking spaces keep each statistic on one line.
+  const NB = '\u00a0';
+  LAB.fmtPval = p => !isFinite(p) ? '–' : p < 0.001 ? '&lt;' + NB + '.001' : p.toFixed(p < 0.1 ? 3 : 2).replace(/^0/, '');
+  LAB.fmtP = p => !isFinite(p) ? '<i>p</i>' + NB + '–' : p < 0.001 ? '<i>p</i>' + NB + '&lt;' + NB + '.001' : '<i>p</i>' + NB + '=' + NB + LAB.fmtPval(p);
+  LAB.fmtT = r => {
+    if (!r || !isFinite(r.t)) return '';
+    const df = Math.abs(r.df - Math.round(r.df)) < 1e-9 ? String(Math.round(r.df)) : r.df.toFixed(1);
+    return `<i>t</i>(${df})${NB}=${NB}${r.t < 0 ? '−' : ''}${Math.abs(r.t).toFixed(2)}`;
+  };
+  LAB.fmtES = (r, name) => r && isFinite(r.es) ? `${name || '<i>d</i>'}${NB}=${NB}${r.es < 0 ? '−' : ''}${Math.abs(r.es).toFixed(2)}` : '';
+  /* "t(17) = 4.52, p < .001" */
+  LAB.fmtTest = r => r && isFinite(r.t) ? `${LAB.fmtT(r)}, ${LAB.fmtP(r.p)}` : r && r.reason === 'novar' ? 'no variation to test' : 'too few runs to test';
+  /* A labelled verdict for tiles and tables; the words carry the meaning, the
+     colour only repeats it. */
+  LAB.sigBadge = r => !r || !isFinite(r.p) ? `<span class="sig na">${r && r.reason === 'novar' ? 'No variation to test' : 'Too few runs to test'}</span>`
+    : LAB.isSig(r) ? '<span class="sig yes">Significant</span>' : '<span class="sig no">Not significant</span>';
 
   LAB.shuffle = function (a) {
     for (let i = a.length - 1; i > 0; i--) {
@@ -323,6 +407,8 @@
 
     let yCursor = top;
     let idx = 0;
+    // The whole class lands within about a second, however many dots.
+    const stagger = Math.min(1, 32 / Math.max(1, rows.reduce((n, row) => n + row.placed.length, 0)));
     rows.forEach(row => {
       const cy = yCursor + row.half;
       if (row.g.label) {
@@ -343,7 +429,7 @@
       const you = row.placed.filter(p => p.you);
       row.placed.filter(p => !p.you).forEach(p => {
         const c = LAB.svg('circle', { class: 'dot' + (p.excluded ? ' excluded' : ''), cx: p.x, cy: cy + p.y, r }, svg);
-        c.style.setProperty('--i', idx++);
+        c.style.setProperty('--i', (idx++ * stagger).toFixed(2));
       });
       you.forEach(p => {
         const c = LAB.svg('circle', { class: 'you', cx: p.x, cy: cy + p.y, r: r + 1.5 }, svg);
@@ -406,6 +492,7 @@
     const seB = s / Math.sqrt(sxx), t = LAB.t975(df);
     return {
       n, a, b, df, seB, mx, sxx,
+      t: seB > 0 ? b / seB : NaN, p: seB > 0 ? LAB.pT(b / seB, df) : NaN,
       r: syy > 0 ? sxy / Math.sqrt(sxx * syy) : NaN,
       ciB: [b - t * seB, b + t * seB],
       at: x => a + b * x,
@@ -449,9 +536,10 @@
         LAB.svg('line', { class: 'mean', x1: X(lo), x2: X(hi), y1: Y(Math.max(y0, Math.min(y1, f.at(lo)))), y2: Y(Math.max(y0, Math.min(y1, f.at(hi)))) }, svg);
       }
     }
+    const stagger = Math.min(1, 32 / Math.max(1, o.points.length));
     o.points.forEach((p, i) => {
       const c = LAB.svg('circle', { class: 'dot', cx: X(p.x), cy: Y(p.y), r: o.r }, svg);
-      c.style.setProperty('--i', i);
+      c.style.setProperty('--i', (i * stagger).toFixed(2));
     });
     // Reference label last, so nothing covers it; above the line unless that
     // would leave the plot.
