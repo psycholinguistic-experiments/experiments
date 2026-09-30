@@ -517,7 +517,7 @@
     }
     for (let v = x0; v <= x1 + 1e-9; v += (o.xStep || 1)) {
       LAB.svg('line', { class: 'grid', x1: X(v), x2: X(v), y1: top, y2: H - bottom }, svg);
-      LAB.text(svg, X(v), H - bottom + 17, String(v), { 'text-anchor': 'middle' });
+      LAB.text(svg, X(v), H - bottom + 17, o.xFmt ? o.xFmt(v) : String(v), { 'text-anchor': 'middle' });
     }
     if (o.xLabel) LAB.text(svg, (left + W - right) / 2, H - 6, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
     if (o.ref && isFinite(o.ref.value)) {

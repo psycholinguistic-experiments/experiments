@@ -1,0 +1,35 @@
+{
+  "method": "linear (mean-sigma) equating over the whole norm sets",
+  "variables": {
+    "valence": {
+      "n_en": 13905,
+      "n_zh": 25281,
+      "intercept": -1.5326,
+      "slope": 1.3132,
+      "mean_en": 5.064,
+      "mean_zh": 5.023,
+      "sd_en": 1.275,
+      "sd_zh": 0.971
+    },
+    "arousal": {
+      "n_en": 13905,
+      "n_zh": 25281,
+      "intercept": 0.3696,
+      "slope": 1.0083,
+      "mean_en": 4.211,
+      "mean_zh": 3.809,
+      "sd_en": 0.897,
+      "sd_zh": 0.889
+    },
+    "concreteness": {
+      "n_en": 13387,
+      "n_zh": 25281,
+      "intercept": -3.3381,
+      "slope": 1.4507,
+      "mean_en": 3.329,
+      "mean_zh": 4.596,
+      "sd_en": 1.048,
+      "sd_zh": 0.723
+    }
+  }
+}

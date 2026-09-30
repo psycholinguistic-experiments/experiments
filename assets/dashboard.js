@@ -4,10 +4,10 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast'];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [] },
     timer: null,
     loadedOnce: false
   };
@@ -18,7 +18,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -130,7 +130,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -139,14 +139,18 @@
     $('#veil-shapes').textContent = b.length;
     $('#veil-fle-zh').textContent = f.filter(r => r.lang === 'zh').length;
     $('#veil-fle-en').textContent = f.filter(r => r.lang === 'en').length;
+    $('#n-fast').textContent = a.length;
+    $('#veil-fast-zh').textContent = a.filter(r => r.order === 'zh-en').length;
+    $('#veil-fast-en').textContent = a.filter(r => r.order === 'en-zh').length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang)]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), fastState.norms ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
     if (!$('#panel-shapes').hidden) renderShapes(b);
     if (!$('#panel-fle').hidden) renderFLE(f);
+    if (!$('#panel-fast').hidden) renderFast(a);
     syncScrollers();
   }
 
@@ -350,6 +354,309 @@
         : `<li><strong>English proficiency: no significant interaction.</strong> The English–Chinese differences did not change significantly with self-rated English ${inline(`${prof.label}; smallest ${LAB.fmtP(Math.min(...tested.map(o => o.inter.p)))}`)}.</li>`);
     }
     $('#f-summary').innerHTML = items.join('');
+  }
+
+  /* ---------- association task (FAST): Chinese vs English, within students ----------
+     Every answer is scored with the norms each time the page draws; the
+     analysis itself lives in fast-analysis.js. The tab gives a summary, the
+     descriptive results (matrices, the language × seed-valence table,
+     trajectories), the inferential results (mixed-effects model, paired
+     t-tests) and the data-quality checks. */
+  const FA = window.FAST_ANALYSIS, STIM = window.FAST_STIMULI;
+  const fastState = { norms: null, loading: null, error: '', fitKey: '', fit: null, parts: [], timer: null };
+  const STATE_NAME = { N: 'negative', U: 'neutral', P: 'positive' };
+  const LANG_NAME = { zh: 'Chinese', en: 'English' };
+  const CATS = ['negative', 'neutral', 'positive'];
+  // Probabilities in APA style (no leading zero); signed numbers with U+2212.
+  const p2 = v => isFinite(v) ? (v < 0 ? '−' : '') + Math.abs(v).toFixed(2).replace(/^0/, '') : '–';
+  const b2 = v => isFinite(v) ? (v <= -0.005 ? '−' : '') + Math.abs(v).toFixed(2) : '–';
+  const s2 = v => isFinite(v) ? (v <= -0.005 ? '−' : v >= 0.005 ? '+' : '') + Math.abs(v).toFixed(2) : '–';
+  const b3 = v => isFinite(v) ? (v <= -0.0005 ? '−' : v >= 0.0005 ? '+' : '') + Math.abs(v).toFixed(3) : '–';
+  const pct0 = v => isFinite(v) ? Math.round(v * 100) + '%' : '–';
+  const pct1 = v => isFinite(v) ? (v * 100).toFixed(1) + '%' : '–';
+  const pts1 = v => isFinite(v) ? (v <= -0.0005 ? '−' : v >= 0.0005 ? '+' : '') + Math.abs(v * 100).toFixed(1) + ' pts' : '–';
+  const zStat = r => r && isFinite(r.z) ? `<i>z</i> = ${b2(r.z)}` : '';
+  const asTest = r => r ? { p: r.p, diff: r.b, t: r.z } : null;
+  // A difference shown next to two rounded values is computed from those
+  // rounded values, so it always adds up on screen.
+  const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000;
+
+  function ensureNorms() {
+    if (fastState.norms || fastState.loading) return;
+    fastState.loading = FA.loadNorms('')
+      .then(n => { fastState.norms = n; fastState.error = ''; })
+      .catch(e => { fastState.error = e.message || String(e); })
+      .finally(() => { fastState.loading = null; lastKey = ''; render(); });
+  }
+  $('#a-prof-key').addEventListener('change', () => { lastKey = ''; render(); });
+  $('#a-csv-answers').addEventListener('click', () => LAB.download(`lt5461-association-answers-${state.session}.csv`, LAB.toCSV(FA.responseRows(fastState.parts))));
+  $('#a-csv-transitions').addEventListener('click', () => LAB.download(`lt5461-association-transitions-${state.session}.csv`, LAB.toCSV(FA.transitionRows(fastState.parts))));
+
+  function matrixTable(tr, lang, states) {
+    const m = FA.matrix(tr.filter(t => t.lang === lang), states);
+    const cell = (a, b) => {
+      const p = m.probs[a][b];
+      return isFinite(p) ? `<td style="--p:${p.toFixed(3)}"><b>${p2(p)}</b><i class="visually-hidden">, </i><span>${m.counts[a][b].toLocaleString('en-US')} of ${m.rowN[a].toLocaleString('en-US')}</span></td>`
+        : `<td class="undef"><b>–</b><span>none from here</span></td>`;
+    };
+    return `<div><h4>${LANG_NAME[lang]}<span class="n">${m.n.toLocaleString('en-US')} transition${m.n === 1 ? '' : 's'}</span></h4>` +
+      `<table class="matrix"><caption class="visually-hidden">${LANG_NAME[lang]}: probability of the next answer's state given the previous answer's state</caption>` +
+      `<colgroup><col class="head">${states.map(() => '<col>').join('')}</colgroup>` +
+      `<thead><tr><th scope="col"><span class="visually-hidden">Previous answer</span></th>${states.map(b => `<th scope="col">to ${STATE_NAME[b]}</th>`).join('')}</tr></thead><tbody>` +
+      states.map(a => `<tr><th scope="row">from ${STATE_NAME[a]}</th>${states.map(b => cell(a, b)).join('')}</tr>`).join('') + '</tbody></table></div>';
+  }
+
+  /* Mean valence by answer position: Chinese solid, English dashed, one panel
+     per seed category, a shared y axis so the panels compare. */
+  function trajPlots(host, traj, n) {
+    host.innerHTML = '';
+    const stat = arr => ({ m: LAB.mean(arr), ci: LAB.ci95(arr), n: arr.length });
+    const S = {};
+    CATS.forEach(c => { S[c] = { zh: traj.zh[c].map(stat), en: traj.en[c].map(stat) }; });
+    const all = CATS.flatMap(c => ['zh', 'en'].flatMap(l => S[c][l].flatMap(s => [s.m, s.ci[0], s.ci[1]]))).filter(isFinite);
+    let lo = Math.floor(Math.min(4, ...all)), hi = Math.ceil(Math.max(6, ...all));
+    lo = Math.max(1, lo); hi = Math.min(9, hi);
+    CATS.forEach(c => {
+      const fig = document.createElement('figure');
+      fig.className = 'figure';
+      fig.innerHTML = `<h4>${cap(c)} seeds</h4><div></div>`;
+      host.appendChild(fig);
+      const W = 300, H = 230, left = 30, right = 8, top = 10, bottom = 42;
+      const X = k => left + (k + 0.5) / n * (W - left - right), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+      const ends = l => { const a = S[c][l]; return `${LANG_NAME[l]} from ${b2(a[0] && a[0].m)} to ${b2(a[n - 1] && a[n - 1].m)}`; };
+      const svg = LAB.svg('svg', { class: 'chart', viewBox: `0 0 ${W} ${H}`, role: 'img',
+        'aria-label': `${cap(c)} seeds: mean valence by answer position, ${ends('zh')}, ${ends('en')}` }, fig.querySelector('div'));
+      for (let v = lo; v <= hi; v++) {
+        LAB.svg('line', { class: v === 5 ? 'chance' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, svg);
+        LAB.text(svg, left - 8, Y(v) + 4, String(v), { 'text-anchor': 'end' });
+      }
+      for (let k = 0; k < n; k++) LAB.text(svg, X(k), H - bottom + 17, String(k + 1), { 'text-anchor': 'middle' });
+      LAB.text(svg, (left + W - right) / 2, H - 6, 'Answer position', { 'text-anchor': 'middle', class: 'label-strong' });
+      [['zh', 'a', -3], ['en', 'b', 3]].forEach(([lang, k, off]) => {
+        const pts = S[c][lang].map((s, i) => isFinite(s.m) ? [X(i) + off, Y(s.m)] : null);
+        S[c][lang].forEach((s, i) => {
+          if (isFinite(s.ci[0])) LAB.svg('line', { class: 'whisker series-' + k, x1: X(i) + off, x2: X(i) + off, y1: Y(Math.min(hi, s.ci[1])), y2: Y(Math.max(lo, s.ci[0])) }, svg);
+        });
+        const d = pts.filter(Boolean).map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+        if (d) LAB.svg('path', { class: 'line-' + k, d }, svg);
+        pts.forEach(p => { if (p) LAB.svg('circle', { class: 'series-' + k, cx: p[0], cy: p[1], r: 3.5, 'stroke-width': 1.5 }, svg); });
+      });
+    });
+  }
+
+  function renderFast(rows) {
+    const status = $('#a-status');
+    if (!fastState.norms) {
+      ensureNorms();
+      status.hidden = false;
+      status.textContent = fastState.error ? `The valence norms could not be loaded (${fastState.error}). Trying again at the next update.` : 'Loading the valence norms…';
+      $('#a-body').hidden = true;
+      if (fastState.error) fastState.error = '';
+      return;
+    }
+    status.hidden = true;
+    // Only runs made with the current seeds: an earlier set may share some
+    // seed ids, and its runs would be read half-way.
+    const other = rows.filter(r => r.stim_version !== STIM.version).length;
+    rows = rows.filter(r => r.stim_version === STIM.version);
+    const parts = FA.participants(rows, STIM, fastState.norms);
+    fastState.parts = parts;
+    const n = parts.length;
+    if (!n) {
+      $('#a-summary').innerHTML = item(null, '<strong>No runs yet for this class.</strong> Results appear here as students finish.' +
+        (other ? ` (${other} run${other > 1 ? 's' : ''} used an earlier set of seed words and ${other > 1 ? 'are' : 'is'} not shown.)` : ''));
+      $('#a-body').hidden = true;
+      return;
+    }
+    $('#a-body').hidden = false;
+
+    // ---- descriptive ----
+    const tr2 = FA.transitions(parts, FA.state2), tr3 = FA.transitions(parts, FA.state3);
+    $('#a-matrices').innerHTML = matrixTable(tr2, 'zh', FA.STATES2) + matrixTable(tr2, 'en', FA.STATES2);
+    $('#a-matrix-note').textContent = 'Two states: negative below 5, positive 5 and above, with Chinese valence on the English scale (see Data quality). Pooled over students, so students with more valid transitions weigh more. ' +
+      'Rows are the previous answer and sum to 1; “–” means no transition started there. The seed → first answer step is not counted.';
+    $('#a-matrices3').innerHTML = matrixTable(tr3, 'zh', FA.STATES3) + matrixTable(tr3, 'en', FA.STATES3);
+
+    const reps = FA.repetitions(parts), mv = FA.meanValence(parts), per = FA.perParticipant(parts);
+    const pooled = (cat, lang, key) => { const m = FA.matrix(tr2.filter(t => t.lang === lang && (cat === 'all' || t.category === cat)), FA.STATES2); return m.probs[key][key]; };
+    const meanV = (cat, lang) => LAB.mean(mv.map(x => x[lang][cat]).filter(isFinite));
+    const repRate = (cat, lang) => { const s = reps.reduce((a, x) => [a[0] + x[lang][cat][0], a[1] + x[lang][cat][1]], [0, 0]); return s[1] ? s[0] / s[1] : NaN; };
+    const pair = (f, fmt) => `<td class="num sep">${fmt(f('zh'))}</td><td class="num">${fmt(f('en'))}</td>`;
+    $('#a-bycat').innerHTML =
+      `<thead><tr><th scope="col" rowspan="2">Seeds</th><th scope="colgroup" colspan="2" class="sep">Staying negative, P(N→N)</th><th scope="colgroup" colspan="2" class="sep">Staying positive, P(P→P)</th>` +
+      `<th scope="colgroup" colspan="2" class="sep">Valence of the answers</th><th scope="colgroup" colspan="2" class="sep">Repeated answers</th></tr>` +
+      `<tr>${'<th class="num sep" scope="col">Chinese</th><th class="num" scope="col">English</th>'.repeat(4)}</tr></thead><tbody>` +
+      CATS.concat('all').map(cat => `<tr><th scope="row">${cat === 'all' ? '<strong>All seeds</strong>' : cap(cat)}</th>` +
+        pair(l => pooled(cat, l, 'N'), p2) + pair(l => pooled(cat, l, 'P'), p2) + pair(l => meanV(cat, l), b2) + pair(l => repRate(cat, l), pct1) + '</tr>').join('') +
+      '</tbody>';
+    trajPlots($('#a-traj'), FA.trajectories(parts, STIM.responsesPerSeed), STIM.responsesPerSeed);
+
+    // ---- data quality ----
+    const cov = lang => {
+      const L = per.map(p => p.lang[lang]).filter(q => q.answers);
+      const sum = k => L.reduce((s, q) => s + q[k], 0);
+      const share = (a, b) => L.map(q => q[b] ? q[a] / q[b] : NaN).filter(isFinite);
+      const rt = rows.map(r => num(r['rt_median_' + lang])).filter(isFinite);
+      return { n: L.length, scored: sum('scored') / sum('answers'), valid: sum('valid') / sum('possible'), validN: sum('valid'),
+        sRange: share('scored', 'answers'), vRange: share('valid', 'possible'), rt: LAB.median(rt) };
+    };
+    const C = { zh: cov('zh'), en: cov('en') };
+    const range = a => a.length ? `${pct0(Math.min(...a))}–${pct0(Math.max(...a))}` : '–';
+    $('#a-coverage').innerHTML = `<thead><tr><th scope="col">Language</th><th class="num" scope="col">Answers scored</th><th class="num" scope="col">Per student</th>` +
+      `<th class="num sep" scope="col">Valid transitions</th><th class="num" scope="col">Per student</th><th class="num sep" scope="col">Median time per answer</th></tr></thead><tbody>` +
+      ['zh', 'en'].map(l => `<tr><th scope="row">${LANG_NAME[l]}</th><td class="num"><strong>${pct0(C[l].scored)}</strong></td><td class="num">${range(C[l].sRange)}</td>` +
+        `<td class="num sep"><strong>${pct0(C[l].valid)}</strong> (${C[l].validN.toLocaleString('en-US')})</td><td class="num">${range(C[l].vRange)}</td>` +
+        `<td class="num sep">${isFinite(C[l].rt) ? (C[l].rt / 1000).toFixed(1) + ' s' : '–'}</td></tr>`).join('') + '</tbody>';
+
+    // ---- inferential, per student (paired t-tests) ----
+    // Seed valence × language: how much more positive the answers are after
+    // positive than after negative seeds, English minus Chinese.
+    // (positive − negative seeds) per student and language; only students with
+    // both languages scored, so the two means and the test share one sample.
+    const both = mv.map(x => ({ zh: x.zh.positive - x.zh.negative, en: x.en.positive - x.en.negative })).filter(d => isFinite(d.zh) && isFinite(d.en));
+    const polarity = { zh: LAB.mean(both.map(d => d.zh)), en: LAB.mean(both.map(d => d.en)), test: LAB.ttest(both.map(d => d.en - d.zh), 0) };
+    const rate = (x, lang) => x[lang].all[1] ? x[lang].all[0] / x[lang].all[1] : NaN;
+    const repDiff = reps.map(x => rate(x, 'en') - rate(x, 'zh')).filter(isFinite);
+    const repeat = { zh: LAB.mean(reps.map(x => rate(x, 'zh')).filter(isFinite)), en: LAB.mean(reps.map(x => rate(x, 'en')).filter(isFinite)), test: LAB.ttest(repDiff, 0) };
+
+    // Relative proficiency (exploratory): English − Chinese persistence against English − Chinese self-rating.
+    const pk = $('#a-prof-key').value;
+    const rel = p => pk === 'overall' ? p.prof.en_overall - p.prof.zh_overall
+      : (p.prof.en_speaking + p.prof.en_writing) / 2 - (p.prof.zh_speaking + p.prof.zh_writing) / 2;
+    const profHost = $('#a-prof');
+    profHost.innerHTML = '';
+    const PROF = [['NN', 'Staying negative, English − Chinese'], ['PP', 'Staying positive, English − Chinese']].map(([k, title]) => {
+      const pts = per.map(p => ({ x: rel(p), y: p.lang.en[k] - p.lang.zh[k] })).filter(q => isFinite(q.x) && isFinite(q.y));
+      const fit = LAB.ols(pts.map(q => q.x), pts.map(q => q.y));
+      const fig = document.createElement('figure');
+      fig.className = 'figure';
+      fig.innerHTML = `<h4>${title}</h4><div></div>`;
+      profHost.appendChild(fig);
+      const xs = pts.map(q => q.x);
+      const x0 = Math.min(-4, Math.floor(Math.min(0, ...xs)) - 1), x1 = Math.max(2, Math.ceil(Math.max(0, ...xs)) + 1);
+      const ym = Math.min(1, Math.max(0.5, Math.ceil(Math.max(...pts.map(q => Math.abs(q.y)), 0) * 4) / 4));
+      LAB.scatterPlot(fig.querySelector('div'), {
+        points: pts, fit, xDomain: [x0, x1], xStep: x1 - x0 > 10 ? 2 : 1, yDomain: [-ym, ym], yStep: ym > 0.5 ? 0.5 : 0.25,
+        xFmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v),
+        yFmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2).replace(/^0/, ''),
+        xLabel: 'Self-rating, English − Chinese (0–10 scales)', ref: { value: 0, label: '' },
+        ariaLabel: `${title} by relative proficiency, n = ${pts.length}` + (fit ? `, slope ${b3(fit.b)}` : '')
+      });
+      return { k, title, n: pts.length, fit, test: fit ? { diff: fit.b, t: fit.t, df: fit.df, p: fit.p } : null };
+    });
+    $('#a-prof-table').innerHTML = `<thead><tr><th scope="col">Difference</th><th class="num" scope="col">n</th><th class="num" scope="col">Slope per rating point</th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
+      PROF.map(o => `<tr><th scope="row">${o.title}</th><td class="num">${o.n}</td><td class="num"><strong>${o.fit ? b3(o.fit.b) : '–'}</strong></td>` +
+        `<td class="num">${o.fit ? b3(o.fit.ciB[0]) + ' to ' + b3(o.fit.ciB[1]) : '–'}</td>${tCell(o.test)}${pCell(o.test)}${resultCell(o.test, 0)}</tr>`).join('') + '</tbody>';
+
+    // ---- the mixed-effects model: fitted once per change of data, after the rest is drawn ----
+    const ctx = { other, n, pooled: { zh: FA.matrix(tr2.filter(t => t.lang === 'zh'), FA.STATES2), en: FA.matrix(tr2.filter(t => t.lang === 'en'), FA.STATES2) }, C, polarity, repeat, PROF };
+    const fitKey = JSON.stringify([state.session, parts.map(P => P.key)]);
+    if (fitKey === fastState.fitKey && fastState.fit) { renderFastModel(ctx); return; }
+    fastState.fitKey = fitKey; fastState.fit = null;
+    renderFastModel(ctx);   // everything but the model, which follows
+    clearTimeout(fastState.timer);
+    fastState.timer = setTimeout(() => {
+      const fit = FA.glmm(FA.modelData(tr2), tr2);
+      if (fastState.fitKey !== fitKey) return;
+      fastState.fit = { fit, sum: FA.modelSummary(fit) };
+      renderFastModel(ctx);
+    }, 30);
+  }
+
+  function renderFastModel(x) {
+    const pending = !fastState.fit;
+    const fit = pending ? null : fastState.fit.fit, sum = pending ? null : fastState.fit.sum;
+    const ok = fit && fit.ok;
+    const why = pending ? 'pending' : fit.reason;
+    const noFit = why === 'pending' ? 'Fitting the model…' : why === 'converge' ? 'Model did not converge' : why === 'separation' ? 'Not estimable yet' : 'Too few runs to test';
+    const emptyText = why === 'separation' ? [...new Set(fit.empty.map(c => c.prev + c.next))].map(k => {
+      const langs = fit.empty.filter(c => c.prev + c.next === k).map(c => c.lang);
+      return `${langs.length === 2 ? 'in either language' : 'in ' + LANG_NAME[langs[0]]}, no ${STATE_NAME[k[0]]} answer was followed by a ${STATE_NAME[k[1]]} one`;
+    }).join('; ') : '';
+    // Staying negative is the complement of moving on: flip the sign of the
+    // "next answer positive after a negative one" contrast.
+    const stayN = ok ? Object.assign({}, sum.afterN, { b: -sum.afterN.b, z: -sum.afterN.z, ci: [-sum.afterN.ci[1], -sum.afterN.ci[0]] }) : null;
+    const stayP = ok ? sum.afterP : null;
+    const coef = name => ok ? fit.coef.find(c => c.name === name) : null;
+    const inter = coef('Language × previous state'), lang = coef('Language (English − Chinese)');
+    const { C, polarity, repeat, PROF, n, other } = x;
+    const P = x.pooled;
+
+    // Tiles: the language difference in each key measure.
+    const pill = r => r && isFinite(r.p) ? badge(r, 0) : `<span class="sig na">${noFit}</span>`;
+    const tile = (label, value, note, r, stat) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span>` +
+      `<span class="stat-note">${note}</span><span class="stat-test">${pill(r)}${stat ? `<span>${stat}</span>` : ''}</span></div>`;
+    $('#a-stats').innerHTML =
+      tile('Staying negative, P(N→N)', s2(r2(P.en.probs.N.N) - r2(P.zh.probs.N.N)).replace(/^([+−]?)0/, '$1'), `English − Chinese, pooled (${p2(P.en.probs.N.N)} vs ${p2(P.zh.probs.N.N)})`, asTest(stayN), stayN ? zStat(stayN) : '') +
+      tile('Staying positive, P(P→P)', s2(r2(P.en.probs.P.P) - r2(P.zh.probs.P.P)).replace(/^([+−]?)0/, '$1'), `English − Chinese, pooled (${p2(P.en.probs.P.P)} vs ${p2(P.zh.probs.P.P)})`, asTest(stayP), stayP ? zStat(stayP) : '') +
+      tile('Repeated answers', pts1(r3(repeat.en) - r3(repeat.zh)).replace(' pts', '<small>pts</small>'), `English − Chinese (${pct1(repeat.en)} vs ${pct1(repeat.zh)})`, repeat.test, isFinite(repeat.test.t) ? LAB.fmtT(repeat.test) : '') +
+      `<div class="stat"><span class="stat-label">Took part</span><span class="stat-value">${n}</span><span class="stat-note">students · ${(P.zh.n + P.en.n).toLocaleString('en-US')} valid transitions</span></div>`;
+
+    // The tests table: one row per question, the same columns throughout.
+    const row = (name, zh, en, diff, ci, stat, r) => `<tr><th scope="row">${name}</th><td class="num sep">${zh}</td><td class="num">${en}</td>` +
+      `<td class="num sep"><strong>${diff}</strong></td><td class="num">${ci}</td><td class="num sep">${stat || '–'}</td>${pCell(r)}${r && isFinite(r.p) ? resultCell(r, 0) : `<td class="result"><span class="sig na">${noFit}</span></td>`}</tr>`;
+    const mrow = (name, zh, en, r) => r ? row(name, zh, en, `${s2(r.b)} <small>log‑odds</small>`, `${s2(r.ci[0])} to ${s2(r.ci[1])}`, zStat(r), asTest(r)) : row(name, zh, en, '–', '–', '', null);
+    const imp = ok ? sum.implied : null;
+    const tt = (T, fmt) => ({ d: fmt(T.m), ci: isFinite(T.ci[0]) ? `${fmt(T.ci[0])} to ${fmt(T.ci[1])}` : '–', stat: isFinite(T.t) ? LAB.fmtT(T) : '' });
+    const pol = tt(polarity.test, s2), rp = tt(repeat.test, pts1);
+    pol.d = `${s2(r2(polarity.en) - r2(polarity.zh))} <small>points</small>`;
+    rp.d = pts1(r3(repeat.en) - r3(repeat.zh));
+    $('#a-tests').innerHTML = `<thead><tr><th scope="col">Question</th><th class="num sep" scope="col">Chinese</th><th class="num" scope="col">English</th>` +
+      `<th class="num sep" scope="col">English − Chinese</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col">Test</th><th class="num" scope="col"><i>p</i></th><th class="result" scope="col">Result</th></tr></thead><tbody>` +
+      `<tr class="group"><th scope="rowgroup" colspan="8">Where the next answer goes (mixed-effects model)</th></tr>` +
+      mrow('Staying negative, P(N→N)', imp ? p2(imp.zh.NN) : '–', imp ? p2(imp.en.NN) : '–', stayN) +
+      mrow('Staying positive, P(P→P)', imp ? p2(imp.zh.PP) : '–', imp ? p2(imp.en.PP) : '–', stayP) +
+      mrow('Language × previous state', '', '', inter) +
+      mrow('Language: overall shift to positive answers', '', '', lang) +
+      `<tr class="group"><th scope="rowgroup" colspan="8">Per student (paired t-tests)</th></tr>` +
+      row('Seed valence × language: answers after positive − after negative seeds (valence points)', b2(polarity.zh), b2(polarity.en), pol.d, pol.ci, pol.stat, polarity.test) +
+      row('Repeated answers', pct1(repeat.zh), pct1(repeat.en), rp.d, rp.ci, rp.stat, repeat.test) +
+      '</tbody>';
+    $('#a-tests-note').innerHTML = 'Model: mixed-effects logistic regression on every valid two-state transition, next answer positive ~ language × previous state + seed valence + position + block (first or second language), ' +
+      'with random intercepts for students and seeds (Laplace approximation, as lme4’s nAGQ = 0; Wald <i>z</i>). Its Chinese and English columns are the probabilities it implies at the average seed and the middle of the chain. ' +
+      'Language × previous state: how much less (negative) or more closely the next answer follows the previous answer’s state in English. ' +
+      'Paired t-tests use one score per student and language. Two-tailed, α = .05.' +
+      (why === 'separation' ? ` <strong>The model cannot be estimated yet:</strong> ${emptyText}.` : why === 'converge' ? ' <strong>The model did not converge</strong> with these runs; download the transitions to fit it elsewhere.' : '') +
+      (ok && fit.dropped.length ? ` Not estimable with the runs so far, so left out of the model: ${fit.dropped.map(d => d.toLowerCase()).join('; ')}.` : '');
+    $('#a-model').innerHTML = !ok ? '' : `<thead><tr><th scope="col">Fixed effect</th><th class="num" scope="col"><i>b</i></th><th class="num" scope="col">SE</th><th class="num" scope="col">95% CI</th>` +
+      `<th class="num sep" scope="col"><i>z</i></th><th class="num" scope="col"><i>p</i></th></tr></thead><tbody>` +
+      fit.coef.map(c => `<tr><th scope="row">${c.name}</th><td class="num">${b2(c.b)}</td><td class="num">${c.se.toFixed(2)}</td><td class="num">${b2(c.ci[0])} to ${b2(c.ci[1])}</td>` +
+        `<td class="num sep">${b2(c.z)}</td>${pCell(asTest(c))}</tr>`).join('') +
+      `<tr class="group"><th scope="rowgroup" colspan="6">Random intercepts (SD) · ${fit.n.toLocaleString('en-US')} transitions</th></tr>` +
+      fit.groupNames.map((g, i) => `<tr><th scope="row">${g}s (${fit.nLevels[i]})</th><td class="num">${fit.theta[i].toFixed(2)}</td><td colspan="4"></td></tr>`).join('') + '</tbody>';
+
+    // Summary: one line per finding, the test in brackets.
+    const items = [];
+    const lead2 = (name, r, verdictWords) => `<strong>${name}: ${r && isFinite(r.p) ? (LAB.isSig(r) ? verdictWords : 'no significant language difference') : why === 'pending' ? 'fitting the model…' : noFit.toLowerCase()}.</strong>`;
+    const pst = (key, r, more, less) => item(asTest(r), `${lead2(key === 'N' ? 'Staying negative' : 'Staying positive', asTest(r), r && r.b > 0 ? more : less)} ` +
+      `A ${key === 'N' ? 'negative' : 'positive'} answer was followed by another ${key === 'N' ? 'negative' : 'positive'} one ${pct0(P.zh.probs[key][key])} of the time in Chinese and ${pct0(P.en.probs[key][key])} in English` +
+      (r ? ` ${inline(`<i>b</i> = ${s2(r.b)}, ${zStat(r)}, ${LAB.fmtP(r.p)}${smallTag(n)}`)}` : '') + '.');
+    items.push(pst('N', stayN, 'more likely in English', 'less likely in English'));
+    items.push(pst('P', stayP, 'more likely in English', 'less likely in English'));
+    if (inter) items.push(item(asTest(inter), `<strong>Language × previous state: ${LAB.isSig(asTest(inter)) ? 'significant' : 'not significant'}.</strong> ` +
+      (LAB.isSig(asTest(inter)) ? `The next answer followed the previous answer’s state ${inter.b < 0 ? 'less' : 'more'} closely in English` : 'The next answer followed the previous answer’s state about as closely in both languages') +
+      ` ${inline(`${zStat(inter)}, ${LAB.fmtP(inter.p)}`)}.`));
+    const PT = polarity.test;
+    items.push(item(PT, `<strong>Seed valence × language: ${isFinite(PT.p) ? (LAB.isSig(PT) ? `the seeds’ valence carried ${PT.m > 0 ? 'further' : 'less far'} into the English chains` : 'no significant language difference') : 'not enough runs to test yet'}.</strong> ` +
+      `Answers after positive seeds were ${b2(polarity.zh)} points more positive than after negative seeds in Chinese, and ${b2(polarity.en)} in English` +
+      (isFinite(PT.t) ? ` ${inline(`${LAB.fmtTest(PT)}`)}` : '') + '.'));
+    const RT = repeat.test;
+    items.push(item(RT, `<strong>Repeated answers: ${isFinite(RT.p) ? (LAB.isSig(RT) ? `${RT.m > 0 ? 'more' : 'fewer'} in English` : 'no significant language difference') : 'not enough runs to test yet'}.</strong> ` +
+      `${pct1(repeat.zh)} of Chinese and ${pct1(repeat.en)} of English answers repeated an earlier word of the same chain` +
+      (isFinite(RT.t) ? ` ${inline(LAB.fmtTest(RT))}` : '') + '.'));
+    const gap = Math.abs(C.zh.valid - C.en.valid);
+    items.push(`<li><strong>Coverage.</strong> The norms scored ${pct0(C.zh.scored)} of Chinese and ${pct0(C.en.scored)} of English answers; ` +
+      `${pct0(C.zh.valid)} and ${pct0(C.en.valid)} of possible transitions were valid.` +
+      (gap >= 0.1 ? ` The ${C.zh.valid < C.en.valid ? 'Chinese' : 'English'} results rest on noticeably fewer transitions.` : '') +
+      (other ? ` ${other} run${other > 1 ? 's' : ''} with an earlier set of seed words ${other > 1 ? 'are' : 'is'} not included.` : '') + '</li>');
+    const pr = PROF.filter(o => o.test && isFinite(o.test.p));
+    if (pr.length) {
+      const sig = pr.filter(o => LAB.isSig(o.test));
+      items.push(`<li><strong>Relative proficiency (exploratory): ${sig.length ? 'significant slope for ' + sig.map(o => o.k === 'NN' ? 'staying negative' : 'staying positive').join(' and ') : 'no significant slope'}.</strong> ` +
+        pr.map(o => `${o.k === 'NN' ? 'Staying negative' : 'Staying positive'}: ${b3(o.fit.b)} per rating point ${inline(LAB.fmtTest(o.test))}`).join('; ') + '.</li>');
+    }
+    $('#a-summary').innerHTML = items.join('');
+    syncScrollers();
   }
 
   function taskStats(rows) {

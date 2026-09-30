@@ -7,7 +7,7 @@
     <title>Class results · LT5461</title>
     <meta name="description" content="Live, anonymous class results for the LT5461 in-class experiments.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="assets/lab.css?v=6">
+    <link rel="stylesheet" href="assets/lab.css?v=9">
     <style>
         :root { --wide: 76rem; }
         .dash-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--border); }
@@ -20,6 +20,8 @@
         .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
         .tab:hover { color: var(--text); }
         .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
+        /* Four tabs do not fit a phone: they wrap onto a second row. */
+        @media (max-width: 700px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         .panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 3rem; }
         @media (min-width: 1100px) { .panel-grid.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
         .bars { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
@@ -85,6 +87,33 @@
             table.data tbody th[scope="row"], table.data thead th:first-child { position: sticky; left: 0; background: var(--bg); z-index: 1; box-shadow: -3px 0 0 var(--bg); white-space: normal; min-width: 5.5rem; max-width: min(8.5rem, 34vw); }
             table.data tbody th[scope="row"]::after, table.data thead th:first-child::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--border-strong); }
         }
+        /* Association task: transition matrices, one per language */
+        .matrix-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem 3rem; margin-top: 1rem; max-width: 34rem; }
+        @media (min-width: 900px) { .matrix-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; } }
+        .matrix-pair h4, .traj-multiples h4, #a-prof h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .matrix-pair h4 .n { font-weight: 500; color: var(--text-light); font-size: 0.88rem; margin-left: 0.4rem; }
+        table.matrix { border-collapse: separate; border-spacing: 4px; font-variant-numeric: tabular-nums; width: 100%; table-layout: fixed; }
+        table.matrix col.head { width: 7.5rem; }
+        table.matrix th { font-size: 0.84rem; font-weight: 600; color: var(--text-secondary); text-align: left; padding: 0.25rem 0.5rem 0.25rem 0; line-height: 1.3; }
+        table.matrix thead th { text-align: center; }
+        table.matrix td { text-align: center; padding: 0.7rem 0.3rem; border: 1px solid var(--border); border-radius: 3px; background: color-mix(in srgb, var(--mint-deep) calc(var(--p, 0) * 38%), #fff); }
+        table.matrix td b { display: block; font-size: 1.45rem; font-weight: 700; color: var(--text); line-height: 1.15; }
+        table.matrix td span { display: block; font-size: 0.78rem; color: var(--text-secondary); }
+        table.matrix td.undef { background: var(--bg-alt); color: var(--text-light); }
+        @media (max-width: 480px) { table.matrix col.head { width: 5.75rem; } table.matrix td { padding: 0.55rem 0.15rem; } table.matrix td b { font-size: 1.25rem; } }
+        /* The three seed categories side by side on a projector, stacked below 900 px. */
+        .traj-multiples { grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 900px) { .traj-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; } }
+        .traj-multiples .figure { max-width: 24rem; }
+        h3.sub { font-size: 1.05rem; margin: 1.75rem 0 0.25rem; }
+        details.more { margin: 1.25rem 0 0.5rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        details.more > summary { cursor: pointer; font-weight: 650; color: var(--text); padding: 0.7rem 0; min-height: 2.75rem; }
+        details.more > summary:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+        details.more[open] > summary { margin-bottom: 0.25rem; }
+        table.data td.lead-cell { font-weight: 650; }
+        /* The tests table: questions get room before the numbers do. */
+        #a-tests tbody th[scope="row"] { min-width: 15rem; max-width: 22rem; white-space: normal; }
+        @media (min-width: 900px) { .traj-multiples .figure { max-width: none; } }
     </style>
 </head>
 <body>
@@ -116,6 +145,7 @@
                 <button class="tab" role="tab" id="tab-words" aria-controls="panel-words" aria-selected="true">Word tasks<span class="n" id="n-words"></span></button>
                 <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape task<span class="n" id="n-shapes"></span></button>
                 <button class="tab" role="tab" id="tab-fle" aria-controls="panel-fle" aria-selected="false" tabindex="-1">Judgement task<span class="n" id="n-fle"></span></button>
+                <button class="tab" role="tab" id="tab-fast" aria-controls="panel-fast" aria-selected="false" tabindex="-1">Association task<span class="n" id="n-fast"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -236,6 +266,79 @@
                     <p class="small muted column">1 = very limited, 7 = native-like. The two groups should be similar (Welch's t-test).</p>
                 </div>
             </section>
+            <!-- Association task (FAST, Chinese and English) -->
+            <section id="panel-fast" role="tabpanel" aria-labelledby="tab-fast" hidden>
+                <div class="veil">
+                    <div class="veil-grid">
+                        <div><span class="stat-label">Chinese first</span><div class="big" id="veil-fast-zh">0</div></div>
+                        <div><span class="stat-label">English first</span><div class="big" id="veil-fast-en">0</div></div>
+                    </div>
+                </div>
+                <div class="results-body">
+                    <p class="note" id="a-status" hidden></p>
+                    <section class="summary" aria-labelledby="a-sum-h"><h2 id="a-sum-h">Summary</h2><ul id="a-summary"></ul></section>
+                    <div id="a-body">
+                    <div class="stats" id="a-stats"></div>
+
+                    <h2>Descriptive results</h2>
+                    <h3 class="sub">Where the next answer goes</h3>
+                    <div class="matrix-pair" id="a-matrices"></div>
+                    <p class="small muted column" id="a-matrix-note"></p>
+
+                    <h3 class="sub">By language and seed valence</h3>
+                    <div class="table-wrap" data-label="Results by language and seed valence"><table class="data" id="a-bycat"></table></div>
+                    <p class="small muted column">Persistence: pooled transitions, as in the matrices. Valence: each student’s mean over scored answers, then the class mean (1–9). Repeated answers: the share of answers that repeat an earlier word of the same chain, the seed included.</p>
+
+                    <h3 class="sub">Valence along the chain</h3>
+                    <div class="multiples traj-multiples" id="a-traj"></div>
+                    <div class="legend" aria-hidden="true">
+                        <span><i class="sw-a"></i>Chinese</span>
+                        <span><i class="sw-b"></i>English</span>
+                        <span>Whiskers: 95% CI across students</span>
+                    </div>
+                    <p class="small muted column">Mean valence of the answers (1–9) at each position of the chain.</p>
+
+                    <details class="more">
+                        <summary>Three states: negative, neutral, positive</summary>
+                        <div class="matrix-pair" id="a-matrices3"></div>
+                        <p class="small muted column">Negative below 4.2, neutral 4.2 to 5.8, positive 5.8 and above. Pooled; descriptive only.</p>
+                    </details>
+
+                    <h2>Inferential results</h2>
+                    <div class="table-wrap" data-label="Tests"><table class="data" id="a-tests"></table></div>
+                    <p class="small muted column" id="a-tests-note"></p>
+                    <details class="more">
+                        <summary>All terms of the mixed-effects model</summary>
+                        <div class="table-wrap" data-label="Mixed-effects model table"><table class="data" id="a-model"></table></div>
+                    </details>
+
+                    <h3 class="sub">Relative proficiency (exploratory)</h3>
+                    <div class="dash-controls" style="border:0;padding-top:0">
+                        <label>Proficiency <select id="a-prof-key">
+                            <option value="overall">Overall: English − Chinese self-rating</option>
+                            <option value="productive">Speaking and writing: English − Chinese</option>
+                        </select></label>
+                    </div>
+                    <div class="table-wrap" data-label="Proficiency slopes table"><table class="data" id="a-prof-table"></table></div>
+                    <details class="more">
+                        <summary>Show the plots</summary>
+                        <div class="multiples fle-multiples" id="a-prof"></div>
+                        <p class="small muted column">Each dot is a student: the English − Chinese difference in their own persistence probability, against their English − Chinese self-rating (0–10 scales). Students with no transitions from a state in one language are left out. Black line: least-squares fit with its 95% band. Dashed line: no difference.</p>
+                    </details>
+
+                    <h2>Data quality</h2>
+                    <div class="table-wrap" data-label="Norm coverage table"><table class="data" id="a-coverage"></table></div>
+                    <p class="small muted column">Chinese valence is on the English scale: the Chan &amp; Tse ratings are compressed towards the middle (the same concept is rated less extreme), so they are equated to Warriner over the two whole norm sets (English = −1.53 + 1.31 × Chinese; <code>assets/data/equating.json</code>). Without this, Chinese chains would look more neutral by construction. The downloads keep the raw ratings too.</p>
+                    <p class="small muted column">Answers scored: found in the norms (Warriner et al., 2013; Chan &amp; Tse, 2024). Valid transitions: adjacent answers that were both scored, out of 90 per student and language (answers 1→2 to 9→10 in 10 chains). An unscored answer breaks both of its transitions; nothing is bridged across it.</p>
+
+                    <h2>Data</h2>
+                    <div class="actions" style="margin-top:0.75rem">
+                        <button class="btn-quiet" id="a-csv-answers" type="button">Answers with valence (CSV)</button>
+                        <button class="btn-quiet" id="a-csv-transitions" type="button">Transitions (CSV)</button>
+                    </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -252,7 +355,9 @@
         })();
     </script>
     <script src="assets/config.js?v=2"></script>
-    <script src="assets/lab.js?v=8"></script>
-    <script src="assets/dashboard.js?v=18"></script>
+    <script src="assets/lab.js?v=9"></script>
+    <script src="assets/fast-stimuli.js?v=6"></script>
+    <script src="assets/fast-analysis.js?v=4"></script>
+    <script src="assets/dashboard.js?v=26"></script>
 </body>
 </html>

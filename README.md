@@ -15,6 +15,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `word-task-2.html` | students | Visible translation priming (200 ms prime), lexical decision |
 | `shape-task.html` | students | Sound symbolism (bouba/kiki), 3 × 2 |
 | `judgement-task.html` | students | Foreign-language effect: gambles, sunk cost, superstition (Chinese vs English) |
+| `association-task.html` | students | Association task (FAST): chained associations in Chinese and in English |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -44,7 +45,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -52,6 +53,10 @@ attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `f
   - Masked task: also the awareness answer.
   - Shape task: the six cell means.
   - Judgement task: language, the three scores, the checks.
+  - Association task: group, language order, lists, the language questions,
+    the ten 0–10 self-ratings, and every answer (each chain as two fields,
+    `c_<seed>_a` = language + answers 1–5 and `c_<seed>_b` = answers 6–10).
+    No valence is stored: the results page scores the answers each time.
 - `*_trials`: one row per trial. Every trial's forward-mask and prime
   durations are measured and stored.
 
@@ -129,6 +134,98 @@ A/B links or QR codes.
   and the interaction (English slope − Chinese slope) with 95% CIs. If the
   effect fades as English improves, the English line approaches the Chinese
   mean at higher ratings.
+
+## Association task (FAST, Chinese and English)
+
+A typed adaptation of the Free Association Semantic Task (Andrews-Hanna et al.,
+2022), within subjects. It is written for students from Mainland China, so all
+Chinese is simplified.
+
+**What students do.**
+
+- They start with a few questions: first language, the age they started
+  English, and daily English use. Then they rate their Chinese and English on
+  five 0–10 scales.
+- Then come two blocks, one per language. Each block opens with numbered steps
+  and an example chain in that language (table → glass → bottle → box →
+  paper; 桌子 → 玻璃 → 瓶子 → 盒子 → 纸张). The example words are everyday
+  objects that are neutral in both norms (valence 4.9–5.5), unlike the seeds.
+  A three-answer practice follows (street / 街道, also neutral).
+- Each block has 10 chains of 10 answers. A chain starts from a seed word, and
+  every answer becomes the cue for the next. The seed is shown only for the
+  first answer.
+- Answers in the wrong script are refused. Every answer's time is recorded.
+- Progress is saved after every answer, so a reload resumes.
+- Students see only "Submitted" at the end.
+
+**Seeds.** Every student gets the same 20 seeds: 10 Chinese words in the
+Chinese block and 10 different English words in the English block. The two
+sets are not translations of each other and share no concept, not even a
+close relative or an opposite (war/peace, heaven/hell). Each set has 4
+negative, 4 positive and 2 neutral seeds. The seeds are chosen from the
+published norms by `materials/fast/select_seeds.py`, and
+`materials/fast/selection.md` lists every candidate's values.
+
+- The students' English is limited, so every seed is among the 2,000 most
+  frequent words of its language (SUBTLEX-US, SUBTLEX-CH), and the most
+  frequent are preferred.
+- Chinese valence, arousal and concreteness are put on the English scales
+  first. The Chan & Tse ratings are compressed towards the middle, so they are
+  equated to the English norms over the two whole norm sets
+  (`assets/data/equating.json`). The criteria and the matching then mean the
+  same in both languages.
+- The Chinese and English sets are matched on valence, arousal, concreteness
+  and frequency within each category. Within each language, the positive and
+  negative seeds are matched too, arousal above all.
+- Words that could distress students (death, murder, suicide) are left out.
+
+**Groups.** Only the language order is counterbalanced: group 1 does Chinese
+then English, group 2 English then Chinese. The group is random each time the
+task is opened. For balanced groups, use two links or QR codes ending in
+`?group=1` and `?group=2`.
+
+**Scoring.** The results page loads the norm tables in `assets/data/` and
+scores every answer each time it draws.
+
+- English answers use Warriner et al. (2013). They are matched after lower
+  case, British → American spelling and lemmatisation (WordNet's irregular
+  forms plus suffix rules).
+- Chinese answers use Chan & Tse (2024), through its simplified forms, on the
+  English scale (equated as above). The downloads also keep the raw rating.
+- An answer the norms do not rate stays in its chain as missing. It is never
+  translated, averaged over its parts, or bridged. Only runs made with the
+  current seed lists are analysed.
+
+**The results tab.**
+
+1. **Summary.** One line per finding, with its test.
+2. **Descriptive results.**
+   - The two-state transition matrices (negative < 5 ≤ positive; answers
+     1→2 … 9→10, pooled) for Chinese and English.
+   - One table crossing language with seed valence. It shows staying negative,
+     P(N→N); staying positive, P(P→P); the mean valence of the answers; and
+     the share of repeated answers.
+   - Valence along the chain.
+   - The three-state matrices, in a fold-out.
+3. **Inferential results.**
+   - A mixed-effects logistic regression on every valid transition: next
+     answer positive ~ language × previous state + seed valence + position +
+     block (first or second language), with random intercepts for students
+     and seeds. It is fitted
+     in the browser and gives the same estimates as lme4's `glmer`
+     (`nAGQ = 0`) to four decimals. The page reports the language effect on
+     staying negative and on staying positive, the language × previous-state
+     interaction, and the overall shift towards positive answers.
+   - Two paired t-tests on one score per student and language: the seed
+     valence × language interaction on the answers' valence (positive − negative
+     seeds), and repeated answers.
+   - Relative proficiency (exploratory).
+4. **Data quality.** The share of answers the norms scored, and of the 90
+   possible transitions per student and language that were valid.
+5. **Downloads.** Answers with valence, and transitions, as CSV files for R.
+
+A **repeated answer** repeats an earlier word of the same chain, the seed
+included. English words are compared as lemmas (friend = friends).
 
 ## English self-ratings
 

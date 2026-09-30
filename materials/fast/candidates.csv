@@ -1,0 +1,70 @@
+id,english,chinese,category,family,pos,emotion_label,translation,exclude,note
+danger,danger,危险,negative,danger,noun,0,exact,,
+fear,fear,恐惧,negative,fear,noun,1,exact,,
+pain,pain,痛苦,negative,pain,noun,0,close,,痛苦 is closer to suffering
+crime,crime,犯罪,negative,crime-law,noun,0,exact,,
+hate,hate,讨厌,negative,hate,verb,1,close,,讨厌 is closer to dislike
+attack,attack,袭击,negative,war-peace,noun,0,exact,,
+accident,accident,意外,negative,accident,noun,0,close,,意外 also means unexpected
+accident_sg,accident,事故,negative,accident,noun,0,exact,,
+evil,evil,邪恶,negative,evil,adjective,0,exact,,
+hell,hell,地狱,negative,afterlife,noun,0,exact,,
+terrible,terrible,可怕,negative,fear,adjective,0,exact,,
+stupid,stupid,愚蠢,negative,stupid,adjective,0,exact,,
+idiot,idiot,白痴,negative,stupid,noun,0,exact,insult,left out: an insult
+angry,angry,生气,negative,anger,adjective,1,exact,,
+upset,upset,难过,negative,sadness,adjective,1,close,,难过 is closer to sad
+war,war,战争,negative,war-peace,noun,0,exact,,
+lie,lie,谎言,negative,lie,noun,0,exact,,
+mistake,mistake,错误,negative,problem,noun,0,exact,,
+trouble,trouble,麻烦,negative,problem,noun,0,exact,,
+afraid,afraid,害怕,negative,fear,adjective,1,exact,,
+prison,prison,监狱,negative,crime-law,noun,0,exact,,
+enemy,enemy,敌人,negative,war-peace,noun,0,exact,,
+death,death,死亡,negative,death,noun,0,exact,distressing,left out: may distress students in class
+murder,murder,谋杀,negative,murder,noun,0,exact,distressing,left out: may distress students in class
+suicide,suicide,自杀,negative,suicide,noun,0,exact,distressing,left out: may distress students in class
+freedom,freedom,自由,positive,ideals,noun,0,exact,,
+free,free,自由,positive,ideals,adjective,0,close,,free also means costing nothing
+lucky,lucky,幸运,positive,luck,adjective,0,exact,,
+happy,happy,快乐,positive,happiness,adjective,1,exact,,
+happy_gx,happy,高兴,positive,happiness,adjective,1,exact,,
+gift,gift,礼物,positive,celebration,noun,0,exact,,
+hope,hope,希望,positive,hope,noun,1,exact,,
+dream,dream,梦想,positive,hope,noun,0,exact,,
+beautiful,beautiful,美丽,positive,beauty,adjective,0,exact,,
+wedding,wedding,婚礼,positive,celebration,noun,0,exact,,
+fun,fun,有趣,positive,happiness,adjective,0,close,,有趣 is closer to interesting
+trust,trust,信任,positive,trust,noun,0,exact,,
+health,health,健康,positive,health,noun,0,exact,,
+win,win,赢得,positive,success,verb,0,close,,赢得 is to win something
+surprise,surprise,惊喜,positive,celebration,noun,0,close,,惊喜 is a pleasant surprise only
+travel,travel,旅行,positive,travel,noun,0,exact,,
+trip,trip,旅行,positive,travel,noun,0,close,,
+angel,angel,天使,positive,afterlife,noun,0,exact,,
+heaven,heaven,天堂,positive,afterlife,noun,0,exact,,
+enjoy,enjoy,享受,positive,happiness,verb,0,exact,,
+wonderful,wonderful,精彩,positive,wonderful,adjective,0,close,,精彩 is closer to brilliant or exciting
+welcome,welcome,欢迎,positive,welcome,verb,0,exact,,
+excellent,excellent,优秀,positive,success,adjective,0,exact,,
+success,success,成功,positive,success,noun,0,exact,,
+friend,friend,朋友,positive,trust,noun,0,exact,,
+peace,peace,和平,positive,war-peace,noun,0,exact,,
+decision,decision,决定,neutral,decision,noun,0,exact,,
+situation,situation,情况,neutral,situation,noun,0,exact,,
+news,news,新闻,neutral,reports,noun,0,exact,,
+system,system,系统,neutral,system,noun,0,exact,,
+school,school,学校,neutral,school,noun,0,exact,,
+part,part,部分,neutral,part,noun,0,exact,,
+side,side,旁边,neutral,position,noun,0,close,,旁边 is beside
+middle,middle,中间,neutral,position,noun,0,exact,,
+law,law,法律,neutral,crime-law,noun,0,exact,,
+rule,rule,规则,neutral,crime-law,noun,0,exact,,
+report,report,报告,neutral,reports,noun,0,exact,,
+meeting,meeting,会议,neutral,reports,noun,0,exact,,
+minute,minute,分钟,neutral,time,noun,0,exact,,
+week,week,星期,neutral,time,noun,0,exact,,
+table,table,桌子,neutral,table,noun,0,exact,,
+building,building,大楼,neutral,building,noun,0,close,,大楼 is a tall building
+change,change,改变,neutral,change,noun,0,exact,,
+number,number,数字,neutral,number,noun,0,exact,,
