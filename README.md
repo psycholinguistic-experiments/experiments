@@ -16,6 +16,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `shape-task.html` | students | Sound symbolism (bouba/kiki), 3 × 2 |
 | `judgement-task.html` | students | Foreign-language effect: gambles, sunk cost, superstition (Chinese vs English) |
 | `association-task.html` | students | Association task (FAST): chained associations in Chinese and in English |
+| `sentence-task.html` | students | Sentence verification: the typicality effect (true/false statements) |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -45,7 +46,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -57,6 +58,8 @@ attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `f
     the ten 0–10 self-ratings, and every answer (each chain as two fields,
     `c_<seed>_a` = language + answers 1–5 and `c_<seed>_b` = answers 6–10).
     No valence is stored: the results page scores the answers each time.
+  - Sentence task: median RT for high- and low-typicality true statements,
+    the typicality effect, accuracy, valid-trial counts, time-outs.
 - `*_trials`: one row per trial. Every trial's forward-mask and prime
   durations are measured and stored.
 
@@ -97,6 +100,7 @@ stays the same. Copy the changes back into `apps-script/Code.gs`.
 - **Priming items:** `assets/stimuli.js`. Each list must stay a bijection of
   control primes; the file header explains how.
 - **Shape-task words:** `WORDS` in `assets/shapes.js`.
+- **Sentence-task statements:** `assets/svt-stimuli.js`.
 - **Timing:** `LDT_CONFIG` at the bottom of `word-task-1.html` and
   `word-task-2.html`. If many students report reading the masked Chinese
   primes, lower `primeMs: 60` to `50`.
@@ -227,6 +231,74 @@ scores every answer each time it draws.
 A **repeated answer** repeats an earlier word of the same chain, the seed
 included. English words are compared as lemmas (friend = friends).
 
+## Sentence task (typicality)
+
+A sentence verification task for the Week 2 prototype-theory sequence: are
+true statements about typical category members verified faster than true
+statements about less typical ones ("A sparrow is a bird" vs "A penguin is a
+bird")?
+
+**Design.** 8 practice trials, then 112 scored trials: 56 true targets and 56
+false fillers across seven familiar categories (animal, bird, vehicle,
+furniture, clothing, sport, musical instrument). Each category has 4 high- and
+4 low-typicality targets and 8 fillers. Fillers have no typicality level and
+are never analysed by typicality; they only make the decision real. Every noun
+appears once. Each category keeps one sentence frame for targets and fillers.
+Clothing uses the plural ("Socks are clothing."), since trousers, socks,
+gloves and pyjamas have no singular frame. The items are in
+`assets/svt-stimuli.js`.
+
+**Each trial.**
+
+- A fixation cross for 500 ms.
+- The sentence, until the first response or 5,000 ms (a time-out).
+- A blank 650 ms.
+
+Students press F for False and J for True, or use the two buttons on screen
+(touch screens hide the key labels). The first response locks the trial at
+once: the buttons are disabled and the timing stops. Key repeats, extra clicks
+and presses while no sentence is on screen are all ignored until the next
+sentence appears. Practice gives *Correct*, *Incorrect* or *Too slow*
+feedback; the scored trials give none. If the student leaves the window, that
+trial is marked invalid and the task pauses until they press *Continue*.
+
+**Order.** A new random order for every run, with constraints. There are at
+most 3 trials in a row with the same answer (so at most 3 targets or 3 fillers
+in a row) and at most 2 in a row from one category. Each half of the task
+holds 14 high and 14 low targets.
+
+**Scoring (per student).**
+
+- Only correct target trials count, with 250 ms ≤ RT < 5,000 ms and focus kept.
+- `rt_high`, `rt_low`: the median RT for each typicality level.
+- `effect` = `rt_low` − `rt_high`. Positive is the predicted direction.
+- `acc`: overall accuracy over all 112 trials; time-outs count as errors.
+
+A run is not interpreted (`include = 0`) if accuracy is below 80% or fewer
+than 12 valid trials remain in either condition. The student then sees the
+data-quality message instead of their RT result.
+
+**What students see.** Their accuracy, the number of valid target trials, both
+medians and the difference, as tiles and a two-bar chart. Then the debrief
+from the implementation brief, with one sentence on their own direction.
+*Start over* draws a new order and clears everything. A repeat run is stored,
+numbered (`run`), and left out of the class results.
+
+**The results tab.** The class mean of each person's medians, and each
+person's effect as a dot. Test: the effects against 0 (one-sample t-test, the
+same as a paired t-test of low vs high), with d<sub>z</sub>. Only each
+student's first interpreted run counts.
+
+**The module.** `assets/svt.js` is self-contained. It sets no page styles, its
+CSS (`assets/svt.css`) is scoped to `.svt`, and it sends nothing itself.
+`SentenceVerification.mount(element, options)` returns `reset()` and
+`unmount()`, which cancel every timer and listener. It hands each finished run
+to `options.onComplete` and to an `svt:complete` event. The run includes
+`accuracy`, `highTypicalityMedianRt`, `lowTypicalityMedianRt`,
+`typicalityEffectRt`, `nValidHigh`, `nValidLow`, `nTimeouts` and every trial's
+record. `sentence-task.html` stores it through the class data connection, as
+the other tasks do.
+
 ## English self-ratings
 
 The word tasks and the judgement task (both languages) end with five 1–7
@@ -247,6 +319,7 @@ task).
 | Word tasks | One-sample t-test of each person's priming effect (RT and errors) against 0 |
 | Shape task | Paired t-tests on each student's own percentages: u o vs i e, m n l vs p t k, m n l vs b d g, b d g vs p t k; one-sample t-tests of each sound class against 50% |
 | Judgement task | Welch's t-test, English vs Chinese, for every measure (d = difference ÷ pooled SD); proficiency slopes against 0; interaction = English slope − Chinese slope, Welch–Satterthwaite t |
+| Sentence task | One-sample t-test of each person's typicality effect (low − high median RT) against 0, with d<sub>z</sub> |
 
 ## How the priming data are analysed
 
