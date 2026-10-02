@@ -9,6 +9,11 @@
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="assets/lab.css?v=9">
     <link rel="stylesheet" href="assets/svt.css?v=4">
+    <style>
+        /* A rating left out: its row is marked where the page jumps to, not only in the message below. */
+        .prof-row.missing .prof-skill { color: var(--danger); }
+        .prof-row.missing .choice > span { border-color: var(--danger); }
+    </style>
 </head>
 <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -71,11 +76,20 @@
             // English self-ratings first (pre-filled from any earlier task), then the task.
             var prof = LAB.proficiency(document.getElementById('prof'), 'en');
             var about = document.getElementById('form-about'), aboutErr = document.getElementById('about-error');
-            about.addEventListener('change', function () { aboutErr.textContent = ''; });
+            function markMissing() {
+                var any = false;
+                document.querySelectorAll('#prof .prof-row').forEach(function (row) {
+                    var gap = !row.querySelector('input:checked');
+                    row.classList.toggle('missing', gap && aboutErr.textContent !== '');
+                    any = any || gap;
+                });
+                return any;
+            }
+            about.addEventListener('change', function () { if (!markMissing()) aboutErr.textContent = ''; markMissing(); });
             about.addEventListener('submit', function (e) {
                 e.preventDefault();
                 var vals = prof.read();
-                if (!vals) { aboutErr.textContent = prof.missingText; return; }
+                if (!vals) { aboutErr.textContent = prof.missingText; markMissing(); return; }
                 ratings = prof.fields(vals);
                 document.getElementById('s-about').hidden = true;
                 document.getElementById('svt').hidden = false;

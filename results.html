@@ -153,6 +153,7 @@
         .chart .svt-line.svt-lo { stroke: var(--mint-deep); stroke-dasharray: 7 5; }
         .chart .svt-dot.svt-mean.svt-hi { fill: var(--text); fill-opacity: 1; }
         .chart .svt-whisker { stroke-width: 1.75; }
+        .prof-legend .k-fit { width: 1.4rem; height: 0.7rem; border-radius: 2px; background: linear-gradient(var(--text), var(--text)) center / 100% 2.5px no-repeat, var(--highlight); }
         .chart .svt-whisker.svt-hi { stroke: var(--text); }
         .chart .svt-whisker.svt-lo { stroke: var(--mint-deep); }
         .v-prof-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
@@ -530,6 +531,9 @@
                     <section class="q" aria-labelledby="v-q-prof">
                         <h2 id="v-q-prof">Does English proficiency matter? <span class="tag">exploratory</span></h2>
                         <p class="q-lead">Before the task, students rated their English from 1 (very limited) to 7 (native-like) in five ways. Does the typicality effect change as the rating goes up?</p>
+                        <h3 class="sub">All ratings</h3>
+                        <div id="v-prof-all"></div>
+                        <p class="chart-caption">How much the typicality effect (low − high) changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. Bold and filled: significant.</p>
                         <h3 class="sub">One rating in detail</h3>
                         <fieldset class="seg" id="v-prof-skill">
                             <legend class="visually-hidden">English rating</legend>
@@ -540,14 +544,12 @@
                             <label><input type="radio" name="v-prof-skill" value="eng_reading"><span>Reading</span></label>
                             <label><input type="radio" name="v-prof-skill" value="eng_writing"><span>Writing</span></label>
                         </fieldset>
+                        <p class="prof-legend"><span><i class="k-fit"></i>Fitted line, 95% band</span></p>
                         <div class="multiples v-prof-pair">
                             <figure class="figure"><h4>Lower vs higher English</h4><div id="v-prof-rt"></div></figure>
                             <figure class="figure"><h4>Typicality effect by English rating</h4><div id="v-prof-eff"></div></figure>
                         </div>
                         <p class="chart-caption" id="v-prof-cap"></p>
-                        <h3 class="sub">All five ratings</h3>
-                        <div id="v-prof-all"></div>
-                        <p class="chart-caption">How much the typicality effect (low − high) changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. Bold and filled: significant.</p>
                         <details class="more">
                             <summary>Show the numbers</summary>
                             <div class="table-wrap" data-label="English proficiency tests"><table class="data" id="v-prof-table"></table></div>
@@ -604,7 +606,7 @@
     <script src="assets/fast-charts.js?v=13"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
-    <script src="assets/svt-charts.js?v=1"></script>
-    <script src="assets/dashboard.js?v=42"></script>
+    <script src="assets/svt-charts.js?v=2"></script>
+    <script src="assets/dashboard.js?v=43"></script>
 </body>
 </html>

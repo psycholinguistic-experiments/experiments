@@ -85,11 +85,14 @@
         if (isFinite(c[0])) svg('line', { x1: x, x2: x, y1: Y(Math.min(d.hi, c[1])), y2: Y(Math.max(d.lo, c[0])), class: 'svt-whisker ' + cls }, gg);
         svg('circle', { cx: x, cy: Y(g.m[k]), r: 5.5, class: 'svt-dot ' + cls + ' svt-mean' }, gg);
       });
-      ends.push({ g, cls, y: Y(g.m.lo), x: xs.lo + dx + 14 });
+      ends.push({ g, cls, y: Y(g.m.lo) });
     });
+    // both names start at one x, past every dot and whisker, and never touch
+    const lx = xs.lo + (G.length > 1 ? 7 : 0) + 5.5 + 10;
     ends.sort((a, b) => a.y - b.y);
-    if (ends.length === 2 && ends[1].y - ends[0].y < 38) { const m = (ends[0].y + ends[1].y) / 2; ends[0].y = m - 19; ends[1].y = m + 19; }
+    if (ends.length === 2 && ends[1].y - ends[0].y < 44) { const m = (ends[0].y + ends[1].y) / 2; ends[0].y = m - 22; ends[1].y = m + 22; }
     ends.forEach(e => {
+      e.x = lx;
       text(s, e.x, e.y - 1, e.g.name, { class: 'series-label halo' });
       text(s, e.x, e.y + 15, narrow ? `${e.g.sub.replace('rated ', '')} · n ${e.g.n}` : `${e.g.sub}, n = ${e.g.n}`, { class: 'row-label halo' });
     });
@@ -143,7 +146,7 @@
       const y = top + i * rowH + (narrow ? 34 : rowH / 2);
       const sig = isFinite(r.p) && r.p < 0.05;
       text(s, 0, narrow ? y - 15 : y + 5, r.label, { class: (sig ? 'label-strong' : 'row-label') + (narrow ? ' halo' : '') });
-      if (!isFinite(r.b)) { text(s, X(0), y + 5, 'too few students', { 'text-anchor': 'middle', class: 'row-label' }); return; }
+      if (!isFinite(r.b)) { text(s, X(0), y + 5, r.note || 'not enough data', { 'text-anchor': 'middle', class: 'row-label halo' }); return; }
       const g = svg('g', {}, s);
       title(g, `${r.label}: ${sms(r.b)} ms per rating point (95% CI ${sms(r.lo)} to ${sms(r.hi)})` + (isFinite(r.p) ? `, p ${r.p < 0.001 ? '< .001' : '= ' + r.p.toFixed(3).replace(/^0/, '')}` : ''));
       svg('line', { x1: X(Math.max(-lim, r.lo)), x2: X(Math.min(lim, r.hi)), y1: y, y2: y, class: 'forest-ci' + (sig ? ' sig' : '') }, g);

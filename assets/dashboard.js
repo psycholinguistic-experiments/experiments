@@ -994,7 +994,11 @@
     const cur = P.find(o => o.k === sel) || P[0];
     const xLabel = `English self-rating: ${cur.name.toLowerCase()} (1–7)`;
     const none = '<p class="empty">No counted runs with English self-ratings yet.</p>';
-    if (cur.pts.length) {
+    const spreadOf = o => o.xs.length ? Math.max(...o.xs) - Math.min(...o.xs) : 0;
+    if (cur.pts.length && !spreadOf(cur)) {
+      const msg = `<p class="empty">Everyone so far gave the same ${cur.name === 'Mean of five' ? 'mean rating' : cur.name.toLowerCase() + ' rating'}, so there is nothing to compare yet.</p>`;
+      $('#v-prof-rt').innerHTML = msg; $('#v-prof-eff').innerHTML = msg;
+    } else if (cur.pts.length) {
       // Lower and upper half on the chosen rating (ties at the median go to the lower half,
       // unless that would leave the upper half empty); each group named by its range.
       const med = LAB.median(cur.xs);
@@ -1012,10 +1016,11 @@
       'If the two lines are not parallel, the typicality effect differs with English proficiency. ' +
       '<em>Typicality effect by English rating:</em> each student’s effect against their rating, with the least-squares line and its 95% band; its slope is the interaction, tested without splitting the class.' +
       (cur.test && isFinite(cur.test.p) ? ` Here: ${LAB.signed(cur.test.diff)} ms per rating point (${LAB.fmtTest(cur.test)}, <i>n</i> = ${cur.pts.length}).` : '');
-    if (P.some(o => o.pts.length)) {
-      SVT_CHARTS.slopes($('#v-prof-all'), P.map(o => ({ label: o.name, b: o.eff ? o.eff.b : NaN, lo: o.eff ? o.eff.ciB[0] : NaN, hi: o.eff ? o.eff.ciB[1] : NaN, p: o.test ? o.test.p : NaN })),
+    if (P.some(o => o.eff)) {
+      SVT_CHARTS.slopes($('#v-prof-all'), P.map(o => ({ label: o.name, b: o.eff ? o.eff.b : NaN, lo: o.eff ? o.eff.ciB[0] : NaN, hi: o.eff ? o.eff.ciB[1] : NaN, p: o.test ? o.test.p : NaN,
+        note: o.pts.length < 3 ? 'fewer than 3 students' : 'the ratings do not vary' })),
         { xLabel: 'Change in the typicality effect per rating point (ms)', xLabelShort: 'Change per rating point (ms)', label: 'For each English rating, the change in the typicality effect per rating point, with 95% confidence intervals' });
-    } else $('#v-prof-all').innerHTML = none;
+    } else $('#v-prof-all').innerHTML = P.some(o => o.pts.length >= 3) ? '<p class="empty">The ratings do not vary yet, so there is nothing to compare.</p>' : '<p class="empty">Needs at least 3 counted runs with English self-ratings.</p>';
     const slope = f => f ? LAB.signed(f.b) : '–';
     $('#v-prof-table').innerHTML =
       `<thead><tr><th scope="col">English rating</th><th class="num" scope="col">n</th><th class="num" scope="col">Mean (range)</th>` +
@@ -1027,7 +1032,7 @@
         `<td class="num sep"><strong>${slope(o.eff)}</strong></td><td class="num">${o.eff ? fmtCI(o.eff.ciB) : '–'}</td>` +
         `${tCell(o.test)}${pCell(o.test)}${resultCell(o.test, 0)}</tr>`).join('') + '</tbody>';
     const M = P[0];
-    if (M.test && isFinite(M.test.p)) items.push(item(M.test, `${lead('English proficiency × typicality', M.test)} The typicality effect changed by ${LAB.signed(M.test.diff)} ms per point of self-rated English (mean of five) ${inline(`${LAB.fmtTest(M.test)}, <i>n</i> = ${M.pts.length}${smallTag(M.pts.length)}`)}; exploratory.`));
+    if (M.test && isFinite(M.test.p)) items.push(item(M.test, `${lead('English proficiency × typicality', M.test)} The typicality effect changed by ${LAB.signed(M.test.diff)} ms per point of self-rated English, mean of five ${inline(`${LAB.fmtTest(M.test)}, <i>n</i> = ${M.pts.length}${smallTag(M.pts.length)}`)}; exploratory.`));
     else if (inc.length) items.push(item(null, `<strong>English proficiency × typicality: not enough rated runs yet.</strong> ${M.pts.length} so far; the test needs at least 3 with different ratings.`));
     $('#v-summary').innerHTML = items.join('');
   }
