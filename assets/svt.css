@@ -101,7 +101,7 @@
 .svt .svt-btn.is-picked kbd { color: var(--svt-ink); border-color: var(--svt-ink); }
 
 /* Phones: the labels step down so the sentence stays the focus. */
-@media (max-width: 480px) { .svt .svt-btn { font-size: 1.05rem; } }
+@media (max-width: 480px) { .svt .svt-btn { font-size: 1.05rem; font-weight: 600; } }
 
 /* Touch screens: no key labels. */
 @media (hover: none) and (pointer: coarse) {
@@ -159,7 +159,7 @@
     @keyframes svt-grow { from { width: 0; } }
 }
 
-.svt .svt-quality { max-width: var(--measure, 38rem); }
+.svt .svt-quality { max-width: 44rem; }   /* the right edge of the tiles above */
 .svt .svt-yours { font-weight: 650; color: var(--svt-ink); }
 .svt .svt-actions { margin-top: 2.25rem; }
 /* The page's upload status (sentence-task.html) follows the buttons, so a

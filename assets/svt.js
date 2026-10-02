@@ -163,7 +163,8 @@
       </div>
     </section>
 
-    <section class="svt-screen" data-screen="task" aria-label="Sentence task" tabindex="-1" hidden>
+    <section class="svt-screen" data-screen="task" aria-labelledby="svt-task-h" tabindex="-1" hidden>
+      <h1 class="visually-hidden" id="svt-task-h">True or false?</h1>
       <div class="svt-task">
         <div class="progress progress-inline">
           <div class="progress-meta"><span class="progress-label"></span><span class="progress-count"></span></div>

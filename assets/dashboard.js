@@ -948,7 +948,7 @@
     });
 
     $('#v-table').innerHTML =
-      `<thead><tr><th scope="col"></th><th class="num" scope="col">n</th><th class="num" scope="col">High typicality</th><th class="num" scope="col">Low typicality</th>` +
+      `<thead><tr><th scope="col">Statements</th><th class="num" scope="col">n</th><th class="num" scope="col">High typicality</th><th class="num" scope="col">Low typicality</th>` +
       `<th class="num" scope="col">Effect</th><th class="num" scope="col">95% CI</th>${tHead('<i>d</i><sub>z</sub>')}</tr></thead>` +
       `<tbody><tr><th scope="row">True statements</th><td class="num">${inc.length} / ${rows.length}</td><td class="num">${fmtMs(hi)}</td><td class="num">${fmtMs(lo)}</td>` +
       `<td class="num"><strong>${isFinite(T.m) ? LAB.signed(T.m) + ' ms' : '–'}</strong></td><td class="num">${fmtCI(T.ci)}</td>` +
