@@ -774,3 +774,64 @@ html:lang(zh-Hans) .assoc-example { font-family: var(--font-hans); }
 .steps li > span { text-wrap: pretty; }
 .assoc-example p.small { margin-top: 0.6rem; color: var(--text-secondary); }
 .steps kbd { font-size: 0.8em; }
+
+/* ---------- Bird task: one picture per screen ---------- */
+.bird-wrap {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: clamp(1rem, 3vw, 2rem) 1.5rem 2.5rem;
+    display: grid;
+    gap: 1.1rem;
+}
+.bird-name {
+    font-size: clamp(1.6rem, 4.5vw, 2.3rem);
+    line-height: 1.15;
+    text-align: center;
+    margin: 0.4rem 0 0;
+}
+/* A fixed-height frame: the scale stays in the same place for every picture. */
+.bird-photo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    height: min(44vh, 25rem, 70vw);
+}
+.bird-photo picture { display: contents; }
+.bird-photo img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 4px;
+}
+.bird-resp { max-width: 34rem; width: 100%; margin: 0 auto; }
+.bird-resp .resp-btn { min-height: 3.5rem; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.bird-resp .resp-btn:disabled { color: var(--text-light); background: var(--bg-alt); border-color: var(--border); cursor: progress; }
+/* Touch screens keep :hover on the last button tapped; on the next picture
+   that would look like a pre-selected answer. */
+@media (hover: none) { .bird-resp .resp-btn:hover:not(.picked) { border-color: var(--border-strong); } }
+/* A picture still on its way: the frame waits, then says so. */
+.bird-photo.loading img { visibility: hidden; }
+.bird-photo.slow::after {
+    content: 'Loading\2026';
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.92rem;
+    color: var(--text-light);
+}
+.bird-ends {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 0.6rem;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+.bird-ends span:last-child { text-align: right; }
+.bird-ends strong { font-weight: 650; }
+@media (max-height: 640px) { .bird-photo { height: min(38vh, 25rem); } }

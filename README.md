@@ -16,6 +16,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `shape-task.html` | students | Sound symbolism (bouba/kiki), 3 × 2 |
 | `judgement-task.html` | students | Foreign-language effect: gambles, sunk cost, superstition (Chinese vs English) |
 | `association-task.html` | students | Association task (FAST): chained associations in Chinese and in English |
+| `bird-task.html` | students | Bird task: how typical 12 pictures are as birds (1–5), mapped as a semantic space |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -45,7 +46,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `birds_*`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -57,6 +58,8 @@ attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `f
     the ten 0–10 self-ratings, and every answer (each chain as two fields,
     `c_<seed>_a` = language + answers 1–5 and `c_<seed>_b` = answers 6–10).
     No valence is stored: the results page scores the answers each time.
+  - Bird task: one column per bird (`house_sparrow` … `flying_fox`, 1–5),
+    the median rating time and the five English self-ratings.
 - `*_trials`: one row per trial. Every trial's forward-mask and prime
   durations are measured and stored.
 
@@ -227,9 +230,54 @@ scores every answer each time it draws.
 A **repeated answer** repeats an earlier word of the same chain, the seed
 included. English words are compared as lemmas (friend = friends).
 
+## Bird task (prototype theory)
+
+The materials of the LT5461 Google Form "Prototype theory test": the same 12
+pictures (House Sparrow, European Robin, Blackbird, Blue Tit, Swan, Penguin,
+Ostrich, Peacock, Flamingo, Kiwi, Emu, Flying fox), the same names, and the same
+1–5 scale with its two end labels. The photos are copied from the form into
+`assets/img/birds/` (AVIF, WebP and JPEG, several widths); names, files and
+scale are in `assets/bird-items.js`.
+
+- One picture per screen, in a new random order for every run (the form
+  shuffled too). Answers: click or tap a number, or press 1–5. Unlike the form,
+  every picture must be rated.
+- A picture is rated only once it is on screen. One that fails to load is
+  fetched again; if it fails twice (or takes over a minute), its trial is
+  skipped, stored with an empty rating and `img_failed = 1`, and the run
+  goes on.
+- It ends with the five English self-ratings. Students see only "Submitted".
+
+**The results tab** runs the analysis of *Bird plot.Rmd* (Week 4) in the
+browser (`assets/bird-map.js`):
+
+- Mean and SD of the ratings per bird; a missing rating would take the bird's
+  mean, as in the Rmd.
+- `prcomp(scale. = TRUE)`: a PCA of the correlations between birds. Each bird
+  sits at its loadings on components 1 and 2. Dot size and colour show the
+  mean (light to dark blue, `#e6f7ff` → `#005a9e`), the grey halo the SD, and
+  the labels are kept clear of each other with leader lines, as
+  `geom_text_repel` does. The page gives the same numbers as R to 12 decimal
+  places (`dev/check_birds.R`).
+- Two differences from the Rmd. Each axis is scaled to its own data in a wide
+  frame instead of `coord_fixed(ratio = 0.5)`: PC1 often spans little
+  (students who rate every bird higher or lower load all birds alike), and a
+  fixed ratio then squeezes the birds into a narrow column. Each axis spans at
+  least 0.25 and, while the page updates, only grows, so a new run moves the
+  birds rather than the whole frame. A component's sign is arbitrary: the
+  first drawing for a class puts the more typical birds to the right (when
+  PC1 shows a clear trend with typicality) and PC2's largest loading on top,
+  and the map then keeps that orientation for the class, also after a reload
+  (remembered in the projector browser). It never mirrors as runs arrive.
+- The map needs 3 runs. A bird everyone rated the same has no variance:
+  `prcomp` stops on it, the page leaves it off the map and names it.
+- **Ratings for R (CSV)** downloads one row per student with the columns of the
+  Google Forms export, so *Bird plot.Rmd* runs on it unchanged (read it into
+  `responses1`).
+
 ## English self-ratings
 
-The word tasks and the judgement task (both languages) end with five 1–7
+The word tasks, the judgement task (both languages) and the bird task end with five 1–7
 self-ratings of English: reading, listening, writing, speaking, and overall
 (`eng_reading` … `eng_overall`, plus `eng_mean`). A student who answers on
 one task finds the answers pre-filled on the next.

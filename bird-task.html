@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Bird task · LT5461</title>
+    <meta name="description" content="An in-class rating task for LT5461 at City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=10">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="./">LT5461</a>
+            <span class="masthead-meta">Bird task</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="screen page" id="s-intro" aria-labelledby="intro-title">
+            <div class="column">
+                <p class="eyebrow">In-class experiment · about 2 minutes</p>
+                <h1 id="intro-title">Bird task</h1>
+                <p class="lead">You will see 12 pictures, one at a time. Rate each one from 1 (not at all typical) to 5 (extremely typical).</p>
+                <p class="note">Your answers are stored anonymously under a random code, with no name and no student number, and pooled with the rest of the class.</p>
+                <div class="actions">
+                    <button class="btn" id="btn-start" type="button">Start <span class="arrow" aria-hidden="true">→</span></button>
+                    <span class="key-hint">Keys: <kbd>1</kbd> to <kbd>5</kbd>, or click / tap a number</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="screen" id="s-item" aria-labelledby="b-name" hidden>
+            <div class="bird-wrap">
+                <div class="progress progress-inline">
+                    <div class="progress-meta"><span>Bird task</span><span id="b-count"></span></div>
+                    <div class="progress-track" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0"><i></i></div>
+                </div>
+                <h1 class="bird-name" id="b-name" tabindex="-1"></h1>
+                <div id="b-photos"></div>
+                <div class="bird-resp" role="group" aria-labelledby="b-name" aria-describedby="b-lo b-hi">
+                    <div class="resp-scale" id="b-scale" style="--n:5"></div>
+                    <div class="bird-ends"><span id="b-lo"></span><span id="b-hi"></span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="screen page" id="s-final" hidden></section>
+
+        <section class="screen page" id="s-done" hidden>
+            <div class="column">
+                <h1>Submitted</h1>
+                <p class="lead">Thank you.</p>
+                <p class="small muted" id="done-status"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="page">LT5461</div>
+    </footer>
+
+    <script src="assets/config.js?v=2"></script>
+    <script src="assets/lab.js?v=9"></script>
+    <script src="assets/bird-items.js?v=1"></script>
+    <script src="assets/birds.js?v=1"></script>
+</body>
+</html>

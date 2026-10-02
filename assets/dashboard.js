@@ -4,10 +4,10 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'birds'];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], birds: [] },
     timer: null,
     loadedOnce: false
   };
@@ -18,7 +18,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-birds')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -42,6 +42,8 @@
   /* ---------- controls ---------- */
   const hide = $('#hide'), live = $('#live'), sel = $('#session');
   hide.addEventListener('change', () => document.body.classList.toggle('hidden-results', hide.checked));
+  // Revealing the bird map draws it afresh, so the birds arrive in view.
+  hide.addEventListener('change', () => { if (!hide.checked && !$('#panel-birds').hidden) { birdState.geom = null; lastKey = ''; render(); } });
   live.addEventListener('change', schedule);
   sel.addEventListener('change', () => { state.session = sel.value; refresh(); });
   $('#csv').addEventListener('click', () => {
@@ -109,6 +111,7 @@
     clearInterval(state.waitTimer);
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setStatus(`Live · updated ${time}` + (failed.length ? ' · some results could not be loaded, retrying' : ''), true);
+    state.fetched = true;
     render();
     if (!state.loadedOnce) { state.loadedOnce = true; loadSessions(); }
   }
@@ -127,6 +130,9 @@
       // The association charts are laid out at their box's width: redraw them when it changes.
       const w = $('#panel-fast').hidden ? 0 : $('#panel-fast').clientWidth;
       if (w && w !== state.fastW) { state.fastW = w; lastKey = ''; render(); }
+      const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
+      // A new width means new pixel positions: redraw in place, no glide.
+      if (wb && wb !== birdState.w) { birdState.geom = null; birdState.still = true; lastKey = ''; render(); }
       syncScrollers();
     }, 150);
   });
@@ -138,7 +144,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, bd = state.rows.birds;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -150,15 +156,18 @@
     $('#n-fast').textContent = a.length;
     $('#veil-fast-zh').textContent = a.filter(r => r.order === 'zh-en').length;
     $('#veil-fast-en').textContent = a.filter(r => r.order === 'en-zh').length;
+    $('#n-birds').textContent = bd.length;
+    $('#veil-birds').textContent = bd.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), fastState.norms ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
     if (!$('#panel-shapes').hidden) renderShapes(b);
     if (!$('#panel-fle').hidden) renderFLE(f);
     if (!$('#panel-fast').hidden) renderFast(a);
+    if (!$('#panel-birds').hidden) renderBirds(bd);
     syncScrollers();
   }
 
@@ -923,6 +932,89 @@
       `<tr class="group"><th scope="rowgroup" colspan="6">Round-shape choices against chance (50%)</th></tr>` +
       chance.map(c => `<tr><th scope="row">${names[c.k]} words</th><td class="num"><strong>${isFinite(c.r.m) ? Math.round(c.r.m) + '%' : '–'}</strong></td><td class="num">${isFinite(c.r.ci[0]) ? Math.round(c.r.ci[0]) + '%\u00a0to\u00a0' + Math.round(c.r.ci[1]) + '%' : '–'}</td>${tCell(c.r)}${pCell(c.r)}${resultCell(c.r, want[c.k])}</tr>`).join('') +
       '</tbody>';
+  }
+
+  /* ---------- bird task: typicality ratings → semantic map ----------
+     The analysis of Bird plot.Rmd, run in the browser (bird-map.js): mean and
+     SD per bird, then a PCA of the ratings; each bird sits at its loadings on
+     the first two components. */
+  const BM = window.BIRD_MAP;
+  const birdState = { geom: null, load: null, session: '', w: 0, still: false };
+  $('#b-csv').addEventListener('click', () => LAB.download(`lt5461-bird-ratings-${state.session}.csv`, LAB.toCSV(BM.formRows(state.rows.birds))));
+
+  function renderBirds(rows) {
+    // Until the first answer arrives the space stays reserved (no jump when it does).
+    if (!state.fetched && LAB.connected()) return;
+    $('#panel-birds').classList.remove('waiting');
+    // A new class starts afresh; otherwise the map keeps its orientation.
+    // The orientation is remembered per class on this device, so a reload
+    // never shows the class a mirrored map.
+    if (birdState.session !== state.session) {
+      birdState.geom = null; birdState.session = state.session;
+      birdState.load = (LAB.store.get('bird-orient', {}) || {})[state.session] || null;
+    }
+    const res = BM.analyse(rows, birdState.load);
+    if (res.placed.length) {
+      birdState.load = Object.fromEntries(res.placed.map(b => [b.key, [+b.pc1.toFixed(4), +b.pc2.toFixed(4)]]));
+      const saved = LAB.store.get('bird-orient', {}) || {};
+      delete saved[state.session];                       // most recent last, so it is kept
+      saved[state.session] = birdState.load;
+      LAB.store.set('bird-orient', Object.fromEntries(Object.entries(saved).slice(-12)));
+    }
+    const rated = res.birds.filter(b => b.n);
+    const byMean = rated.slice().sort((x, y) => y.mean - x.mean || x.name.localeCompare(y.name));
+    const f1 = v => isFinite(v) ? v.toFixed(1) : '–';
+    const list = bs => bs.map(b => `${b.name} ${f1(b.mean)}`).join(', ');
+    // The top (or bottom) k, and every bird tied with the k-th.
+    const ends = (arr, k) => arr.filter(b => Math.abs(b.mean - arr[k - 1].mean) < 1e-9 || arr.indexOf(b) < k);
+
+    // Summary
+    const items = [];
+    if (!res.n) items.push(item(null, '<strong>No runs yet for this class.</strong> Results appear here as students finish.'));
+    else {
+      const k = Math.max(1, Math.min(3, Math.floor(byMean.length / 2)));
+      const top = ends(byMean, k), bottom = ends(byMean.slice().reverse(), k);
+      if (byMean.length < 2) items.push(`<li><strong>Mean rating:</strong> ${list(byMean)} ${inline('1–5')}.</li>`);
+      else if (byMean[0].mean - byMean[byMean.length - 1].mean < 1e-9) items.push(`<li><strong>Every bird has the same mean rating:</strong> ${f1(byMean[0].mean)} ${inline('1–5')}.</li>`);
+      else if (top.length + bottom.length > byMean.length) items.push(`<li><strong>Mean ratings</strong> ${inline('1–5')}: ${list(byMean)}.</li>`);
+      else {
+        items.push(`<li><strong>Most typical:</strong> ${list(top)} ${inline('mean rating, 1–5')}.</li>`);
+        items.push(`<li><strong>Least typical:</strong> ${list(bottom)}.</li>`);
+      }
+      const bySd = rated.filter(b => isFinite(b.sd)).sort((x, y) => y.sd - x.sd || x.name.localeCompare(y.name));
+      if (bySd.length) items.push(`<li><strong>Most disagreement:</strong> ${bySd.slice(0, 2).map(b => `${b.name} ${inline('SD ' + b.sd.toFixed(2))}`).join(' and ')}.</li>`);
+      items.push(res.placed.length
+        ? `<li><strong>The map</strong> shows ${BM.pct(res.shares[0] + res.shares[1])} of the variation in the ratings: ${BM.pct(res.shares[0])} on component 1 and ${BM.pct(res.shares[1])} on component 2 ${inline(`<i>n</i> = ${res.n}`)}.</li>`
+        : `<li><strong>The map needs at least ${BM.MIN_N} runs.</strong> ${res.n} so far.</li>`);
+    }
+    $('#b-summary').innerHTML = items.join('');
+
+    // Map
+    const host = $('#b-map');
+    birdState.w = $('#panel-birds').clientWidth;
+    if (res.placed.length < 2) {
+      host.innerHTML = `<p class="empty">${res.n ? `The map appears once ${BM.MIN_N} students have finished; ${res.n} so far.` : 'No runs yet for this class.'}</p>`;
+      birdState.geom = null;
+    } else {
+      const right = res.placed.slice().sort((x, y) => y.pc1 - x.pc1);
+      birdState.geom = BM.draw(host, res, {
+        width: host.clientWidth || birdState.w, prev: birdState.geom, still: birdState.still,
+        ariaLabel: `Map of the birds on principal components 1 (${BM.pct(res.shares[0])} of variance) and 2 (${BM.pct(res.shares[1])}), n = ${res.n}. ` +
+          `From right to left on component 1: ${right.map(b => b.name).join(', ')}.`
+      });
+    }
+    birdState.still = false;
+    $('#b-off').textContent = res.off.length && res.placed.length
+      ? 'Not on the map: ' + res.off.map(b => `${b.name} (${b.why})`).join('; ') + '.' : '';
+
+    // Table, most typical first; the swatch is the dot's colour on the map.
+    const P = res.placed, lo = Math.min(...P.map(b => b.mean)), hi = Math.max(...P.map(b => b.mean));
+    const sw = b => P.includes(b) ? `<span class="swatch" style="background:${BM.fillAt(hi > lo ? (b.mean - lo) / (hi - lo) : 0.5)}" aria-hidden="true"></span>` : '<span class="swatch" style="visibility:hidden" aria-hidden="true"></span>';
+    $('#b-table').innerHTML = !rated.length ? '' :
+      `<thead><tr><th scope="col">Bird</th><th class="num" scope="col">Mean</th><th class="num" scope="col">SD</th><th class="num" scope="col"><i>n</i></th>` +
+      `<th class="num sep" scope="col">PC1</th><th class="num" scope="col">PC2</th></tr></thead><tbody>` +
+      byMean.map(b => `<tr><th scope="row">${sw(b)}${b.name}</th><td class="num"><strong>${b.mean.toFixed(2)}</strong></td><td class="num">${BM.fmt2(b.sd)}</td><td class="num">${b.n}</td>` +
+        `<td class="num sep">${BM.fmt2(b.pc1)}</td><td class="num">${BM.fmt2(b.pc2)}</td></tr>`).join('') + '</tbody>';
   }
 
   if (!LAB.connected()) $('#not-connected').hidden = false;

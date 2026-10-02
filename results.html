@@ -20,8 +20,8 @@
         .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
         .tab:hover { color: var(--text); }
         .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
-        /* Four tabs do not fit a phone: they wrap onto a second row. */
-        @media (max-width: 700px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
+        /* Five tabs do not fit a tablet or phone: they wrap onto a second row. */
+        @media (max-width: 860px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; white-space: nowrap; } }
         .panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 3rem; }
         @media (min-width: 1100px) { .panel-grid.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
         .bars { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
@@ -185,6 +185,27 @@
             .seed-multiples, .traj-multiples { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
             .seed-multiples .figure, .traj-multiples .figure { max-width: none; }
         }
+        /* Bird task: the semantic map (bird-map.js) */
+        .chart.bird-map text { font-size: 12px; fill: var(--text-light); }
+        .chart.bird-map .axis-line { stroke: var(--border-strong); stroke-width: 1; }
+        .chart.bird-map .axis-title { fill: var(--text-secondary); font-size: 13px; font-weight: 600; }
+        .chart .bird-halo { fill: #7d858d; fill-opacity: 0.12; stroke: #7d858d; stroke-width: 1; }
+        .chart .bird-dot { stroke: #111; stroke-width: 1; }
+        .chart .bird-seg { stroke: #6b7076; stroke-width: 1; }
+        .chart.bird-map .bird-label { fill: var(--text); font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+        @media (prefers-reduced-motion: no-preference) {
+            .chart .enter { animation: bird-in 0.8s var(--ease) both; animation-delay: calc(var(--i, 0) * 55ms); transform-box: fill-box; transform-origin: center; }
+            .chart .bird-label.enter, .chart .bird-seg.enter { animation-name: bird-fade; animation-delay: calc(300ms + var(--i, 0) * 55ms); }
+            @keyframes bird-in { from { opacity: 0; transform: scale(0.3); } }
+            @keyframes bird-fade { from { opacity: 0; } }
+        }
+        .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 1px solid #111; margin-right: 0.55rem; vertical-align: -0.08rem; }
+        #b-table { width: auto; }
+        /* Nothing shows until the first answer arrives, so nothing jumps when it does. */
+        #panel-birds.waiting .results-body { visibility: hidden; }
+        #b-table th, #b-table td { padding-right: 1.6rem; }
+        #b-table tbody th[scope="row"] { white-space: nowrap; max-width: none; }
+        @media (max-width: 600px) { #b-table th, #b-table td { padding-right: 0.9rem; } }
     </style>
 </head>
 <body>
@@ -217,6 +238,7 @@
                 <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape task<span class="n" id="n-shapes"></span></button>
                 <button class="tab" role="tab" id="tab-fle" aria-controls="panel-fle" aria-selected="false" tabindex="-1">Judgement task<span class="n" id="n-fle"></span></button>
                 <button class="tab" role="tab" id="tab-fast" aria-controls="panel-fast" aria-selected="false" tabindex="-1">Association task<span class="n" id="n-fast"></span></button>
+                <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird task<span class="n" id="n-birds"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -439,6 +461,32 @@
                     </div>
                 </div>
             </section>
+            <!-- Bird task (typicality ratings → semantic map, as in Bird plot.Rmd) -->
+            <section id="panel-birds" class="waiting" role="tabpanel" aria-labelledby="tab-birds" hidden>
+                <div class="veil">
+                    <span class="stat-label">Bird task</span><div class="big" id="veil-birds">0</div>
+                </div>
+                <div class="results-body">
+                    <section class="summary" aria-labelledby="b-sum-h"><h2 id="b-sum-h">Summary</h2><ul id="b-summary"></ul></section>
+
+                    <h2>Prototypicality of birds</h2>
+                    <figure class="figure">
+                        <div id="b-map"></div>
+                        <figcaption>Each bird sits at its loadings on the first two principal components of the class’s ratings (a PCA of the correlations between birds, as <code>prcomp(scale. = TRUE)</code> in Bird plot.Rmd). Larger, darker dot: higher mean typicality. Grey halo: disagreement, its radius proportional to the SD. The two axes are scaled separately. A component’s sign is arbitrary, so the map keeps the orientation of its first drawing for the whole class, also after a reload.</figcaption>
+                    </figure>
+                    <p class="small muted" id="b-off"></p>
+
+                    <h2>Ratings by bird</h2>
+                    <div class="table-wrap" data-label="Ratings by bird table"><table class="data" id="b-table"></table></div>
+                    <p class="small muted column">1 = not at all typical, 5 = extremely typical. PC1 and PC2: the bird’s loadings, i.e. its place on the map.</p>
+
+                    <h2>Data</h2>
+                    <div class="actions" style="margin-top:0.75rem">
+                        <button class="btn-quiet" id="b-csv" type="button">Ratings for R (CSV)</button>
+                    </div>
+                    <p class="small muted column" style="margin-top:0.75rem">One row per student, with the columns of the Google Forms export, so Bird plot.Rmd runs on it unchanged (read it into <code>responses1</code>).</p>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -459,6 +507,8 @@
     <script src="assets/fast-stimuli.js?v=6"></script>
     <script src="assets/fast-analysis.js?v=5"></script>
     <script src="assets/fast-charts.js?v=7"></script>
-    <script src="assets/dashboard.js?v=34"></script>
+    <script src="assets/bird-items.js?v=1"></script>
+    <script src="assets/bird-map.js?v=1"></script>
+    <script src="assets/dashboard.js?v=35"></script>
 </body>
 </html>
