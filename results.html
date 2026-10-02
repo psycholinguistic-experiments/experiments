@@ -122,9 +122,16 @@
         .seg label:hover span { color: var(--text); border-color: var(--text-light); }
         .seg input:checked + span { background: var(--text); border-color: var(--text); color: var(--bg); }
         .seg input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
-        .prof-multiples { grid-template-columns: minmax(0, 1fr); }
-        @media (min-width: 760px) { .prof-multiples { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2.5rem; } }
-        #a-prof-all { max-width: 46rem; }
+        .prof-grid { grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 760px) { .prof-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2.5rem; } }
+        @media (min-width: 1100px) { .prof-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; } }
+        .prof-grid h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .prof-grid .figure { margin-top: 0.5rem; }
+        .prof-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin: 1rem 0 0; font-size: 0.92rem; font-weight: 600; color: var(--text); }
+        .prof-legend i { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: -0.05rem; }
+        .prof-legend .k-zh { background: var(--lang-zh); } .prof-legend .k-en { background: var(--lang-en); }
+        .prof-legend .k-line { width: 1.4rem; height: 0.7rem; border-radius: 2px; background: linear-gradient(var(--text-secondary), var(--text-secondary)) center / 100% 2.5px no-repeat, color-mix(in srgb, var(--text-light) 22%, transparent); }
+        .chart.fc .axis-title { font-size: 14px; font-weight: 600; fill: var(--text-secondary); }
         .chart.fc .dot-lang.soft { opacity: 0.75; stroke-width: 1.5; }
         .chart.fc .fit-line { stroke-width: 2.75; }
         table.data td .ci { display: block; font-size: 0.78rem; color: var(--text-light); white-space: nowrap; }
@@ -146,7 +153,7 @@
         @media (min-width: 680px) { .state-pair { grid-template-columns: repeat(2, minmax(0, 286px)); } }
         /* On a projector the two diagrams may grow (text with them). */
         @media (min-width: 1100px) { .state-pair { grid-template-columns: repeat(2, minmax(0, 350px)); } .state-pair .chart { max-width: 350px !important; } }
-        .state-pair h3, .seed-multiples h3, .traj-multiples h3, #a-prof h3 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .state-pair h3, .seed-multiples h3, .traj-multiples h3 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
         .state-pair h3 .n { font-weight: 500; color: var(--text-light); font-size: 0.88rem; margin-left: 0.15rem; }
         #a-dumbbell, #a-forest { max-width: 46rem; }
         .figure-narrow { max-width: 38rem; }
@@ -415,9 +422,10 @@
 
                     <section class="q" aria-labelledby="q-prof">
                         <h2 id="q-prof">Does English proficiency matter? <span class="tag">exploratory</span></h2>
-                        <p class="q-lead">Students rated their English from 0 (no knowledge) to 10 (native-like) in five ways. For each rating: does the difference between English and Chinese in staying change as the rating goes up?</p>
+                        <p class="q-lead">Students rated their English from 0 (no knowledge) to 10 (native-like) in five ways. For each rating: does the difference between English and Chinese change as the rating goes up?</p>
                         <h3 class="sub">All five ratings</h3>
-                        <figure class="figure"><div id="a-prof-all"></div><figcaption>How much the English − Chinese difference in staying changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. Bold and filled: significant.</figcaption></figure>
+                        <div class="multiples prof-grid" id="a-prof-all"></div>
+                        <p class="chart-caption">How much the English − Chinese difference changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. Bold and filled: significant.</p>
                         <h3 class="sub">One rating in detail</h3>
                         <fieldset class="seg" id="a-prof-skill">
                             <legend class="visually-hidden">English rating</legend>
@@ -427,12 +435,13 @@
                             <label><input type="radio" name="a-prof-skill" value="reading"><span>Reading</span></label>
                             <label><input type="radio" name="a-prof-skill" value="writing"><span>Writing</span></label>
                         </fieldset>
-                        <div class="multiples prof-multiples" id="a-prof"></div>
-                        <p class="chart-caption">Each student appears twice, above their English rating: their value in Chinese and in English. Lines: least-squares fits with 95% bands. Where the two lines move apart or come together as the rating goes up, the language difference changes with English proficiency.</p>
+                        <p class="prof-legend"><span><i class="k-zh"></i>Chinese</span><span><i class="k-en"></i>English</span><span><i class="k-line"></i>Fitted line, 95% band</span></p>
+                        <div class="multiples prof-grid" id="a-prof"></div>
+                        <p class="chart-caption">Each dot is one student, placed at their English rating: blue is their value in Chinese, orange their value in English. Where the two lines move apart or come together as the rating goes up, the language difference changes with English proficiency.</p>
                         <details class="more">
                             <summary>Show the numbers</summary>
                             <div class="table-wrap" data-label="English proficiency tests"><table class="data" id="a-prof-table"></table></div>
-                            <p class="small muted column">Change per point: the least-squares slope of each student’s English − Chinese difference on their English rating. Students with no transitions from a state in one language are left out. Ten exploratory tests, not corrected for multiple comparisons.</p>
+                            <p class="small muted column">Change per point: the least-squares slope of each student’s English − Chinese difference on their English rating. Valence: the mean valence (1–9) of a student’s scored answers in each language. Students with no transitions from a state in one language are left out of that measure. Fifteen exploratory tests (three measures × five ratings), not corrected for multiple comparisons.</p>
                         </details>
                     </section>
 
@@ -481,7 +490,7 @@
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/fast-stimuli.js?v=6"></script>
     <script src="assets/fast-analysis.js?v=5"></script>
-    <script src="assets/fast-charts.js?v=11"></script>
-    <script src="assets/dashboard.js?v=37"></script>
+    <script src="assets/fast-charts.js?v=13"></script>
+    <script src="assets/dashboard.js?v=39"></script>
 </body>
 </html>

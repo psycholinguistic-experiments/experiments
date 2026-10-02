@@ -260,29 +260,33 @@
   /* ---------- 6. a forest plot (estimates with 95% CIs) in labelled groups ----------
      groups: [{label, rows: [{label, b, lo, hi, p}]}]. Wide: row labels in a
      column on the left. Narrow: each label above its line. Options: xLabel,
-     label, minLim (the smallest half-range, default 0.25), fmt (values). */
+     label, minLim (the smallest half-range, default 0.25), fmt (values), left
+     (label column, default 320), narrowAt (default 600). A group with an empty
+     label is drawn without one. */
   C.forest = function (host, groups, o) {
-    const W = widthOf(host, 700, 300, 740), narrow = W < 600;
-    const rowH = narrow ? 50 : 34, headH = 30, gap = 18, left = narrow ? 14 : 320, right = 64, top = 4, bottom = 48;
+    const W = widthOf(host, 700, 280, 740), narrow = W < (o.narrowAt === undefined ? 600 : o.narrowAt);
+    const rowH = narrow ? 50 : 34, gap = 18, left = narrow ? 14 : (o.left || 320), right = 64, top = 4, bottom = 48;
+    const headH = g => g.label ? 30 : 8;
     const rows = groups.flatMap(g => g.rows);
-    const H = top + groups.length * headH + (groups.length - 1) * gap + rows.length * rowH + bottom;
+    const H = top + groups.reduce((t, g) => t + headH(g), 0) + (groups.length - 1) * gap + rows.length * rowH + bottom;
     const fmt = o.fmt || (v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(2));
     const m = Math.max(o.minLim || 0.25, ...rows.flatMap(r => [Math.abs(r.lo), Math.abs(r.hi)]).filter(isFinite));
     const step = [0.005, 0.01, 0.02, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5].find(st => Math.ceil(m / st - 1e-9) <= 4) || 5, lim = Math.ceil(m / step - 1e-9) * step;
     const tick = v => Math.abs(v) < 1e-9 ? '0' : (v > 0 ? '+' : '−') + (step < 0.1 ? Math.abs(v).toFixed(step < 0.01 ? 3 : 2).replace(/^0/, '') : String(Math.abs(+v.toFixed(2))));
     const X = v => left + (v + lim) / (2 * lim) * (W - left - right);
     const s = root(host, W, H, o.label);
-    const tickEvery = narrow && lim / step >= 4 ? 2 : 1;
-    for (let j = 0, v = -lim; v <= lim + 1e-9; j++, v += step) {
-      svg('line', { class: Math.abs(v) < 1e-9 ? 'zero' : 'grid', x1: X(v), x2: X(v), y1: top + headH - 6, y2: H - bottom + 6 }, s);
-      if (j % tickEvery === 0) text(s, X(v), H - bottom + 24, tick(v), { 'text-anchor': 'middle' });
+    // label every tick that has room (about 44px each), always including 0
+    const pxPer = (W - left - right) / (2 * lim / step), every = pxPer >= 44 ? 1 : pxPer >= 22 ? 2 : 4;
+    for (let v = -lim; v <= lim + 1e-9; v += step) {
+      svg('line', { class: Math.abs(v) < 1e-9 ? 'zero' : 'grid', x1: X(v), x2: X(v), y1: top + headH(groups[0]) - 6, y2: H - bottom + 6 }, s);
+      if (Math.round(v / step) % every === 0) text(s, X(v), H - bottom + 24, tick(v), { 'text-anchor': 'middle' });
     }
     text(s, X(0), H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
     let y0 = top;
     groups.forEach((grp, gi) => {
       if (gi) { svg('line', { class: 'divider', x1: 0, x2: W, y1: y0 + gap / 2, y2: y0 + gap / 2 }, s); y0 += gap; }
-      text(s, 0, y0 + 20, grp.label, { class: 'group-label halo' });
-      y0 += headH;
+      if (grp.label) text(s, 0, y0 + 20, grp.label, { class: 'group-label halo' });
+      y0 += headH(grp);
       grp.rows.forEach(r => {
         const y = y0 + (narrow ? 34 : rowH / 2);
         const sig = isFinite(r.p) && r.p < 0.05;
@@ -301,22 +305,24 @@
 
   /* ---------- 7. each student's Chinese and English value against their English rating ----------
      o: {points: [{x, zh, en}], fit: {zh, en} (LAB.ols results or null), xDomain: [x0, 10],
-     yDomain: [lo, hi], xLabel, label}.
+     yDomain: [lo, hi], yStep, yFmt, yRef (a dashed line), yLabel, xLabel, label}.
      A student's two dots share one x (ties spread a little, the same way for
      both); each language has its least-squares line with a 95% band, drawn
      over the ratings students actually gave, and named at its end. */
   C.profScatter = function (host, o) {
-    const W = widthOf(host, 420, 280, 520), H = 290, left = 40, right = 86, top = 12, bottom = 52, r = 4.5;
+    const W = widthOf(host, 420, 280, 520), H = 290, left = 62, right = 86, top = 12, bottom = 52, r = 4.5;
     const [x0d, x1d] = o.xDomain || [0, 10], [lo0, hi] = o.yDomain || [0, 1];
+    const fy = o.yFmt || (v => v < 1e-9 ? '0' : v > 1 - 1e-9 ? '1' : p2(v));
     // whole steps from the top down, so the top and bottom gridlines both carry a label
-    const yStep = hi - lo0 > 0.6 ? 0.2 : 0.1, lo = Math.max(0, hi - Math.ceil((hi - lo0) / yStep - 1e-9) * yStep);
+    const yStep = o.yStep || (hi - lo0 > 0.6 ? 0.2 : 0.1), lo = Math.max(0, hi - Math.ceil((hi - lo0) / yStep - 1e-9) * yStep);
     const X = v => left + (v - x0d) / (x1d - x0d) * (W - left - right), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
     const clampY = v => Math.max(lo, Math.min(hi, v));
     const s = root(host, W, H, o.label);
     for (let v = lo; v <= hi + 1e-9; v += yStep) {
-      svg('line', { class: 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
-      text(s, left - 8, Y(v) + 5, v < 1e-9 ? '0' : v > 1 - 1e-9 ? '1' : p2(v), { 'text-anchor': 'end' });
+      svg('line', { class: o.yRef !== undefined && Math.abs(v - o.yRef) < 1e-9 ? 'chance' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
+      text(s, left - 8, Y(v) + 5, fy(v), { 'text-anchor': 'end' });
     }
+    if (o.yLabel) text(s, 0, 0, o.yLabel, { transform: `translate(15 ${((top + H - bottom) / 2).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', class: 'axis-title' });
     const every = (W - left - right) / (x1d - x0d) < 26 ? 2 : 1;
     for (let v = x1d; v >= x0d; v -= every) text(s, X(v), H - bottom + 21, String(v), { 'text-anchor': 'middle' });
     text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
@@ -328,7 +334,7 @@
     // dots first, the fitted lines over them
     pts.forEach(q => ['zh', 'en'].forEach(l => {
       const g = svg('g', {}, s);
-      title(g, `A student with English ${q.x}: ${NAME[l]} ${p2(q[l])}`);
+      title(g, `A student with English ${q.x}: ${NAME[l]} ${(o.vFmt || p2)(q[l])}`);
       svg('circle', { cx: X(q.x) + jx(q), cy: Y(clampY(q[l])), r, class: 'dot-lang soft f-' + l }, g);
     }));
     const ends = [];
@@ -340,7 +346,7 @@
       for (let j = 0; j <= n; j++) { const x = x0 + (x1 - x0) * j / n, yv = f.at(x), h = f.band(x); up.push(`${X(x).toFixed(1)} ${Y(clampY(yv + h)).toFixed(1)}`); dn.unshift(`${X(x).toFixed(1)} ${Y(clampY(yv - h)).toFixed(1)}`); }
       svg('path', { d: 'M' + up.concat(dn).join('L') + 'Z', class: 'band f-' + l }, s);
       const g = svg('g', {}, s);
-      title(g, `${NAME[l]}: ${f.b < 0 ? '−' : '+'}${Math.abs(f.b).toFixed(3).replace(/^0/, '')} per rating point`);
+      title(g, `${NAME[l]}: fitted line, ${f.b < 0 ? '−' : '+'}${Math.abs(f.b).toFixed(3)} per rating point`);
       svg('line', { x1: X(x0), x2: X(x1), y1: Y(clampY(f.at(x0))), y2: Y(clampY(f.at(x1))), class: 'series-line fit-line s-' + l }, g);
       ends.push({ lang: l, x: X(x1) + 10, y: Y(clampY(f.at(x1))) });
     });
