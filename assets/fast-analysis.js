@@ -500,15 +500,22 @@
     const afterN = fit.contrast({ [L]: 1, [I]: -0.5 });
     const afterP = fit.contrast({ [L]: 1, [I]: 0.5 });
     const logistic = x => 1 / (1 + Math.exp(-x));
-    const b = name => { const j = fit.names.indexOf(name); return j < 0 ? 0 : fit.beta[j]; };
-    const eta = (lang, prev) => b(C) + b(L) * lang + b(S) * prev + b(I) * lang * prev;
-    return {
-      afterN, afterP,
-      implied: {
-        zh: { NN: 1 - logistic(eta(-0.5, -0.5)), PP: logistic(eta(-0.5, 0.5)) },
-        en: { NN: 1 - logistic(eta(0.5, -0.5)), PP: logistic(eta(0.5, 0.5)) }
-      }
+    // Implied probability of the next answer being positive, with a 95% CI
+    // from the linear predictor's SE (delta method on the logit scale).
+    const nextPositive = (lang, prev) => {
+      const r = fit.contrast({ [C]: 1, [L]: lang, [S]: prev, [I]: lang * prev });
+      return { p: logistic(r.b), lo: logistic(r.ci[0]), hi: logistic(r.ci[1]) };
     };
+    const stay = (lang, key) => {
+      const q = nextPositive(lang, key === 'N' ? -0.5 : 0.5);
+      return key === 'N' ? { p: 1 - q.p, lo: 1 - q.hi, hi: 1 - q.lo } : q;
+    };
+    const implied = {
+      zh: { NN: stay(-0.5, 'N').p, PP: stay(-0.5, 'P').p },
+      en: { NN: stay(0.5, 'N').p, PP: stay(0.5, 'P').p }
+    };
+    const impliedCI = { zh: { NN: stay(-0.5, 'N'), PP: stay(-0.5, 'P') }, en: { NN: stay(0.5, 'N'), PP: stay(0.5, 'P') } };
+    return { afterN, afterP, implied, impliedCI };
   };
 
   /* ---------- exports (CSV rows) ---------- */

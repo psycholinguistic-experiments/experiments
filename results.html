@@ -37,7 +37,7 @@
         .veil .big { font-size: clamp(4rem, 12vw, 8rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
         .veil-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 2rem; }
         .empty { padding: 2rem 0; color: var(--text-light); }
-        .fle-multiples { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+        .fle-multiples { grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); }
         .dash-controls label { flex-wrap: wrap; max-width: 100%; }
         .dash-controls select { max-width: 100%; }
         .fle-multiples h3 { font-size: 1rem; margin: 0 0 0.25rem; }
@@ -70,9 +70,9 @@
         .test-line .dir { margin-left: 0; }
         .test-line .sig { font-size: 0.94rem; }
         /* Judgement tiles: 4 across on a projector, 2 × 2 on a tablet, stacked on a phone. */
-        #f-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        @media (max-width: 999px) { #f-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 599px) { #f-stats { grid-template-columns: minmax(0, 1fr); } }
+        #f-stats, #a-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        @media (max-width: 999px) { #f-stats, #a-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 599px) { #f-stats, #a-stats { grid-template-columns: minmax(0, 1fr); } }
         #f-table th, #f-table td, #f-inter th, #f-inter td { padding-right: 0.7rem; }
         /* Long headers wrap and the direction words sit under the verdict, so
            the wide tables fit a 1024-px projector. */
@@ -84,24 +84,91 @@
         }
         /* Narrow screens: tables scroll sideways; keep each row's label in view. */
         @media (max-width: 900px) {
-            table.data tbody th[scope="row"], table.data thead th:first-child { position: sticky; left: 0; background: var(--bg); z-index: 1; box-shadow: -3px 0 0 var(--bg); white-space: normal; min-width: 5.5rem; max-width: min(8.5rem, 34vw); }
-            table.data tbody th[scope="row"]::after, table.data thead th:first-child::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--border-strong); }
+            table.data tbody th[scope="row"], table.data thead tr:first-child th:first-child { position: sticky; left: 0; background: var(--bg); z-index: 1; box-shadow: -3px 0 0 var(--bg); white-space: normal; min-width: 5.5rem; max-width: min(8.5rem, 34vw); }
+            table.data tbody th[scope="row"]::after, table.data thead tr:first-child th:first-child::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--border-strong); }
         }
+        /* Association task. Chinese is always blue, English always orange
+           (validated as a pair: colour-blind separation, contrast ≥ 3:1). */
+        :root { --lang-zh: #2f6db5; --lang-en: #c8622a; }
+        .chart .s-zh { stroke: var(--lang-zh); } .chart .f-zh { fill: var(--lang-zh); }
+        .chart .s-en { stroke: var(--lang-en); } .chart .f-en { fill: var(--lang-en); }
+        .chart .series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .chart .band { opacity: 0.13; }
+        .chart .dot-lang { stroke: #fff; stroke-width: 2; }
+        .chart .ci-line { stroke-width: 1.75; fill: none; }
+        .chart .dumbbell-bar { stroke: var(--border-strong); stroke-width: 3; stroke-linecap: round; }
+        .chart .state-node { fill: #fff; stroke-width: 2.5; }
+        .chart .arrow-value { fill: var(--text); font-weight: 700; font-size: 15px; }
+        .chart .value-label { fill: var(--text); font-weight: 650; font-size: 12.5px; }
+        .chart .value-label.strong { font-weight: 750; }
+        .chart .divider { stroke: var(--border); stroke-width: 1; }
+        .chart .label-dash { stroke-width: 3; stroke-linecap: round; }
+        .chart.fc text { font-size: 14px; }
+        .chart.fc .label-strong { font-size: 15px; }
+        .chart.fc .row-label { font-size: 15px; fill: var(--text-secondary); }
+        .chart.fc .value-label { font-size: 15px; }
+        .chart.fc .value-label .value-name { font-weight: 500; fill: var(--text-secondary); }
+        .chart.fc .arrow-value { font-size: 16px; }
+        .chart.fc .mean-label { font-size: 15px; }
+        .chart.fc .series-label { font-size: 14px; font-weight: 650; fill: var(--text); }
+        .chart.fc .group-label { font-size: 14px; font-weight: 650; fill: var(--text-light); }
+        /* A group heading in a sideways-scrolling table stays in view. */
+        table.data tr.group .stick { position: sticky; left: 0; display: inline-block; white-space: normal; max-width: calc(100vw - 4rem); }
+        table.data td .ci { display: block; font-size: 0.78rem; color: var(--text-light); white-space: nowrap; }
+        .chart .halo { paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
+        .chart-caption { font-size: 0.86rem; color: var(--text-light); margin-top: 0.5rem; max-width: var(--measure); }
+        .chart .pair-line { stroke: var(--text-light); stroke-width: 1; opacity: 0.4; }
+        .chart .mean-mark { stroke-width: 4; stroke-linecap: round; }
+        .chart .forest-ci { stroke: var(--text-light); stroke-width: 1.75; }
+        .chart .forest-ci.sig { stroke: var(--text); stroke-width: 2.5; }
+        .chart .forest-dot { fill: #fff; stroke: var(--text-light); stroke-width: 1.75; }
+        .chart .forest-dot.sig { fill: var(--text); stroke: var(--text); }
+        .chart g:hover > circle.dot-lang, .chart g:hover > path { filter: brightness(1.12); }
+        .lang-key { display: flex; gap: 1.5rem; margin: 1.75rem 0 0; font-size: 0.92rem; font-weight: 600; color: var(--text); }
+        .lang-key i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: -0.05rem; }
+        .lang-key .k-zh { background: var(--lang-zh); } .lang-key .k-en { background: var(--lang-en); }
+        section.q { margin-top: 1rem; }
+        .q-lead { color: var(--text-secondary); max-width: var(--measure); margin-top: 0.25rem; }
+        .state-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem 3rem; margin-top: 1rem; }
+        @media (min-width: 680px) { .state-pair { grid-template-columns: repeat(2, minmax(0, 286px)); } }
+        /* On a projector the two diagrams may grow (text with them). */
+        @media (min-width: 1100px) { .state-pair { grid-template-columns: repeat(2, minmax(0, 350px)); } .state-pair .chart { max-width: 350px !important; } }
+        .state-pair h3, .seed-multiples h3, .traj-multiples h3, #a-prof h3 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .state-pair h3 .n { font-weight: 500; color: var(--text-light); font-size: 0.88rem; margin-left: 0.15rem; }
+        #a-dumbbell, #a-forest { max-width: 46rem; }
+        .figure-narrow { max-width: 38rem; }
+        .seed-multiples { grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 900px) { .seed-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; } }
+        .seed-multiples .figure { max-width: 24rem; }
+        @media (min-width: 900px) { .seed-multiples .figure { max-width: none; } }
+        ul.tests { list-style: none; margin: 0.75rem 0 0; display: grid; gap: 0.4rem; }
+        ul.tests li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; font-size: 0.95rem; color: var(--text-secondary); }
+        ul.tests li .t-name { font-weight: 650; color: var(--text); }
+        ul.tests li .t-kind { font-size: 0.78rem; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-light); }
+        .tag { font-size: 0.72rem; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-light); border: 1px solid var(--border-strong); border-radius: 999px; padding: 0.1rem 0.5rem; vertical-align: 0.3em; margin-left: 0.4rem; }
+        .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 3rem; margin: 1rem 0 0.75rem; max-width: 52rem; }
+        .meter-lang { font-weight: 650; color: var(--text); margin-bottom: 0.35rem; }
+        .meter { display: grid; grid-template-columns: 9.5rem 1fr 3rem; align-items: center; gap: 0.6rem; font-size: 0.9rem; margin: 0.35rem 0; }
+        .meter-track { height: 0.6rem; background: var(--bg-alt); border-radius: 999px; overflow: hidden; }
+        .meter-fill { height: 100%; border-radius: 999px; }
+        .meter-fill.zh { background: var(--lang-zh); } .meter-fill.en { background: var(--lang-en); }
+        .meter .v { text-align: right; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+        .meter-note { font-size: 0.82rem; color: var(--text-light); }
         /* Association task: transition matrices, one per language */
         .matrix-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem 3rem; margin-top: 1rem; max-width: 34rem; }
         @media (min-width: 900px) { .matrix-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; } }
-        .matrix-pair h4, .traj-multiples h4, #a-prof h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .matrix-pair h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
         .matrix-pair h4 .n { font-weight: 500; color: var(--text-light); font-size: 0.88rem; margin-left: 0.4rem; }
         table.matrix { border-collapse: separate; border-spacing: 4px; font-variant-numeric: tabular-nums; width: 100%; table-layout: fixed; }
         table.matrix col.head { width: 7.5rem; }
         table.matrix th { font-size: 0.84rem; font-weight: 600; color: var(--text-secondary); text-align: left; padding: 0.25rem 0.5rem 0.25rem 0; line-height: 1.3; }
         table.matrix thead th { text-align: center; }
-        table.matrix td { text-align: center; padding: 0.7rem 0.3rem; border: 1px solid var(--border); border-radius: 3px; background: color-mix(in srgb, var(--mint-deep) calc(var(--p, 0) * 38%), #fff); }
+        table.matrix td { text-align: center; padding: 0.7rem 0.3rem; border: 1px solid var(--border); border-radius: 3px; background: color-mix(in srgb, var(--text) calc(var(--p, 0) * 15%), #fff); }
         table.matrix td b { display: block; font-size: 1.45rem; font-weight: 700; color: var(--text); line-height: 1.15; }
         table.matrix td span { display: block; font-size: 0.78rem; color: var(--text-secondary); }
         table.matrix td.undef { background: var(--bg-alt); color: var(--text-light); }
         @media (max-width: 480px) { table.matrix col.head { width: 5.75rem; } table.matrix td { padding: 0.55rem 0.15rem; } table.matrix td b { font-size: 1.25rem; } }
-        /* The three seed categories side by side on a projector, stacked below 900 px. */
+        /* The three seed categories side by side on a projector, two across on a tablet, stacked on a phone. */
         .traj-multiples { grid-template-columns: minmax(0, 1fr); }
         @media (min-width: 900px) { .traj-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; } }
         .traj-multiples .figure { max-width: 24rem; }
@@ -112,8 +179,12 @@
         details.more[open] > summary { margin-bottom: 0.25rem; }
         table.data td.lead-cell { font-weight: 650; }
         /* The tests table: questions get room before the numbers do. */
-        #a-tests tbody th[scope="row"] { min-width: 15rem; max-width: 22rem; white-space: normal; }
+        @media (min-width: 900px) { #a-tests tbody th[scope="row"] { min-width: 15rem; max-width: 22rem; white-space: normal; } }
         @media (min-width: 900px) { .traj-multiples .figure { max-width: none; } }
+        @media (min-width: 600px) and (max-width: 899px) {
+            .seed-multiples, .traj-multiples { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
+            .seed-multiples .figure, .traj-multiples .figure { max-width: none; }
+        }
     </style>
 </head>
 <body>
@@ -279,57 +350,86 @@
                     <section class="summary" aria-labelledby="a-sum-h"><h2 id="a-sum-h">Summary</h2><ul id="a-summary"></ul></section>
                     <div id="a-body">
                     <div class="stats" id="a-stats"></div>
+                    <p class="lang-key" aria-hidden="true"><span><i class="k-zh"></i>Chinese</span><span><i class="k-en"></i>English</span></p>
 
-                    <h2>Descriptive results</h2>
-                    <h3 class="sub">Where the next answer goes</h3>
-                    <div class="matrix-pair" id="a-matrices"></div>
-                    <p class="small muted column" id="a-matrix-note"></p>
+                    <section class="q" aria-labelledby="q-markov">
+                        <h2 id="q-markov">Where does the next answer go?</h2>
+                        <p class="q-lead">Each answer is negative (valence below 5) or positive. The arrows show where the next answer went, pooled over all students.</p>
+                        <div class="state-pair" id="a-states"></div>
+                        <p class="chart-caption">Arrow width shows the probability. The number on each arrow is the share of answers in that state that were followed by an answer in the next state.</p>
+                        <h3 class="sub">Staying in the same state</h3>
+                        <figure class="figure"><div id="a-dumbbell"></div><figcaption>Probabilities from the mixed-effects model, with 95% confidence intervals.</figcaption></figure>
+                        <ul class="tests" id="a-tests-markov"></ul>
+                        <details class="more">
+                            <summary>Show the counts</summary>
+                            <h3 class="sub">Two states: negative, positive</h3>
+                            <div class="matrix-pair" id="a-matrices"></div>
+                            <h3 class="sub">Three states: negative, neutral, positive</h3>
+                            <div class="matrix-pair" id="a-matrices3"></div>
+                            <p class="small muted column">Negative below 4.2, neutral 4.2 to 5.8, positive 5.8 and above. Rows are the previous answer and sum to 1. The seed → first answer step is not counted.</p>
+                        </details>
+                    </section>
 
-                    <h3 class="sub">By language and seed valence</h3>
-                    <div class="table-wrap" data-label="Results by language and seed valence"><table class="data" id="a-bycat"></table></div>
-                    <p class="small muted column">Persistence: pooled transitions, as in the matrices. Valence: each student’s mean over scored answers, then the class mean (1–9). Repeated answers: the share of answers that repeat an earlier word of the same chain, the seed included.</p>
+                    <section class="q" aria-labelledby="q-seed">
+                        <h2 id="q-seed">Does the seed’s valence carry into the chain?</h2>
+                        <p class="q-lead">The same measures after negative, neutral and positive seeds. Bars: 95% confidence intervals across students.</p>
+                        <div class="multiples seed-multiples" id="a-seedpanels"></div>
+                        <ul class="tests" id="a-tests-seed"></ul>
+                        <details class="more">
+                            <summary>Show the numbers</summary>
+                            <div class="table-wrap" data-label="Results by language and seed valence"><table class="data" id="a-bycat"></table></div>
+                            <p class="small muted column">Persistence: pooled transitions, with 95% CIs in the chart from resampling students (1,000 draws). Valence: each student’s mean over scored answers, then the class mean (1–9), with 95% CIs across students in the chart. Repeated answers: the share of answers that repeat an earlier word of the same chain, the seed included.</p>
+                        </details>
+                    </section>
 
-                    <h3 class="sub">Valence along the chain</h3>
-                    <div class="multiples traj-multiples" id="a-traj"></div>
-                    <div class="legend" aria-hidden="true">
-                        <span><i class="sw-a"></i>Chinese</span>
-                        <span><i class="sw-b"></i>English</span>
-                        <span>Whiskers: 95% CI across students</span>
-                    </div>
-                    <p class="small muted column">Mean valence of the answers (1–9) at each position of the chain.</p>
+                    <section class="q" aria-labelledby="q-traj">
+                        <h2 id="q-traj">How does valence change along the chain?</h2>
+                        <p class="q-lead">Mean valence of the answers (1–9) at each position. Bands: 95% confidence intervals across students.</p>
+                        <div class="multiples traj-multiples" id="a-traj"></div>
+                        <details class="more">
+                            <summary>Show the numbers</summary>
+                            <div class="table-wrap" data-label="Mean valence by answer position"><table class="data traj-table" id="a-traj-table"></table></div>
+                            <p class="small muted column" id="a-traj-note"></p>
+                        </details>
+                    </section>
 
-                    <details class="more">
-                        <summary>Three states: negative, neutral, positive</summary>
-                        <div class="matrix-pair" id="a-matrices3"></div>
-                        <p class="small muted column">Negative below 4.2, neutral 4.2 to 5.8, positive 5.8 and above. Pooled; descriptive only.</p>
-                    </details>
+                    <section class="q" aria-labelledby="q-rep">
+                        <h2 id="q-rep">Do students repeat themselves more in one language?</h2>
+                        <p class="q-lead">The share of a student’s answers that repeat an earlier word of the same chain, the seed included. Each grey line joins one student’s two scores; the bars at the edges are the class means with 95% confidence intervals.</p>
+                        <figure class="figure figure-narrow"><div id="a-repeats"></div></figure>
+                        <ul class="tests" id="a-tests-rep"></ul>
+                    </section>
 
-                    <h2>Inferential results</h2>
-                    <div class="table-wrap" data-label="Tests"><table class="data" id="a-tests"></table></div>
-                    <p class="small muted column" id="a-tests-note"></p>
-                    <details class="more">
-                        <summary>All terms of the mixed-effects model</summary>
-                        <div class="table-wrap" data-label="Mixed-effects model table"><table class="data" id="a-model"></table></div>
-                    </details>
-
-                    <h3 class="sub">Relative proficiency (exploratory)</h3>
-                    <div class="dash-controls" style="border:0;padding-top:0">
-                        <label>Proficiency <select id="a-prof-key">
-                            <option value="overall">Overall: English − Chinese self-rating</option>
-                            <option value="productive">Speaking and writing: English − Chinese</option>
-                        </select></label>
-                    </div>
-                    <div class="table-wrap" data-label="Proficiency slopes table"><table class="data" id="a-prof-table"></table></div>
-                    <details class="more">
-                        <summary>Show the plots</summary>
+                    <section class="q" aria-labelledby="q-prof">
+                        <h2 id="q-prof">Does relative proficiency matter? <span class="tag">exploratory</span></h2>
+                        <div class="dash-controls" style="border:0;padding-top:0">
+                            <label>Proficiency <select id="a-prof-key">
+                                <option value="overall">Overall: English − Chinese self-rating</option>
+                                <option value="productive">Speaking and writing: English − Chinese</option>
+                            </select></label>
+                        </div>
                         <div class="multiples fle-multiples" id="a-prof"></div>
                         <p class="small muted column">Each dot is a student: the English − Chinese difference in their own persistence probability, against their English − Chinese self-rating (0–10 scales). Students with no transitions from a state in one language are left out. Black line: least-squares fit with its 95% band. Dashed line: no difference.</p>
-                    </details>
+                        <div class="table-wrap" data-label="Proficiency slopes table"><table class="data" id="a-prof-table"></table></div>
+                    </section>
 
-                    <h2>Data quality</h2>
-                    <div class="table-wrap" data-label="Norm coverage table"><table class="data" id="a-coverage"></table></div>
-                    <p class="small muted column">Chinese valence is on the English scale: the Chan &amp; Tse ratings are compressed towards the middle (the same concept is rated less extreme), so they are equated to Warriner over the two whole norm sets (English = −1.53 + 1.31 × Chinese; <code>assets/data/equating.json</code>). Without this, Chinese chains would look more neutral by construction. The downloads keep the raw ratings too.</p>
-                    <p class="small muted column">Answers scored: found in the norms (Warriner et al., 2013; Chan &amp; Tse, 2024). Valid transitions: adjacent answers that were both scored, out of 90 per student and language (answers 1→2 to 9→10 in 10 chains). An unscored answer breaks both of its transitions; nothing is bridged across it.</p>
+                    <section class="q" aria-labelledby="q-tests">
+                        <h2 id="q-tests">The model and all tests</h2>
+                        <figure class="figure"><div id="a-forest"></div><figcaption>Top: the language differences in staying negative and staying positive (log-odds of staying). Bottom: the model’s terms (log-odds that the next answer is positive). With 95% confidence intervals; bold: significant.</figcaption></figure>
+                        <div class="table-wrap" data-label="Tests"><table class="data" id="a-tests"></table></div>
+                        <p class="small muted column" id="a-tests-note"></p>
+                        <details class="more">
+                            <summary>All terms of the mixed-effects model</summary>
+                            <div class="table-wrap" data-label="Mixed-effects model table"><table class="data" id="a-model"></table></div>
+                        </details>
+                    </section>
+
+                    <section class="q" aria-labelledby="q-quality">
+                        <h2 id="q-quality">Data quality</h2>
+                        <div class="meters" id="a-coverage"></div>
+                        <p class="small muted column">Answers scored: found in the norms (Warriner et al., 2013; Chan &amp; Tse, 2024). Valid transitions: adjacent answers that were both scored, out of 90 per student and language (answers 1→2 to 9→10 in 10 chains). An unscored answer breaks both of its transitions; nothing is bridged across it.</p>
+                        <p class="small muted column">Chinese valence is on the English scale: the Chan &amp; Tse ratings are compressed towards the middle, so they are equated to Warriner over the two whole norm sets (English = −1.53 + 1.31 × Chinese; <code>assets/data/equating.json</code>). The downloads keep the raw ratings too.</p>
+                    </section>
 
                     <h2>Data</h2>
                     <div class="actions" style="margin-top:0.75rem">
@@ -357,7 +457,8 @@
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/fast-stimuli.js?v=6"></script>
-    <script src="assets/fast-analysis.js?v=4"></script>
-    <script src="assets/dashboard.js?v=26"></script>
+    <script src="assets/fast-analysis.js?v=5"></script>
+    <script src="assets/fast-charts.js?v=7"></script>
+    <script src="assets/dashboard.js?v=34"></script>
 </body>
 </html>

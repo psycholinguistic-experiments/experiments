@@ -57,32 +57,6 @@ Everything that compares or matches the languages uses the equated values:
 the seed criteria and matching, the Markov states, the answer valence and the
 trajectories.
 
-## Published tables (`assets/data/`)
-
-| File | Rows | Columns |
-|---|---|---|
-| `norms-en.csv` | 13,905 English lemmas (Warriner et al.) | word, valence, arousal (1–9), concreteness (1–5), familiarity (1–7), Zipf frequency, frequency rank in SUBTLEX-US |
-| `norms-zh.csv` | 25,281 two-character words (Chan & Tse) | traditional, simplified, valence, arousal (1–9), concreteness, familiarity (1–7), Zipf frequency, frequency rank in SUBTLEX-CH, and valence, arousal and concreteness on the English scales |
-| `lemmas-en.csv` | 2,175 irregular English forms | form, lemma (e.g. went → go), for lemmatising answers |
-| `equating.json` | 3 variables | the linear link from Chinese to English for valence, arousal and concreteness |
-
-## Equating Chinese to the English scales
-
-Valence and arousal are both 1–9 scales, but the two norms are not calibrated
-to each other. Over translation pairs, Chinese ratings of the same concept are
-less extreme, and concreteness uses different scales (1–7 against 1–5).
-
-`build_norms.py` links the two norm sets by linear (mean–sigma) equating over
-the translation pairs in `calibration_pairs.csv`: for each variable, the
-Chinese values are shifted and stretched to have the English mean and SD over
-those pairs. They are stored as `valence_en`, `arousal_en` and
-`concreteness_en` in `norms-zh.csv`. The raw Chan & Tse columns are kept.
-
-Everything that compares or matches the languages uses the equated values:
-the seed criteria and matching, the Markov states, the answer valence and
-the trajectories. A larger calibration set, such as dictionary-based pairs,
-can replace `calibration_pairs.csv` without touching anything else.
-
 ## Sources
 
 Put these in `sources/` under the names shown to rebuild the tables.
