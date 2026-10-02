@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Sentence task · LT5461</title>
+    <meta name="description" content="An in-class sentence verification experiment for LT5461 at City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=9">
+    <link rel="stylesheet" href="assets/svt.css?v=4">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="./">LT5461 <span>Cognition and Language Differences</span></a>
+            <span class="masthead-meta">Sentence task</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <div id="svt"></div>
+        <noscript><div class="page"><p class="note warn">This task needs JavaScript.</p></div></noscript>
+    </main>
+
+    <footer class="footer">
+        <div class="page">LT5461 · Department of Linguistics and Translation, City University of Hong Kong · Adel Chaouch-Orozco</div>
+    </footer>
+
+    <script src="assets/config.js?v=2"></script>
+    <script src="assets/lab.js?v=9"></script>
+    <script src="assets/svt-stimuli.js?v=1"></script>
+    <script src="assets/svt.js?v=4"></script>
+    <script>
+        /* The page around the task: the anonymous code, the class data upload
+           (the module itself sends nothing) and the CSV download. */
+        (function () {
+            'use strict';
+            var EXP = 'svt';
+            var pid = LAB.pid(), session = LAB.session();
+            var local = ['localhost', '127.0.0.1', ''].indexOf(location.hostname) !== -1;
+
+            // Faster timings and a fixed order, for the test scripts on a local server only.
+            var timing = {}, seed;
+            if (local) {
+                ['fixation', 'iti', 'feedback', 'timeout', 'resume'].forEach(function (k) {
+                    var v = LAB.params.get('t_' + k);
+                    if (v) timing[k] = Number(v);
+                });
+                if (LAB.params.get('seed')) seed = Number(LAB.params.get('seed'));
+            }
+
+            var rows = [], status = null;
+            var flag = function (b) { return b ? 1 : 0; };
+            var r1 = function (v) { return isFinite(v) ? Math.round(v * 10) / 10 : ''; };
+            var r3 = function (v) { return isFinite(v) ? Math.round(v * 1000) / 1000 : ''; };
+
+            function say(text) { if (status) status.textContent = text; }
+            document.addEventListener('lab:sent', function () { if (status && status.textContent) say('Your results were added to the class data anonymously.'); });
+
+            var task = SentenceVerification.mount(document.getElementById('svt'), {
+                introNote: '<p class="note">Your answers are stored anonymously under a random code, with no name and no student number, and pooled with the rest of the class.</p>',
+                timing: timing,
+                seed: seed,
+                renderActions: function (el) {
+                    var home = document.createElement('a');
+                    home.className = 'btn';
+                    home.href = './';
+                    home.innerHTML = 'All experiments <span class="arrow" aria-hidden="true">→</span>';
+                    var csv = document.createElement('button');
+                    csv.type = 'button';
+                    csv.className = 'btn-quiet';
+                    csv.textContent = 'Download my data (CSV)';
+                    csv.addEventListener('click', function () { LAB.download('lt5461-sentences-' + pid + '.csv', LAB.toCSV(rows)); });
+                    status = document.createElement('p');
+                    status.className = 'small muted svt-upload';
+                    status.setAttribute('aria-live', 'polite');
+                    el.appendChild(home);
+                    el.appendChild(csv);
+                    el.parentNode.insertBefore(status, el.nextSibling);
+                },
+                onReset: function () { if (status) status.remove(); status = null; rows = []; },
+                onComplete: function (r) {
+                    var run = LAB.store.get('runs:' + EXP, 0) + 1;
+                    LAB.store.set('runs:' + EXP, run);
+                    var via = {};
+                    r.trials.forEach(function (t) { if (!t.practice && t.via) via[t.via] = (via[t.via] || 0) + 1; });
+                    var input = Object.keys(via).sort(function (a, b) { return via[b] - via[a]; })[0] || '';
+                    rows = r.trials.map(function (t) {
+                        return {
+                            pid: pid, session: session, run: run, phase: t.practice ? 'practice' : 'main', trial: t.trialIndex,
+                            id: t.stimulusId, sentence: t.sentence, category: t.semanticCategory, trial_type: t.trialType,
+                            typicality: t.typicality || '', correct_answer: t.correctAnswer, response: t.response || '',
+                            correct: flag(t.correct), rt: t.rtMs === null ? '' : t.rtMs, timed_out: flag(t.timedOut),
+                            focus_lost: flag(t.focusLost), late_onset: flag(t.lateOnset), included_in_rt: flag(t.includedInRT),
+                            via: t.via || ''
+                        };
+                    });
+                    var summary = {
+                        exp: EXP, pid: pid, session: session, run: run, input: input,
+                        started_at: r.startedAt, submitted_at: r.finishedAt,
+                        stim_version: r.stimulusVersion, seed: r.seed,
+                        n_trials: r.nScored, n_correct: r.nCorrect, acc: r3(r.accuracy),
+                        acc_targets: r3(r.accuracyTargets), acc_fillers: r3(r.accuracyFillers),
+                        n_timeouts: r.nTimeouts, n_focus_lost: r.nFocusLost,
+                        rt_high: r1(r.highTypicalityMedianRt), rt_low: r1(r.lowTypicalityMedianRt),
+                        effect: r1(r.typicalityEffectRt), n_high: r.nValidHigh, n_low: r.nValidLow,
+                        include: flag(r.interpretable), exclude_reason: r.notInterpretedBecause.join('; ')
+                    };
+                    LAB.markDone(EXP);
+                    say('Sending your results…');
+                    LAB.submit({ v: 1, exp: EXP, pid: pid, session: session, submissionId: LAB.uid(), summary: summary, trials: rows })
+                        .then(function (st) {
+                            if (st.offline) say('Your results are saved on this device. If your instructor asks for them, use “Download my data” above.');
+                            else if (st.pending) say('Could not reach the class server yet; your results are saved on this device and will be sent the next time you open any of the tasks.');
+                            else say('Your results were added to the class data anonymously.');
+                        });
+                }
+            });
+            if (local) window.svtTask = task;
+
+            // Anything left in the outbox from an earlier offline run goes now.
+            LAB.flush();
+        })();
+    </script>
+</body>
+</html>

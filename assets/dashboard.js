@@ -4,10 +4,10 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'birds'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds'];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], birds: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [] },
     timer: null,
     loadedOnce: false
   };
@@ -18,7 +18,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-birds')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -144,7 +144,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, bd = state.rows.birds;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -156,17 +156,20 @@
     $('#n-fast').textContent = a.length;
     $('#veil-fast-zh').textContent = a.filter(r => r.order === 'zh-en').length;
     $('#veil-fast-en').textContent = a.filter(r => r.order === 'en-zh').length;
+    $('#n-svt').textContent = sv.length;
+    $('#veil-svt').textContent = sv.length;
     $('#n-birds').textContent = bd.length;
     $('#veil-birds').textContent = bd.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
     if (!$('#panel-shapes').hidden) renderShapes(b);
     if (!$('#panel-fle').hidden) renderFLE(f);
     if (!$('#panel-fast').hidden) renderFast(a);
+    if (!$('#panel-svt').hidden) renderSvt(sv);
     if (!$('#panel-birds').hidden) renderBirds(bd);
     syncScrollers();
   }
@@ -913,6 +916,64 @@
       items.push(item(A, t));
     }
     $('#w-summary').innerHTML = items.join('');
+  }
+
+  /* ---------- sentence task: typicality ---------- */
+  /* A run counts if the task interpreted it (accuracy ≥ 80%, ≥ 12 valid trials
+     per condition), and only each person's first such run. */
+  function svtRuns(rows) {
+    const seen = new Set();
+    return rows.map(r => {
+      const counted = String(r.include) === '1' && !seen.has(r.pid);
+      if (counted) seen.add(r.pid);
+      return { r, counted };
+    });
+  }
+
+  function renderSvt(rows) {
+    const runs = svtRuns(rows), inc = runs.filter(x => x.counted).map(x => x.r);
+    const col = k => inc.map(r => num(r[k])).filter(isFinite);
+    const eff = col('effect'), T = LAB.ttest(eff, 0);
+    const hi = LAB.mean(col('rt_high')), lo = LAB.mean(col('rt_low'));
+    const people = new Set(rows.map(r => r.pid)).size;
+    const notCounted = runs.filter(x => !x.counted);
+    const repeats = notCounted.filter(x => String(x.r.include) === '1').length;
+
+    $('#v-stats').innerHTML =
+      `<div class="stat${kind(T, 1) === 'yes' ? ' key' : ''}"><span class="stat-label">Typicality effect</span>` +
+      `<span class="stat-value">${isFinite(T.m) ? LAB.signed(T.m) + '<small>ms</small>' : '–'}</span>` +
+      `<span class="stat-note">low − high typicality · 95% CI ${fmtCI(T.ci)} · <i>n</i> = ${inc.length}${small(inc.length)}</span>` +
+      `<span class="stat-test">${testLine(T, 1)}</span></div>` +
+      `<div class="stat"><span class="stat-label">High-typicality true statements</span><span class="stat-value">${isFinite(hi) ? Math.round(hi) + '<small>ms</small>' : '–'}</span><span class="stat-note">mean of each person’s median</span></div>` +
+      `<div class="stat"><span class="stat-label">Low-typicality true statements</span><span class="stat-value">${isFinite(lo) ? Math.round(lo) + '<small>ms</small>' : '–'}</span><span class="stat-note">mean of each person’s median</span></div>` +
+      `<div class="stat"><span class="stat-label">Took part</span><span class="stat-value">${people}</span><span class="stat-note">${inc.length} counted · ${rows.length} run${rows.length === 1 ? '' : 's'}</span></div>`;
+
+    const host = $('#v-strip');
+    if (!rows.length) host.innerHTML = '<p class="empty">No runs yet for this class. Results appear here as students finish.</p>';
+    else LAB.stripPlot(host, [{ label: '', values: runs.map(x => ({ v: num(x.r.effect), excluded: !x.counted })) }], {
+      width: 1000, r: 7, domain: [-100, 200],
+      xLabel: 'Typicality effect (ms): low − high typicality median',
+      ariaLabel: `Typicality effects: ${inc.length} people counted, mean ${isFinite(T.m) ? Math.round(T.m) : '–'} ms`
+    });
+
+    $('#v-table').innerHTML =
+      `<thead><tr><th scope="col">Statements</th><th class="num" scope="col">n</th><th class="num" scope="col">High typicality</th><th class="num" scope="col">Low typicality</th>` +
+      `<th class="num" scope="col">Effect</th><th class="num" scope="col">95% CI</th>${tHead('<i>d</i><sub>z</sub>')}</tr></thead>` +
+      `<tbody><tr><th scope="row">True statements</th><td class="num">${inc.length} / ${rows.length}</td><td class="num">${fmtMs(hi)}</td><td class="num">${fmtMs(lo)}</td>` +
+      `<td class="num"><strong>${isFinite(T.m) ? LAB.signed(T.m) + ' ms' : '–'}</strong></td><td class="num">${fmtCI(T.ci)}</td>` +
+      `${tCell(T)}${pCell(T)}${esCell(T)}${resultCell(T, 1)}</tr></tbody>`;
+
+    const pct = k => { const a = col(k); return a.length ? Math.round(LAB.mean(a) * 100) + '%' : '–'; };
+    const lowAcc = notCounted.filter(x => String(x.r.include) !== '1').length;
+    $('#v-quality').textContent = rows.length
+      ? `Counted runs: accuracy ${pct('acc')} on average (true statements ${pct('acc_targets')}, false ${pct('acc_fillers')}); ` +
+        `${LAB.round(LAB.mean(col('n_high')), 1) || '–'} and ${LAB.round(LAB.mean(col('n_low')), 1) || '–'} valid trials per person out of 28 (high, low). ` +
+        `Not counted: ${lowAcc} run${lowAcc === 1 ? '' : 's'} with accuracy below 80% or too few valid trials, ${repeats} repeat run${repeats === 1 ? '' : 's'}.`
+      : '';
+
+    $('#v-summary').innerHTML = !isFinite(T.p)
+      ? item(null, `${lead('Typicality', T)} ${novar(T) ? SAME : `${inc.length} usable run${inc.length === 1 ? '' : 's'} so far; the test needs at least 2.`}`)
+      : item(T, `${lead('Typicality', T, 1)} True statements about high-typicality members were verified ${Math.abs(Math.round(T.m))} ms ${T.m >= 0 ? 'faster' : 'slower'} than statements about low-typicality members ${inline(`${LAB.fmtTest(T)}, ${LAB.fmtES(T, '<i>d</i><sub>z</sub>')}, <i>n</i> = ${T.n}${smallTag(T.n)}`)}.`);
   }
 
   function renderShapes(rows) {

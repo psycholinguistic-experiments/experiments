@@ -20,8 +20,9 @@
         .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
         .tab:hover { color: var(--text); }
         .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
-        /* Five tabs do not fit a tablet or phone: they wrap onto a second row. */
-        @media (max-width: 860px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; white-space: nowrap; } }
+        /* Six tabs do not fit a tablet or phone: they wrap onto a second row. */
+        .tab { white-space: nowrap; }
+        @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         .panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 3rem; }
         @media (min-width: 1100px) { .panel-grid.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
         .bars { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
@@ -258,6 +259,7 @@
                 <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape task<span class="n" id="n-shapes"></span></button>
                 <button class="tab" role="tab" id="tab-fle" aria-controls="panel-fle" aria-selected="false" tabindex="-1">Judgement task<span class="n" id="n-fle"></span></button>
                 <button class="tab" role="tab" id="tab-fast" aria-controls="panel-fast" aria-selected="false" tabindex="-1">Association task<span class="n" id="n-fast"></span></button>
+                <button class="tab" role="tab" id="tab-svt" aria-controls="panel-svt" aria-selected="false" tabindex="-1">Sentence task<span class="n" id="n-svt"></span></button>
                 <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird task<span class="n" id="n-birds"></span></button>
             </div>
 
@@ -493,6 +495,26 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Sentence task (typicality) -->
+            <section id="panel-svt" role="tabpanel" aria-labelledby="tab-svt" hidden>
+                <div class="veil">
+                    <span class="stat-label">Sentence task</span><div class="big" id="veil-svt">0</div>
+                </div>
+                <div class="results-body">
+                    <section class="summary" aria-labelledby="v-sum-h"><h2 id="v-sum-h">Summary</h2><ul id="v-summary"></ul></section>
+                    <div class="stats" id="v-stats"></div>
+                    <h2>Typicality effect, one dot per person</h2>
+                    <figure class="figure">
+                        <div id="v-strip"></div>
+                        <figcaption>Each dot: one person’s median time for true low-typicality statements minus their median for true high-typicality statements. Positive values: high-typicality members verified faster, the predicted direction. Black bar: class mean. Green band: 95% confidence interval of the mean. Dashed dots: runs not counted (accuracy below 80%, fewer than 12 valid trials in a condition, or a repeat run).</figcaption>
+                    </figure>
+                    <h2>Reaction times</h2>
+                    <div class="table-wrap" data-label="Sentence task table"><table class="data" id="v-table"></table></div>
+                    <p class="small muted column">True target statements only; the false fillers are never analysed by typicality. Correct responses, 250 ms ≤ RT &lt; 5,000 ms (the time-out), trials with focus kept. Each person’s median per condition, then the class mean of those medians. Test: each person’s effect against 0 (one-sample t-test, the same as a paired t-test of low vs high); d<sub>z</sub> = mean effect ÷ its SD. Two-tailed, α = .05. A run counts if overall accuracy is at least 80% and at least 12 valid trials remain in each condition; only each person’s first such run counts.</p>
+                    <p class="small muted column" id="v-quality"></p>
+                </div>
+            </section>
             <!-- Bird task (typicality ratings → semantic map, as in Bird plot.Rmd) -->
             <section id="panel-birds" class="waiting" role="tabpanel" aria-labelledby="tab-birds" hidden>
                 <div class="veil">
@@ -541,6 +563,6 @@
     <script src="assets/fast-charts.js?v=13"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
-    <script src="assets/dashboard.js?v=40"></script>
+    <script src="assets/dashboard.js?v=41"></script>
 </body>
 </html>
