@@ -8,7 +8,7 @@
     <meta name="description" content="An in-class sentence verification experiment for LT5461 at City University of Hong Kong.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="assets/lab.css?v=9">
-    <link rel="stylesheet" href="assets/svt.css?v=1">
+    <link rel="stylesheet" href="assets/svt.css?v=3">
 </head>
 <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -31,7 +31,7 @@
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/svt-stimuli.js?v=1"></script>
-    <script src="assets/svt.js?v=1"></script>
+    <script src="assets/svt.js?v=3"></script>
     <script>
         /* The page around the task: the anonymous code, the class data upload
            (the module itself sends nothing) and the CSV download. */
@@ -78,7 +78,7 @@
                     status.setAttribute('aria-live', 'polite');
                     el.appendChild(home);
                     el.appendChild(csv);
-                    el.parentNode.insertBefore(status, el);
+                    el.parentNode.insertBefore(status, el.nextSibling);
                 },
                 onReset: function () { if (status) status.remove(); status = null; rows = []; },
                 onComplete: function (r) {
@@ -112,7 +112,7 @@
                     say('Sending your results…');
                     LAB.submit({ v: 1, exp: EXP, pid: pid, session: session, submissionId: LAB.uid(), summary: summary, trials: rows })
                         .then(function (st) {
-                            if (st.offline) say('Your results are saved on this device. If your instructor asks for them, use “Download my data” below.');
+                            if (st.offline) say('Your results are saved on this device. If your instructor asks for them, use “Download my data” above.');
                             else if (st.pending) say('Could not reach the class server yet; your results are saved on this device and will be sent the next time you open any of the tasks.');
                             else say('Your results were added to the class data anonymously.');
                         });

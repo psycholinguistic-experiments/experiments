@@ -351,11 +351,19 @@
       if (S && S.phase === 'transition' && (e.code === 'Space' || e.key === ' ') && !e.repeat) { e.preventDefault(); startMain(); }
     });
     on(window, 'keyup', e => { if (S) { S.keysDown.delete(e.code || keyAnswer(e)); S.keysDown.delete(keyAnswer(e)); } });
-    el.btns.forEach(b => on(b, 'pointerdown', e => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      respond(b.dataset.resp, e.timeStamp, e.pointerType === 'touch' ? 'touch' : 'pointer');
-    }));
+    el.btns.forEach(b => {
+      on(b, 'pointerdown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        respond(b.dataset.resp, e.timeStamp, e.pointerType === 'touch' ? 'touch' : 'pointer');
+      });
+      // A click with no pointer behind it: a screen reader, voice control or
+      // switch access activating the button. (Mouse and touch clicks were
+      // already answered on pointerdown, and the lock ignores repeats.)
+      on(b, 'click', e => { if (e.detail === 0) respond(b.dataset.resp, e.timeStamp, 'click'); });
+    });
+    // Enter held on a focused button would click it again on every repeat.
+    on(window, 'keydown', e => { if (running() && e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault(); }, { capture: true });
 
     /* Leaving the window: the trial under way is invalid for RT, and the next
        one waits until the student is back and presses Continue. */
@@ -528,12 +536,13 @@
       const acc = tile('Overall accuracy', pct, '%',
         `${r.nCorrect} of ${r.nScored} correct${r.nTimeouts ? ` · ${r.nTimeouts} too slow` : ''}`);
       const valid = tile('Valid target trials', r.nValidHigh + r.nValidLow, '',
-        `of ${r.nTargets} · ${r.nValidHigh} high, ${r.nValidLow} low typicality`);
+        `of ${r.nTargets} · ${r.nValidHigh} high, ${r.nValidLow} low`);
       const quality = $('.svt-quality'), bars = $('.svt-bars'), yours = $('.svt-yours');
       if (r.interpretable) {
+        $('.svt-stats').classList.remove('is-pair');
         $('.svt-stats').innerHTML =
-          tile('High-typicality true statements', hi, 'ms', `median of ${r.nValidHigh} trials`) +
-          tile('Low-typicality true statements', lo, 'ms', `median of ${r.nValidLow} trials`) +
+          tile('High typicality', hi, 'ms', `median of ${r.nValidHigh} true statements`) +
+          tile('Low typicality', lo, 'ms', `median of ${r.nValidLow} true statements`) +
           tile('Difference', signed(diff), 'ms', 'low − high typicality', true) + acc + valid;
         const max = Math.max(hi, lo);
         $('.svt-bar-rows').innerHTML = [['High typicality', hi], ['Low typicality', lo]].map(([label, v]) =>
@@ -548,6 +557,7 @@
         yours.hidden = false;
       } else {
         $('.svt-stats').innerHTML = acc + valid;
+        $('.svt-stats').classList.add('is-pair');
         bars.hidden = true;
         quality.textContent = NOT_INTERPRETED;
         quality.hidden = false;
@@ -572,7 +582,11 @@
       if (!b || !root.contains(b)) return;
       if (b.dataset.act === 'practice') startPractice();
       else if (b.dataset.act === 'main') startMain();
-      else if (b.dataset.act === 'restart') { reset(); if (typeof options.onReset === 'function') options.onReset(); }
+      else if (b.dataset.act === 'restart') {
+        if (!window.confirm('Start the task again from the beginning? These results will be cleared from the page.')) return;
+        reset();
+        if (typeof options.onReset === 'function') options.onReset();
+      }
     });
 
     function reset() {

@@ -21,7 +21,8 @@
         .tab:hover { color: var(--text); }
         .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
         /* The tabs do not fit a phone: they wrap onto a second row. */
-        @media (max-width: 700px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
+        .tab { white-space: nowrap; }
+        @media (max-width: 900px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         .panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 3rem; }
         @media (min-width: 1100px) { .panel-grid.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
         .bars { display: grid; gap: 0.55rem; margin-top: 0.75rem; }

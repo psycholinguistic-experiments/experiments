@@ -2,14 +2,15 @@
    module's own container; type, buttons, tiles and the progress bar come from
    the page (lab.css). Fallback values keep it legible on a page without them. */
 
-.svt { --svt-ink: var(--text, #111); --svt-line: var(--border-strong, #c9d2da); }
+.svt { --svt-ink: var(--text, #111); --svt-edge: var(--border-input, #7d858d); }
 
 /* Key caps inside running text: small enough not to open up the line spacing. */
 .svt .lead kbd { font-size: 0.78em; min-width: 1.85em; height: 1.7em; border-bottom-width: 2px; border-radius: 4px; vertical-align: 0.08em; }
 
 /* ---------- task screen ---------- */
+/* 45rem less the padding = 42rem, the width of the progress bar above. */
 .svt .svt-task {
-    max-width: 46rem;
+    max-width: 45rem;
     margin: 0 auto;
     padding: clamp(1.25rem, 4vw, 2.5rem) 1.5rem 2.5rem;
     display: grid;
@@ -18,12 +19,13 @@
 .svt [data-screen="task"]:focus { outline: none; }
 
 /* Fixation, sentence and pause notice share one grid cell of fixed height, so
-   nothing moves when the sentence appears, wraps or goes. */
+   nothing moves when the sentence appears or goes. */
 .svt .svt-stage {
     display: grid;
     place-items: center;
     height: clamp(9rem, 30vh, 13rem);
     text-align: center;
+    container-type: inline-size;
 }
 .svt .svt-stage > * { grid-area: 1 / 1; }
 .svt .svt-fix,
@@ -32,32 +34,41 @@
 .svt .svt-sentence.is-on { visibility: visible; }
 .svt .svt-fix {
     font: 400 3rem/1 var(--font-stim, Arial, sans-serif);
+    font-size: min(3rem, calc((100vw - 3.25rem) / 11));
+    font-size: min(3rem, calc(100cqi / 11));   /* scales with the sentence on phones */
     color: #000;
 }
+/* Every sentence on one line, all at one size: the longest statement
+   ("A music stand is a musical instrument.") is 17.1em wide in Arial, so the
+   size is the stage width ÷ 18 (some room for other fonts), capped at 2.3rem.
+   A sentence that wrapped on one phone and not on another would make reading
+   time differ between items for reasons that have nothing to do with them. */
 .svt .svt-sentence {
     margin: 0;
-    max-width: 30ch;
+    justify-self: stretch;   /* a fixed box: only the text changes at each onset */
+    white-space: nowrap;
     font-family: var(--font-stim, Arial, sans-serif);
-    font-size: clamp(1.55rem, 4.6vw, 2.3rem);
+    font-size: min(2.3rem, calc((100vw - 3.25rem) / 18));
+    font-size: min(2.3rem, calc(100cqi / 18));
     line-height: 1.25;
     color: #000;
-    text-wrap: balance;
 }
 .svt .svt-pause { max-width: 26rem; background: var(--bg, #fff); }
 .svt .svt-pause-title { font-weight: 700; font-size: 1.35rem; color: var(--svt-ink); }
 .svt .svt-pause .btn { margin-top: 1.1rem; }
 
 .svt .svt-feedback {
-    min-height: 1.6em;
+    min-height: 1.62em;
     margin: -0.25rem 0 0;
     text-align: center;
     font-weight: 650;
-    color: var(--text-secondary, #3a3f45);
+    color: var(--svt-ink);
 }
-.svt .svt-feedback.is-good { color: var(--mint-deep, #4f7a3a); }
 .svt .svt-feedback.is-bad { color: var(--danger, #a1260d); }
 
-/* Two equal, neutral answer buttons: False on the left (F), True on the right (J). */
+/* Two equal, neutral answer buttons: False on the left (F), True on the right (J).
+   The edge never changes, so nothing flashes on one side when a sentence
+   appears; only the labels dim while the buttons are locked. */
 .svt .svt-resp {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -73,7 +84,7 @@
     font: 650 1.2rem/1.2 var(--font, sans-serif);
     color: var(--svt-ink);
     background: #fff;
-    border: 1px solid var(--svt-line);
+    border: 1px solid var(--svt-edge);
     border-radius: 6px;
     cursor: pointer;
     touch-action: manipulation;
@@ -82,13 +93,15 @@
     user-select: none;
     -webkit-user-select: none;
 }
-.svt .svt-btn:not(:disabled):hover { border-color: var(--svt-ink); }
 .svt .svt-btn kbd { font-size: 0.9rem; }
-/* Between sentences the buttons rest, visibly unavailable. */
-.svt .svt-btn:disabled { cursor: default; color: var(--text-light, #55595f); border-color: var(--border, #dfe5ea); }
+.svt .svt-btn:disabled { cursor: default; color: var(--text-light, #55595f); }
 .svt .svt-btn:disabled kbd { color: var(--text-light, #55595f); border-color: var(--text-light, #55595f); }
-.svt .svt-btn.is-picked { background: var(--highlight, #dcead0); border-color: var(--svt-ink); color: var(--svt-ink); }
+/* The press registered: an ink outline, the same whether right or wrong. */
+.svt .svt-btn.is-picked { color: var(--svt-ink); border-color: var(--svt-ink); box-shadow: inset 0 0 0 1px var(--svt-ink); }
 .svt .svt-btn.is-picked kbd { color: var(--svt-ink); border-color: var(--svt-ink); }
+
+/* Phones: the labels step down so the sentence stays the focus. */
+@media (max-width: 480px) { .svt .svt-btn { font-size: 1.05rem; } }
 
 /* Touch screens: no key labels. */
 @media (hover: none) and (pointer: coarse) {
@@ -96,10 +109,31 @@
     .svt .svt-btn { min-height: 5.5rem; }
 }
 
-.svt .svt-transition { margin: 0 auto; }
+/* Landscape phones and other short screens: everything above the fold. */
+@media (max-height: 600px) and (max-width: 360px) { .svt .svt-pause .btn { margin-top: 0.6rem; } }
+@media (max-height: 480px) {
+    .svt .svt-task { padding-top: 0.75rem; padding-bottom: 1rem; gap: 0.6rem; }
+    .svt .svt-stage { height: 9.5rem; }
+    .svt .svt-btn { min-height: 3.5rem; }
+    .svt .svt-pause .btn { margin-top: 0.6rem; }
+    .svt .svt-pause .muted { margin-top: 0.25rem; }
+}
 
 /* ---------- results ---------- */
+/* The reaction-time row (high · low · difference) above the data-quality row
+   (accuracy · valid trials). Every tile carries its own left rule; the first
+   column's is clipped, so the second row lines up too (as on results.html). */
 .svt .svt-stats { margin-bottom: 0; }
+@media (min-width: 561px) {
+    .svt .svt-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-left: calc(-1.25rem - 1px);
+        clip-path: inset(0 0 0 calc(1.25rem + 1px));
+    }
+    .svt .svt-stats .stat, .svt .svt-stats .stat + .stat { padding-left: 1.25rem; border-left: 1px solid var(--border, #dfe5ea); }
+    .svt .svt-stats.is-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: calc(44rem + 1.25rem + 1px); }
+}
+@media (max-width: 560px) { .svt .svt-stats { grid-template-columns: minmax(0, 1fr); } }
 .svt .svt-bars { margin: 2rem 0 0; max-width: 44rem; }
 .svt .svt-bar-rows { display: grid; gap: 0.7rem; }
 .svt .svt-bar-row {
@@ -114,8 +148,10 @@
 .svt .svt-bar-fill { display: block; height: 100%; width: var(--w); background: var(--svt-ink); }
 .svt .svt-bar-value { text-align: right; font-weight: 700; color: var(--svt-ink); font-variant-numeric: tabular-nums; }
 .svt .svt-bars figcaption { font-size: 0.86rem; color: var(--text-light, #55595f); margin-top: 0.7rem; }
+/* Phones: the label above its bar, so the bars keep most of the width. */
 @media (max-width: 480px) {
-    .svt .svt-bar-row { grid-template-columns: 6.5rem minmax(0, 1fr) 4.5rem; gap: 0.6rem; font-size: 0.9rem; }
+    .svt .svt-bar-row { grid-template-columns: minmax(0, 1fr) 4.5rem; gap: 0.25rem 0.6rem; font-size: 0.9rem; }
+    .svt .svt-bar-label { grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: no-preference) {
     .svt .svt-bar-fill { animation: svt-grow 0.9s var(--ease, ease-out) both; }
@@ -126,6 +162,6 @@
 .svt .svt-quality { max-width: var(--measure, 38rem); }
 .svt .svt-yours { font-weight: 650; color: var(--svt-ink); }
 .svt .svt-actions { margin-top: 2.25rem; }
-/* The page's upload status (sentence-task.html) sits between the debrief and the buttons. */
-.svt .svt-upload { margin-top: 2rem; }
-.svt .svt-upload + .svt-actions { margin-top: 1rem; }
+/* The page's upload status (sentence-task.html) follows the buttons, so a
+   longer message never pushes them down. */
+.svt .svt-upload { margin-top: 1rem; }
