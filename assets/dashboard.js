@@ -396,10 +396,11 @@
   // A difference shown next to two rounded values is computed from those
   // rounded values, so it always adds up on screen.
   const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000;
-  const fig = (host, heading) => {
+  const fig = (host, heading, level) => {
     const f = document.createElement('figure');
     f.className = 'figure';
-    f.innerHTML = `<h3>${heading}</h3><div></div>`;
+    const h = 'h' + (level || 3);
+    f.innerHTML = `<${h}>${heading}</${h}><div></div>`;
     host.appendChild(f);
     return f.querySelector('div');
   };
@@ -433,7 +434,7 @@
       .catch(e => { fastState.error = e.message || String(e); })
       .finally(() => { fastState.loading = null; lastKey = ''; render(); });
   }
-  $('#a-prof-key').addEventListener('change', () => { lastKey = ''; render(); });
+  $('#a-prof-skill').addEventListener('change', () => { lastKey = ''; render(); });
   $('#a-csv-answers').addEventListener('click', () => LAB.download(`lt5461-association-answers-${state.session}.csv`, LAB.toCSV(FA.responseRows(fastState.parts))));
   $('#a-csv-transitions').addEventListener('click', () => LAB.download(`lt5461-association-transitions-${state.session}.csv`, LAB.toCSV(FA.transitionRows(fastState.parts))));
 
@@ -576,30 +577,65 @@
     const both = mv.map(x => ({ zh: x.zh.positive - x.zh.negative, en: x.en.positive - x.en.negative })).filter(d => isFinite(d.zh) && isFinite(d.en));
     const polarity = { zh: LAB.mean(both.map(d => d.zh)), en: LAB.mean(both.map(d => d.en)), test: gate(LAB.ttest(both.map(d => d.en - d.zh), 0)) };
 
-    // ---- 5. Relative proficiency (exploratory) ----
-    const pk = $('#a-prof-key').value;
-    const rel = p => pk === 'overall' ? p.prof.en_overall - p.prof.zh_overall
-      : (p.prof.en_speaking + p.prof.en_writing) / 2 - (p.prof.zh_speaking + p.prof.zh_writing) / 2;
+    // ---- 5. English proficiency (exploratory) ----
+    // For each English self-rating (0–10) and each measure (staying negative,
+    // staying positive, the mean valence of the answers): the least-squares
+    // slope of the student's English − Chinese difference on the rating (the
+    // test), and of each language on its own (the detail charts). The same
+    // students enter all three fits, so the slopes add up.
+    const SKILL = { overall: 'Overall', listening: 'Listening', speaking: 'Speaking', reading: 'Reading', writing: 'Writing' };
+    const MEAS = { NN: 'Staying negative', PP: 'Staying positive', V: 'Valence of the answers' };
+    const valueOf = (i, k, lang) => k === 'V' ? mv[i][lang].all : per[i].lang[lang][k];
+    const PROF = [];
+    Object.keys(MEAS).forEach(k => Object.keys(SKILL).forEach(sk => {
+      const pts = per.map((p, i) => ({ x: p.prof['en_' + sk], zh: valueOf(i, k, 'zh'), en: valueOf(i, k, 'en') })).filter(q => isFinite(q.x) && isFinite(q.zh) && isFinite(q.en));
+      const xs = pts.map(q => q.x);
+      const gap = LAB.ols(xs, pts.map(q => q.en - q.zh));
+      PROF.push({ k, sk, pts, n: pts.length, gap, fit: { zh: LAB.ols(xs, pts.map(q => q.zh)), en: LAB.ols(xs, pts.map(q => q.en)) },
+        test: gap && isFinite(gap.t) ? { diff: gap.b, t: gap.t, df: gap.df, p: gap.p } : null });
+    }));
+    const rating = sk => per.map(p => p.prof['en_' + sk]).filter(isFinite);
+    // All five ratings: one small forest per measure (each on its own scale)
+    const allHost = $('#a-prof-all');
+    allHost.innerHTML = '';
+    Object.keys(MEAS).forEach(k => {
+      const rows = PROF.filter(o => o.k === k && o.test && isFinite(o.test.p)).map(o => ({ label: SKILL[o.sk], b: o.gap.b, lo: o.gap.ciB[0], hi: o.gap.ciB[1], p: o.test.p }));
+      const host = fig(allHost, MEAS[k], 4);
+      if (rows.length) FC.forest(host, [{ label: '', rows }], { xLabel: k === 'V' ? 'Valence points per rating point' : 'Change per rating point', minLim: k === 'V' ? 0.1 : 0.02, fmt: b3, left: 96, narrowAt: 0,
+        label: `${MEAS[k]}: for each English rating, the change in the English − Chinese difference per rating point, with 95% confidence intervals` });
+      else host.innerHTML = `<p class="empty">${PROF.some(o => o.k === k && o.gap) ? 'No variation to test yet.' : 'Needs at least 3 students with both languages scored.'}</p>`;
+    });
+    // One rating in detail: each student's Chinese and English value against the rating
+    const sk = (document.querySelector('#a-prof-skill input:checked') || {}).value || 'overall';
     const profHost = $('#a-prof');
     profHost.innerHTML = '';
-    const PROF = [['NN', 'Staying negative, English − Chinese'], ['PP', 'Staying positive, English − Chinese']].map(([k, ttl]) => {
-      const pts = per.map(p => ({ x: rel(p), y: p.lang.en[k] - p.lang.zh[k] })).filter(q => isFinite(q.x) && isFinite(q.y));
-      const fit = LAB.ols(pts.map(q => q.x), pts.map(q => q.y));
-      const xs = pts.map(q => q.x);
-      const x0 = Math.min(-4, Math.floor(Math.min(0, ...xs)) - 1), x1 = Math.max(2, Math.ceil(Math.max(0, ...xs)) + 1);
-      const ym = Math.min(1, Math.max(0.5, Math.ceil(Math.max(...pts.map(q => Math.abs(q.y)), 0) * 4) / 4));
-      LAB.scatterPlot(fig(profHost, ttl), {
-        points: pts, fit, xDomain: [x0, x1], xStep: x1 - x0 > 10 ? 2 : 1, yDomain: [-ym, ym], yStep: ym > 0.5 ? 0.5 : 0.25,
-        xFmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v),
-        yFmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2).replace(/^0/, ''),
-        xLabel: 'Self-rating, English − Chinese (0–10 scales)', ref: { value: 0, label: '' },
-        ariaLabel: `${ttl} by relative proficiency, n = ${pts.length}` + (fit ? `, slope ${b3(fit.b)}` : '')
+    // Axes shared across the five ratings, so switching compares like with like:
+    // x from just below the lowest rating anyone gave to 10; y around every value shown.
+    const allR = Object.keys(SKILL).flatMap(rating);
+    const xDomain = [Math.max(0, (allR.length ? Math.min(...allR) : 1) - 1), 10];
+    const span = (k, step, dLo, dHi, floor, ceil) => {
+      const v = PROF.filter(o => k.includes(o.k)).flatMap(o => o.pts.flatMap(q => [q.zh, q.en]));
+      let lo = Math.max(floor, Math.floor((v.length ? Math.min(...v) : dLo) / step) * step), hi = Math.min(ceil, Math.ceil((v.length ? Math.max(...v) : dHi) / step) * step);
+      if (hi - lo < 3 * step) { lo = Math.max(floor, lo - step); hi = Math.min(ceil, lo + 3 * step); }
+      return [lo, hi];
+    };
+    const pDomain = span(['NN', 'PP'], 0.1, 0.4, 0.8, 0, 1), vDomain = span(['V'], 0.5, 4.5, 5.5, 1, 9);
+    Object.keys(MEAS).forEach(k => {
+      const o = PROF.find(q => q.k === k && q.sk === sk), V = k === 'V';
+      FC.profScatter(fig(profHost, V ? MEAS[k] : `${MEAS[k]}, ${k === 'NN' ? 'P(N→N)' : 'P(P→P)'}`, 4), {
+        points: o.pts, fit: o.fit, xDomain, xLabel: `English rating: ${SKILL[sk].toLowerCase()} (0–10)`,
+        yDomain: V ? vDomain : pDomain, yStep: V ? 0.5 : undefined, yFmt: V ? (v => v.toFixed(1)) : undefined, vFmt: V ? (v => v.toFixed(2)) : undefined, yRef: V ? 5 : undefined,
+        yLabel: V ? 'Mean valence of the answers (1–9)' : `Probability of staying ${k === 'NN' ? 'negative' : 'positive'}`,
+        label: `${MEAS[k]} in Chinese and in English against the English ${sk} rating, ${o.n} students` +
+          (o.gap ? `; the English − Chinese difference changes by ${b3(o.gap.b)} per rating point` : '')
       });
-      return { k, title: ttl, n: pts.length, fit, test: fit ? { diff: fit.b, t: fit.t, df: fit.df, p: fit.p } : null };
     });
-    $('#a-prof-table').innerHTML = `<thead><tr><th scope="col">Difference</th><th class="num" scope="col">n</th><th class="num" scope="col">Slope per rating point</th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
-      PROF.map(o => `<tr><th scope="row">${o.title}</th><td class="num">${o.n}</td><td class="num"><strong>${o.fit ? b3(o.fit.b) : '–'}</strong></td>` +
-        `<td class="num">${o.fit ? b3(o.fit.ciB[0]) + ' to ' + b3(o.fit.ciB[1]) : '–'}</td>${tCell(o.test)}${pCell(o.test)}${resultCell(o.test, 0)}</tr>`).join('') + '</tbody>';
+    $('#a-prof-table').innerHTML = `<thead><tr><th scope="col">English rating</th><th class="num" scope="col">Mean (range)</th><th class="num" scope="col">n</th>` +
+      `<th class="num sep" scope="col">Change per point</th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead>` +
+      Object.keys(MEAS).map(k => `<tbody><tr class="group"><th scope="rowgroup" colspan="8"><span class="stick">${MEAS[k]}: English − Chinese${k === 'V' ? ' (valence points)' : ''}</span></th></tr>` +
+        PROF.filter(o => o.k === k).map(o => { const rt = rating(o.sk);
+          return `<tr><th scope="row">${SKILL[o.sk]}</th><td class="num">${rt.length ? LAB.mean(rt).toFixed(1) + ' <span class="muted">(' + Math.min(...rt) + '–' + Math.max(...rt) + ')</span>' : '–'}</td><td class="num">${o.n}</td>` +
+            `<td class="num sep"><strong>${o.gap ? b3(o.gap.b) : '–'}</strong></td><td class="num">${o.gap ? b3(o.gap.ciB[0]) + '\u00a0to\u00a0' + b3(o.gap.ciB[1]) : '–'}</td>${tCell(o.test)}${pCell(o.test)}${resultCell(o.test, 0)}</tr>`; }).join('') + '</tbody>').join('');
 
     // ---- 6. Data quality ----
     const cov = lang => {
@@ -761,8 +797,10 @@
     const pr = PROF.filter(o => o.test && isFinite(o.test.p));
     if (pr.length) {
       const sig = pr.filter(o => LAB.isSig(o.test));
-      items.push(`<li><strong>Relative proficiency (exploratory): ${sig.length ? 'significant slope for ' + sig.map(o => o.k === 'NN' ? 'staying negative' : 'staying positive').join(' and ') : 'no significant slope'}.</strong> ` +
-        pr.map(o => `${o.k === 'NN' ? 'Staying negative' : 'Staying positive'}: ${b3(o.fit.b)} per rating point ${inline(LAB.fmtTest(o.test))}`).join('; ') + '.</li>');
+      const what = o => `${{ NN: 'staying negative', PP: 'staying positive', V: 'the valence of the answers' }[o.k]} with the ${o.sk} rating`;
+      items.push(`<li><strong>English proficiency (exploratory): ${sig.length ? 'significant for ' + sig.map(what).join('; ') : 'no significant slope for any of the five English ratings'}.</strong> ` +
+        (sig.length ? sig.map(o => `With each extra point of the ${o.sk} rating, the English − Chinese difference in ${{ NN: 'staying negative', PP: 'staying positive', V: 'valence' }[o.k]} changed by ${b3(o.gap.b)}${o.k === 'V' ? ' valence points' : ''} ${inline(LAB.fmtTest(o.test))}`).join('; ') + '.'
+          : `${pr.length} exploratory tests: staying negative, staying positive and valence, each against the five ratings.`) + '</li>');
     }
     $('#a-summary').innerHTML = items.join('');
     syncScrollers();
