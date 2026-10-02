@@ -251,6 +251,9 @@ Clothing uses the plural ("Socks are clothing."), since trousers, socks,
 gloves and pyjamas have no singular frame. The items are in
 `assets/svt-stimuli.js`.
 
+**Before the task**, students give the five English self-ratings (1–7), as on
+the other English tasks. They are pre-filled if given on an earlier task.
+
 **Each trial.**
 
 - A fixation cross for 500 ms.
@@ -291,6 +294,21 @@ numbered (`run`), and left out of the class results.
 person's effect as a dot. Test: the effects against 0 (one-sample t-test, the
 same as a paired t-test of low vs high), with d<sub>z</sub>. Only each
 student's first interpreted run counts.
+
+**English proficiency × typicality (exploratory).** For the mean of the five
+ratings or any single one:
+
+- **Lower vs higher English.** The classic interaction plot: students split at
+  the median rating; the mean of their high and low medians with 95% CIs.
+  Lines that are not parallel mean the effect differs with proficiency.
+- **Typicality effect by English rating.** Each student's effect against their
+  rating, with the least-squares line. Its slope (ms per rating point) is the
+  interaction, tested without splitting the class. It equals the low slope
+  minus the high slope.
+- **All five ratings.** That slope with its 95% CI for every rating, and a
+  table of the slopes and tests. Six exploratory tests, uncorrected.
+
+Charts: `assets/svt-charts.js`.
 
 **The module.** `assets/svt.js` is self-contained. It sets no page styles, its
 CSS (`assets/svt.css`) is scoped to `.svt`, and it sends nothing itself.
@@ -350,7 +368,7 @@ browser (`assets/bird-map.js`):
 ## English self-ratings
 
 The word tasks, the judgement task (both languages) and the bird task end with five 1–7
-self-ratings of English: reading, listening, writing, speaking, and overall
+self-ratings of English (the sentence task asks them before it starts): reading, listening, writing, speaking, and overall
 (`eng_reading` … `eng_overall`, plus `eng_mean`). A student who answers on
 one task finds the answers pre-filled on the next.
 
@@ -367,7 +385,7 @@ task).
 | Word tasks | One-sample t-test of each person's priming effect (RT and errors) against 0 |
 | Shape task | Paired t-tests on each student's own percentages: u o vs i e, m n l vs p t k, m n l vs b d g, b d g vs p t k; one-sample t-tests of each sound class against 50% |
 | Judgement task | Welch's t-test, English vs Chinese, for every measure (d = difference ÷ pooled SD); proficiency slopes against 0; interaction = English slope − Chinese slope, Welch–Satterthwaite t |
-| Sentence task | One-sample t-test of each person's typicality effect (low − high median RT) against 0, with d<sub>z</sub> |
+| Sentence task | One-sample t-test of each person's typicality effect (low − high median RT) against 0, with d<sub>z</sub>; proficiency: the slope of the effect on each English rating against 0 |
 
 ## How the priming data are analysed
 

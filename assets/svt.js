@@ -12,6 +12,7 @@
      renderActions(el, result)  lets the page add controls beside "Start over"
      onReset()            called when the student starts over
      introNote            HTML shown under the instructions
+     eyebrow              the small line above the instructions' title
      timing               override T below (testing only)
      seed                 fixes the trial order (testing only)
    Returns { reset(), unmount(), debug() }. The container also receives a
@@ -153,7 +154,7 @@
   const TEMPLATE = `
     <section class="svt-screen page" data-screen="intro" aria-labelledby="svt-intro-h">
       <div class="column">
-        <p class="eyebrow">In-class experiment · about 5 minutes</p>
+        <p class="eyebrow svt-eyebrow">In-class experiment · about 5 minutes</p>
         <h1 id="svt-intro-h" tabindex="-1">True or false?</h1>
         <p class="lead">You will see a series of short statements. Decide whether each statement is true or false as quickly and accurately as you can. Press <kbd>F</kbd> for False and <kbd>J</kbd> for True. You can also use the buttons on screen. You will complete a few practice trials first.</p>
         <div class="svt-note"></div>
@@ -238,6 +239,7 @@
       progTrack: $('.progress-track'), progFill: $('.progress-track i')
     };
     if (options.introNote) $('.svt-note').innerHTML = options.introNote;
+    if (options.eyebrow) $('.svt-eyebrow').textContent = options.eyebrow;
     $('.svt-debrief').textContent = DEBRIEF;
 
     /* Everything time-based goes through these, so a reset or unmount can

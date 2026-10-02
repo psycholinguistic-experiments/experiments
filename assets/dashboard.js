@@ -5,6 +5,8 @@
   const $ = s => document.querySelector(s);
   const num = LAB.num;
   const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds'];
+  // Sentence task: the English self-ratings, in the order the results page shows them.
+  const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
     rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [] },
@@ -41,7 +43,8 @@
 
   /* ---------- controls ---------- */
   const hide = $('#hide'), live = $('#live'), sel = $('#session');
-  hide.addEventListener('change', () => document.body.classList.toggle('hidden-results', hide.checked));
+  // Charts are laid out at their box's width, which is 0 while hidden: redraw on reveal.
+  hide.addEventListener('change', () => { document.body.classList.toggle('hidden-results', hide.checked); if (!hide.checked) { lastKey = ''; render(); } });
   // Revealing the bird map draws it afresh, so the birds arrive in view.
   hide.addEventListener('change', () => { if (!hide.checked && !$('#panel-birds').hidden) { birdState.geom = null; lastKey = ''; render(); } });
   live.addEventListener('change', schedule);
@@ -130,6 +133,8 @@
       // The association charts are laid out at their box's width: redraw them when it changes.
       const w = $('#panel-fast').hidden ? 0 : $('#panel-fast').clientWidth;
       if (w && w !== state.fastW) { state.fastW = w; lastKey = ''; render(); }
+      const ws = $('#panel-svt').hidden ? 0 : $('#panel-svt').clientWidth;
+      if (ws && ws !== state.svtW) { state.svtW = ws; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
       // A new width means new pixel positions: redraw in place, no glide.
       if (wb && wb !== birdState.w) { birdState.geom = null; birdState.still = true; lastKey = ''; render(); }
@@ -971,10 +976,62 @@
         `Not counted: ${lowAcc} run${lowAcc === 1 ? '' : 's'} with accuracy below 80% or too few valid trials, ${repeats} repeat run${repeats === 1 ? '' : 's'}.`
       : '';
 
-    $('#v-summary').innerHTML = !isFinite(T.p)
+    const items = [!isFinite(T.p)
       ? item(null, `${lead('Typicality', T)} ${novar(T) ? SAME : `${inc.length} usable run${inc.length === 1 ? '' : 's'} so far; the test needs at least 2.`}`)
-      : item(T, `${lead('Typicality', T, 1)} True statements about high-typicality members were verified ${Math.abs(Math.round(T.m))} ms ${T.m >= 0 ? 'faster' : 'slower'} than statements about low-typicality members ${inline(`${LAB.fmtTest(T)}, ${LAB.fmtES(T, '<i>d</i><sub>z</sub>')}, <i>n</i> = ${T.n}${smallTag(T.n)}`)}.`);
+      : item(T, `${lead('Typicality', T, 1)} True statements about high-typicality members were verified ${Math.abs(Math.round(T.m))} ms ${T.m >= 0 ? 'faster' : 'slower'} than statements about low-typicality members ${inline(`${LAB.fmtTest(T)}, ${LAB.fmtES(T, '<i>d</i><sub>z</sub>')}, <i>n</i> = ${T.n}${smallTag(T.n)}`)}.`)];
+
+    /* English proficiency (exploratory). For each self-rating: least-squares
+       slopes of each student's high and low medians on the rating, and of
+       their effect (low − high), whose slope is the interaction. */
+    const P = SVT_SKILLS.map(([k, name]) => {
+      const pts = inc.map(r => ({ x: num(r[k]), hi: num(r.rt_high), lo: num(r.rt_low), eff: num(r.effect) }))
+        .filter(q => isFinite(q.x) && isFinite(q.hi) && isFinite(q.lo) && isFinite(q.eff));
+      const xs = pts.map(q => q.x), fit = key => LAB.ols(xs, pts.map(q => q[key]));
+      const fe = fit('eff');
+      return { k, name, pts, xs, hi: fit('hi'), lo: fit('lo'), eff: fe, test: fe ? { diff: fe.b, t: fe.t, df: fe.df, p: fe.p, ci: fe.ciB } : null };
+    });
+    const sel = (document.querySelector('#v-prof-skill input:checked') || {}).value || 'eng_mean';
+    const cur = P.find(o => o.k === sel) || P[0];
+    const xLabel = `English self-rating: ${cur.name.toLowerCase()} (1–7)`;
+    const none = '<p class="empty">No counted runs with English self-ratings yet.</p>';
+    if (cur.pts.length) {
+      // Lower and upper half on the chosen rating (ties at the median go to the lower half,
+      // unless that would leave the upper half empty); each group named by its range.
+      const med = LAB.median(cur.xs);
+      let low = cur.pts.filter(q => q.x <= med);
+      if (low.length === cur.pts.length) low = cur.pts.filter(q => q.x < med);
+      const up = cur.pts.filter(q => !low.includes(q));
+      const range = g => { const v = g.map(q => q.x), a = +Math.min(...v).toFixed(1), b = +Math.max(...v).toFixed(1); return a === b ? `rated ${a}` : `rated ${a}–${b}`; };
+      const grp = (key, name, g) => ({ key, name, sub: g.length ? range(g) : '', n: g.length, hi: g.map(q => q.hi), lo: g.map(q => q.lo) });
+      SVT_CHARTS.groups($('#v-prof-rt'), { groups: [grp('upper', 'Higher English', up), grp('lower', 'Lower English', low)],
+        label: `Mean reaction time for high- and low-typicality statements, students in the upper (n = ${up.length}) and lower (n = ${low.length}) half of English self-ratings (${cur.name.toLowerCase()})` });
+      SVT_CHARTS.effect($('#v-prof-eff'), { points: cur.pts, fit: cur.eff, xLabel,
+        label: `Typicality effect by English self-rating (${cur.name.toLowerCase()}), n = ${cur.pts.length}` + (cur.eff ? `, slope ${LAB.signed(cur.eff.b)} ms per point` : '') });
+    } else { $('#v-prof-rt').innerHTML = none; $('#v-prof-eff').innerHTML = none; }
+    $('#v-prof-cap').innerHTML = '<em>Lower vs higher English:</em> students split at the median of the chosen rating; the mean of their medians with 95% confidence intervals. ' +
+      'If the two lines are not parallel, the typicality effect differs with English proficiency. ' +
+      '<em>Typicality effect by English rating:</em> each student’s effect against their rating, with the least-squares line and its 95% band; its slope is the interaction, tested without splitting the class.' +
+      (cur.test && isFinite(cur.test.p) ? ` Here: ${LAB.signed(cur.test.diff)} ms per rating point (${LAB.fmtTest(cur.test)}, <i>n</i> = ${cur.pts.length}).` : '');
+    if (P.some(o => o.pts.length)) {
+      SVT_CHARTS.slopes($('#v-prof-all'), P.map(o => ({ label: o.name, b: o.eff ? o.eff.b : NaN, lo: o.eff ? o.eff.ciB[0] : NaN, hi: o.eff ? o.eff.ciB[1] : NaN, p: o.test ? o.test.p : NaN })),
+        { xLabel: 'Change in the typicality effect per rating point (ms)', xLabelShort: 'Change per rating point (ms)', label: 'For each English rating, the change in the typicality effect per rating point, with 95% confidence intervals' });
+    } else $('#v-prof-all').innerHTML = none;
+    const slope = f => f ? LAB.signed(f.b) : '–';
+    $('#v-prof-table').innerHTML =
+      `<thead><tr><th scope="col">English rating</th><th class="num" scope="col">n</th><th class="num" scope="col">Mean (range)</th>` +
+      `<th class="num sep" scope="col">High-typicality slope</th><th class="num" scope="col">Low-typicality slope</th>` +
+      `<th class="num sep" scope="col">Interaction (ms per point)</th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
+      P.map(o => `<tr><th scope="row">${o.name}</th><td class="num">${o.pts.length}</td>` +
+        `<td class="num">${o.xs.length ? LAB.mean(o.xs).toFixed(1) + ` (${+Math.min(...o.xs).toFixed(1)}–${+Math.max(...o.xs).toFixed(1)})` : '–'}</td>` +
+        `<td class="num sep">${slope(o.hi)}</td><td class="num">${slope(o.lo)}</td>` +
+        `<td class="num sep"><strong>${slope(o.eff)}</strong></td><td class="num">${o.eff ? fmtCI(o.eff.ciB) : '–'}</td>` +
+        `${tCell(o.test)}${pCell(o.test)}${resultCell(o.test, 0)}</tr>`).join('') + '</tbody>';
+    const M = P[0];
+    if (M.test && isFinite(M.test.p)) items.push(item(M.test, `${lead('English proficiency × typicality', M.test)} The typicality effect changed by ${LAB.signed(M.test.diff)} ms per point of self-rated English (mean of five) ${inline(`${LAB.fmtTest(M.test)}, <i>n</i> = ${M.pts.length}${smallTag(M.pts.length)}`)}; exploratory.`));
+    else if (inc.length) items.push(item(null, `<strong>English proficiency × typicality: not enough rated runs yet.</strong> ${M.pts.length} so far; the test needs at least 3 with different ratings.`));
+    $('#v-summary').innerHTML = items.join('');
   }
+  $('#v-prof-skill').addEventListener('change', () => { lastKey = ''; render(); });
 
   function renderShapes(rows) {
     const inc = included(rows);

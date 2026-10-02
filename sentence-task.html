@@ -20,7 +20,22 @@
     </header>
 
     <main id="main">
-        <div id="svt"></div>
+        <!-- Before the task: the five English self-ratings used on every task -->
+        <section class="page" id="s-about" aria-labelledby="about-title">
+            <div class="column">
+                <p class="eyebrow">In-class experiment · about 5 minutes</p>
+                <h1 id="about-title" tabindex="-1">Before you start</h1>
+                <form id="form-about" novalidate>
+                    <div id="prof"></div>
+                    <p class="note">Your answers are stored anonymously under a random code, with no name and no student number, and pooled with the rest of the class.</p>
+                    <p class="form-error" id="about-error" role="alert"></p>
+                    <div class="actions">
+                        <button class="btn" type="submit" aria-describedby="about-error">Continue <span class="arrow" aria-hidden="true">→</span></button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <div id="svt" hidden></div>
         <noscript><div class="page"><p class="note warn">This task needs JavaScript.</p></div></noscript>
     </main>
 
@@ -31,7 +46,7 @@
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/svt-stimuli.js?v=1"></script>
-    <script src="assets/svt.js?v=4"></script>
+    <script src="assets/svt.js?v=5"></script>
     <script>
         /* The page around the task: the anonymous code, the class data upload
            (the module itself sends nothing) and the CSV download. */
@@ -51,7 +66,22 @@
                 if (LAB.params.get('seed')) seed = Number(LAB.params.get('seed'));
             }
 
-            var rows = [], status = null;
+            var rows = [], status = null, ratings = null;
+
+            // English self-ratings first (pre-filled from any earlier task), then the task.
+            var prof = LAB.proficiency(document.getElementById('prof'), 'en');
+            var about = document.getElementById('form-about'), aboutErr = document.getElementById('about-error');
+            about.addEventListener('change', function () { aboutErr.textContent = ''; });
+            about.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var vals = prof.read();
+                if (!vals) { aboutErr.textContent = prof.missingText; return; }
+                ratings = prof.fields(vals);
+                document.getElementById('s-about').hidden = true;
+                document.getElementById('svt').hidden = false;
+                window.scrollTo(0, 0);
+                document.getElementById('svt-intro-h').focus({ preventScroll: true });
+            });
             var flag = function (b) { return b ? 1 : 0; };
             var r1 = function (v) { return isFinite(v) ? Math.round(v * 10) / 10 : ''; };
             var r3 = function (v) { return isFinite(v) ? Math.round(v * 1000) / 1000 : ''; };
@@ -60,7 +90,7 @@
             document.addEventListener('lab:sent', function () { if (status && status.textContent) say('Your results were added to the class data anonymously.'); });
 
             var task = SentenceVerification.mount(document.getElementById('svt'), {
-                introNote: '<p class="note">Your answers are stored anonymously under a random code, with no name and no student number, and pooled with the rest of the class.</p>',
+                eyebrow: 'Instructions',
                 timing: timing,
                 seed: seed,
                 renderActions: function (el) {
@@ -108,6 +138,7 @@
                         effect: r1(r.typicalityEffectRt), n_high: r.nValidHigh, n_low: r.nValidLow,
                         include: flag(r.interpretable), exclude_reason: r.notInterpretedBecause.join('; ')
                     };
+                    Object.keys(ratings || {}).forEach(function (k) { summary[k] = ratings[k]; });
                     LAB.markDone(EXP);
                     say('Sending your results…');
                     LAB.submit({ v: 1, exp: EXP, pid: pid, session: session, submissionId: LAB.uid(), summary: summary, trials: rows })

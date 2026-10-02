@@ -145,6 +145,19 @@
         .chart .forest-dot { fill: #fff; stroke: var(--text-light); stroke-width: 1.75; }
         .chart .forest-dot.sig { fill: var(--text); stroke: var(--text); }
         .chart g:hover > circle.dot-lang, .chart g:hover > path { filter: brightness(1.12); }
+        /* Sentence task: English proficiency (svt-charts.js). Upper English group ink and solid, lower mint and dashed. */
+        .chart .svt-dot.svt-hi { fill: var(--text); fill-opacity: 0.72; stroke: #fff; stroke-width: 1; }
+        .chart .svt-dot.svt-lo { fill: #fff; stroke: var(--mint-deep); stroke-width: 1.75; }
+        .chart .svt-line { fill: none; stroke-width: 2.75; stroke-linecap: round; }
+        .chart .svt-line.svt-hi { stroke: var(--text); }
+        .chart .svt-line.svt-lo { stroke: var(--mint-deep); stroke-dasharray: 7 5; }
+        .chart .svt-dot.svt-mean.svt-hi { fill: var(--text); fill-opacity: 1; }
+        .chart .svt-whisker { stroke-width: 1.75; }
+        .chart .svt-whisker.svt-hi { stroke: var(--text); }
+        .chart .svt-whisker.svt-lo { stroke: var(--mint-deep); }
+        .v-prof-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
+        @media (min-width: 900px) { .v-prof-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .v-prof-pair h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
         .lang-key { display: flex; gap: 1.5rem; margin: 1.75rem 0 0; font-size: 0.92rem; font-weight: 600; color: var(--text); }
         .lang-key i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: -0.05rem; }
         .lang-key .k-zh { background: var(--lang-zh); } .lang-key .k-en { background: var(--lang-en); }
@@ -513,6 +526,34 @@
                     <div class="table-wrap" data-label="Sentence task table"><table class="data" id="v-table"></table></div>
                     <p class="small muted column">True target statements only; the false fillers are never analysed by typicality. Correct responses, 250 ms ≤ RT &lt; 5,000 ms (the time-out), trials with focus kept. Each person’s median per condition, then the class mean of those medians. Test: each person’s effect against 0 (one-sample t-test, the same as a paired t-test of low vs high); d<sub>z</sub> = mean effect ÷ its SD. Two-tailed, α = .05. A run counts if overall accuracy is at least 80% and at least 12 valid trials remain in each condition; only each person’s first such run counts.</p>
                     <p class="small muted column" id="v-quality"></p>
+
+                    <section class="q" aria-labelledby="v-q-prof">
+                        <h2 id="v-q-prof">Does English proficiency matter? <span class="tag">exploratory</span></h2>
+                        <p class="q-lead">Before the task, students rated their English from 1 (very limited) to 7 (native-like) in five ways. Does the typicality effect change as the rating goes up?</p>
+                        <h3 class="sub">One rating in detail</h3>
+                        <fieldset class="seg" id="v-prof-skill">
+                            <legend class="visually-hidden">English rating</legend>
+                            <label><input type="radio" name="v-prof-skill" value="eng_mean" checked><span>Mean of five</span></label>
+                            <label><input type="radio" name="v-prof-skill" value="eng_overall"><span>Overall</span></label>
+                            <label><input type="radio" name="v-prof-skill" value="eng_listening"><span>Listening</span></label>
+                            <label><input type="radio" name="v-prof-skill" value="eng_speaking"><span>Speaking</span></label>
+                            <label><input type="radio" name="v-prof-skill" value="eng_reading"><span>Reading</span></label>
+                            <label><input type="radio" name="v-prof-skill" value="eng_writing"><span>Writing</span></label>
+                        </fieldset>
+                        <div class="multiples v-prof-pair">
+                            <figure class="figure"><h4>Lower vs higher English</h4><div id="v-prof-rt"></div></figure>
+                            <figure class="figure"><h4>Typicality effect by English rating</h4><div id="v-prof-eff"></div></figure>
+                        </div>
+                        <p class="chart-caption" id="v-prof-cap"></p>
+                        <h3 class="sub">All five ratings</h3>
+                        <div id="v-prof-all"></div>
+                        <p class="chart-caption">How much the typicality effect (low − high) changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. Bold and filled: significant.</p>
+                        <details class="more">
+                            <summary>Show the numbers</summary>
+                            <div class="table-wrap" data-label="English proficiency tests"><table class="data" id="v-prof-table"></table></div>
+                            <p class="small muted column">Slopes: least squares on each student’s English rating, counted runs only. Interaction: the slope of each student’s typicality effect, which equals the low-typicality slope minus the high-typicality slope. Six exploratory tests (five ratings and their mean), not corrected for multiple comparisons.</p>
+                        </details>
+                    </section>
                 </div>
             </section>
             <!-- Bird task (typicality ratings → semantic map, as in Bird plot.Rmd) -->
@@ -563,6 +604,7 @@
     <script src="assets/fast-charts.js?v=13"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
-    <script src="assets/dashboard.js?v=41"></script>
+    <script src="assets/svt-charts.js?v=1"></script>
+    <script src="assets/dashboard.js?v=42"></script>
 </body>
 </html>
