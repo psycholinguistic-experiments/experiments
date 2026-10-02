@@ -257,22 +257,25 @@
     return s;
   };
 
-  /* ---------- 6. a forest plot (log-odds, 95% CIs) in labelled groups ----------
+  /* ---------- 6. a forest plot (estimates with 95% CIs) in labelled groups ----------
      groups: [{label, rows: [{label, b, lo, hi, p}]}]. Wide: row labels in a
-     column on the left. Narrow: each label above its line. */
+     column on the left. Narrow: each label above its line. Options: xLabel,
+     label, minLim (the smallest half-range, default 0.25), fmt (values). */
   C.forest = function (host, groups, o) {
     const W = widthOf(host, 700, 300, 740), narrow = W < 600;
     const rowH = narrow ? 50 : 34, headH = 30, gap = 18, left = narrow ? 14 : 320, right = 64, top = 4, bottom = 48;
     const rows = groups.flatMap(g => g.rows);
     const H = top + groups.length * headH + (groups.length - 1) * gap + rows.length * rowH + bottom;
-    const m = Math.max(0.25, ...rows.flatMap(r => [Math.abs(r.lo), Math.abs(r.hi)]).filter(isFinite));
-    const step = m > 2 ? 1 : m > 1 ? 0.5 : 0.25, lim = Math.ceil(m / step) * step;
+    const fmt = o.fmt || (v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(2));
+    const m = Math.max(o.minLim || 0.25, ...rows.flatMap(r => [Math.abs(r.lo), Math.abs(r.hi)]).filter(isFinite));
+    const step = [0.005, 0.01, 0.02, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5].find(st => Math.ceil(m / st - 1e-9) <= 4) || 5, lim = Math.ceil(m / step - 1e-9) * step;
+    const tick = v => Math.abs(v) < 1e-9 ? '0' : (v > 0 ? '+' : '−') + (step < 0.1 ? Math.abs(v).toFixed(step < 0.01 ? 3 : 2).replace(/^0/, '') : String(Math.abs(+v.toFixed(2))));
     const X = v => left + (v + lim) / (2 * lim) * (W - left - right);
     const s = root(host, W, H, o.label);
     const tickEvery = narrow && lim / step >= 4 ? 2 : 1;
     for (let j = 0, v = -lim; v <= lim + 1e-9; j++, v += step) {
       svg('line', { class: Math.abs(v) < 1e-9 ? 'zero' : 'grid', x1: X(v), x2: X(v), y1: top + headH - 6, y2: H - bottom + 6 }, s);
-      if (j % tickEvery === 0) text(s, X(v), H - bottom + 24, (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(+v.toFixed(2)), { 'text-anchor': 'middle' });
+      if (j % tickEvery === 0) text(s, X(v), H - bottom + 24, tick(v), { 'text-anchor': 'middle' });
     }
     text(s, X(0), H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
     let y0 = top;
@@ -285,14 +288,63 @@
         const sig = isFinite(r.p) && r.p < 0.05;
         text(s, 0, narrow ? y - 15 : y + 5, r.label, { class: (sig ? 'label-strong' : 'row-label') + (narrow ? ' halo' : '') });
         const g = svg('g', {}, s);
-        title(g, `${r.label}: ${r.b.toFixed(2)} (95% CI ${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}), p ${r.p < 0.001 ? '< .001' : '= ' + r.p.toFixed(3).replace(/^0/, '')}`);
+        title(g, `${r.label}: ${fmt(r.b)} (95% CI ${fmt(r.lo)} to ${fmt(r.hi)})` + (isFinite(r.p) ? `, p ${r.p < 0.001 ? '< .001' : '= ' + r.p.toFixed(3).replace(/^0/, '')}` : ''));
         svg('line', { x1: X(Math.max(-lim, r.lo)), x2: X(Math.min(lim, r.hi)), y1: y, y2: y, class: 'forest-ci' + (sig ? ' sig' : '') }, g);
         svg('circle', { cx: X(r.b), cy: y, r: 5.5, class: 'forest-dot' + (sig ? ' sig' : '') }, g);
         svg('rect', { x: X(Math.max(-lim, r.lo)) - 6, y: y - 12, width: Math.max(12, X(Math.min(lim, r.hi)) - X(Math.max(-lim, r.lo)) + 12), height: 24, fill: 'transparent' }, g);
-        text(s, W - 2, y + 5, (r.b < 0 ? '−' : '+') + Math.abs(r.b).toFixed(2), { 'text-anchor': 'end', class: sig ? 'value-label strong' : 'value-label' });
+        text(s, W - 2, y + 5, fmt(r.b), { 'text-anchor': 'end', class: sig ? 'value-label strong' : 'value-label' });
         y0 += rowH;
       });
     });
+    return s;
+  };
+
+  /* ---------- 7. each student's Chinese and English value against their English rating ----------
+     o: {points: [{x, zh, en}], fit: {zh, en} (LAB.ols results or null), xDomain: [x0, 10],
+     yDomain: [lo, hi], xLabel, label}.
+     A student's two dots share one x (ties spread a little, the same way for
+     both); each language has its least-squares line with a 95% band, drawn
+     over the ratings students actually gave, and named at its end. */
+  C.profScatter = function (host, o) {
+    const W = widthOf(host, 420, 280, 520), H = 290, left = 40, right = 86, top = 12, bottom = 52, r = 4.5;
+    const [x0d, x1d] = o.xDomain || [0, 10], [lo0, hi] = o.yDomain || [0, 1];
+    // whole steps from the top down, so the top and bottom gridlines both carry a label
+    const yStep = hi - lo0 > 0.6 ? 0.2 : 0.1, lo = Math.max(0, hi - Math.ceil((hi - lo0) / yStep - 1e-9) * yStep);
+    const X = v => left + (v - x0d) / (x1d - x0d) * (W - left - right), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+    const clampY = v => Math.max(lo, Math.min(hi, v));
+    const s = root(host, W, H, o.label);
+    for (let v = lo; v <= hi + 1e-9; v += yStep) {
+      svg('line', { class: 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
+      text(s, left - 8, Y(v) + 5, v < 1e-9 ? '0' : v > 1 - 1e-9 ? '1' : p2(v), { 'text-anchor': 'end' });
+    }
+    const every = (W - left - right) / (x1d - x0d) < 26 ? 2 : 1;
+    for (let v = x1d; v >= x0d; v -= every) text(s, X(v), H - bottom + 21, String(v), { 'text-anchor': 'middle' });
+    text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
+    // ties on the rating: spread across ±0.3 of a rating point, in order of arrival
+    const seen = {}, unit = X(1) - X(0);
+    const pts = o.points.map(q => { const k = q.x, i = (seen[k] = (seen[k] || 0) + 1) - 1; return Object.assign({ i }, q); });
+    const count = {}; pts.forEach(q => { count[q.x] = (count[q.x] || 0) + 1; });
+    const jx = q => count[q.x] > 1 ? (q.i / (count[q.x] - 1) - 0.5) * Math.min(0.6 * unit, (count[q.x] - 1) * (r + 1)) : 0;
+    // dots first, the fitted lines over them
+    pts.forEach(q => ['zh', 'en'].forEach(l => {
+      const g = svg('g', {}, s);
+      title(g, `A student with English ${q.x}: ${NAME[l]} ${p2(q[l])}`);
+      svg('circle', { cx: X(q.x) + jx(q), cy: Y(clampY(q[l])), r, class: 'dot-lang soft f-' + l }, g);
+    }));
+    const ends = [];
+    ['zh', 'en'].forEach(l => {
+      const f = o.fit && o.fit[l];
+      if (!f) return;
+      const xs = o.points.map(q => q.x), x0 = Math.min(...xs), x1 = Math.max(...xs);
+      const n = 24, up = [], dn = [];
+      for (let j = 0; j <= n; j++) { const x = x0 + (x1 - x0) * j / n, yv = f.at(x), h = f.band(x); up.push(`${X(x).toFixed(1)} ${Y(clampY(yv + h)).toFixed(1)}`); dn.unshift(`${X(x).toFixed(1)} ${Y(clampY(yv - h)).toFixed(1)}`); }
+      svg('path', { d: 'M' + up.concat(dn).join('L') + 'Z', class: 'band f-' + l }, s);
+      const g = svg('g', {}, s);
+      title(g, `${NAME[l]}: ${f.b < 0 ? '−' : '+'}${Math.abs(f.b).toFixed(3).replace(/^0/, '')} per rating point`);
+      svg('line', { x1: X(x0), x2: X(x1), y1: Y(clampY(f.at(x0))), y2: Y(clampY(f.at(x1))), class: 'series-line fit-line s-' + l }, g);
+      ends.push({ lang: l, x: X(x1) + 10, y: Y(clampY(f.at(x1))) });
+    });
+    endLabels(s, ends, 17, top + 6, H - bottom - 4);
     return s;
   };
 
