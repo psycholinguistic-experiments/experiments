@@ -34,7 +34,7 @@
     // a short dash in the line's colour, then the name in ink
     L.forEach(e => {
       svg('line', { x1: e.x, x2: e.x + 10, y1: e.ly, y2: e.ly, class: 'label-dash s-' + e.lang }, s);
-      text(s, e.x + 14, e.ly + 5, NAME[e.lang], { class: 'series-label halo' });
+      text(s, e.x + 14, e.ly + 5, e.text || NAME[e.lang], { class: 'series-label halo' });
     });
   }
 
@@ -157,7 +157,7 @@
       const last = pts.filter(Boolean).pop();
       if (last) ends.push({ lang: l, x: X(2) + 7 + 12, y: last[1] });
     });
-    endLabels(s, ends, 17, top + 6, H - bottom - 4);
+    endLabels(s, ends, 19, top + 6, H - bottom - 4);
     return s;
   };
 
@@ -192,7 +192,7 @@
       const last = pts[pts.length - 1];
       if (last) ends.push({ lang: l, x: X(last.k) + 10, y: Y(last.d.m) });
     });
-    endLabels(s, ends, 17, top + 6, H - bottom - 4);
+    endLabels(s, ends, 19, top + 6, H - bottom - 4);
     return s;
   };
 
@@ -216,7 +216,7 @@
      Chinese swarms to the left of its column, English to the right; the class
      means with 95% CIs sit just outside each swarm. */
   C.paired = function (host, pairs, o) {
-    const W = widthOf(host, 560, 300, 600);
+    const W = widthOf(host, 560, 300, 680);
     const H = 310, top = 30, bottom = 38, left = 54, right = 16, r = 4.5;
     const vals = pairs.flatMap(p => [p.zh, p.en]).filter(isFinite);
     const hi = o.max || Math.max(o.minMax || 0, Math.ceil((Math.max(0, ...vals) + 1e-9) / o.step) * o.step);
@@ -350,7 +350,96 @@
       svg('line', { x1: X(x0), x2: X(x1), y1: Y(clampY(f.at(x0))), y2: Y(clampY(f.at(x1))), class: 'series-line fit-line s-' + l }, g);
       ends.push({ lang: l, x: X(x1) + 10, y: Y(clampY(f.at(x1))) });
     });
-    endLabels(s, ends, 17, top + 6, H - bottom - 4);
+    endLabels(s, ends, 19, top + 6, H - bottom - 4);
+    return s;
+  };
+
+  // Shared frame for the model charts: y gridlines with labels, a y-axis title.
+  function yFrame(s, o, W, H, left, right, top, bottom, Y, lo, hi, step) {
+    for (let v = lo; v <= hi + 1e-9; v += step) {
+      svg('line', { class: o.yRef !== undefined && Math.abs(v - o.yRef) < 1e-9 ? 'chance' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
+      text(s, left - 8, Y(v) + 5, (o.yFmt || p2)(v), { 'text-anchor': 'end' });
+    }
+    if (o.yLabel) text(s, 0, 0, o.yLabel, { transform: `translate(15 ${((top + H - bottom) / 2).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', class: 'axis-title' });
+  }
+  const niceDomain = (vals, step, floor, ceil) => {
+    const v = vals.filter(isFinite);
+    let lo = Math.max(floor, Math.floor((v.length ? Math.min(...v) : floor) / step - 1e-9) * step), hi = Math.min(ceil, Math.ceil((v.length ? Math.max(...v) : ceil) / step + 1e-9) * step);
+    if (hi - lo < 2 * step) { lo = Math.max(floor, lo - step); hi = Math.min(ceil, hi + step); }
+    return [lo, hi];
+  };
+
+  /* ---------- 8. the interaction: P(next positive) after a negative and after a positive answer ----------
+     o: {next: {zh: {N: {est, lo, hi}, P}, en}, label}. One line per language;
+     the steeper the line, the stronger the carry-over. */
+  C.interaction = function (host, o) {
+    // narrow: no rotated axis title (the heading above names the axis), so the plot gets the width
+    const W = widthOf(host, 420, 280, 460), narrow = W < 400, H = 290, left = narrow ? 44 : 62, right = 108, top = 14, bottom = 56;
+    const vals = ['zh', 'en'].flatMap(l => ['N', 'P'].flatMap(k => [o.next[l][k].lo, o.next[l][k].hi]));
+    const [lo, hi] = niceDomain(vals, 0.1, 0, 1);
+    // room for the left-hand values (about 50px) between the axis and the first dots
+    const pw = W - left - right, x0 = Math.max(0.22 * pw, 50), x1 = Math.max(0.78 * pw, x0 + 60);
+    const X = i => left + (i === 0 ? x0 : x1), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+    const s = root(host, W, H, o.label);
+    yFrame(s, { yFmt: v => v < 1e-9 ? '0' : v > 1 - 1e-9 ? '1' : p2(v), yLabel: narrow ? '' : 'Probability the next is positive' }, W, H, left, right, top, bottom, Y, lo, hi, 0.1);
+    ['Negative', 'Positive'].forEach((t, i) => text(s, X(i), H - bottom + 22, t, { 'text-anchor': 'middle' }));
+    text(s, (left + W - right) / 2, H - 5, 'Previous answer', { 'text-anchor': 'middle', class: 'label-strong' });
+    const ends = [];
+    [['zh', -6], ['en', 6]].forEach(([l, off]) => {
+      const a = o.next[l].N, b = o.next[l].P;
+      svg('line', { x1: X(0) + off, x2: X(1) + off, y1: Y(a.est), y2: Y(b.est), class: 'series-line s-' + l }, s);
+      [[0, a, 'after a negative answer'], [1, b, 'after a positive answer']].forEach(([i, d, what]) => {
+        const g = svg('g', {}, s);
+        title(g, `${NAME[l]}, ${what}: ${p2(d.est)} (95% CI ${p2(d.lo)} to ${p2(d.hi)})`);
+        svg('line', { x1: X(i) + off, x2: X(i) + off, y1: Y(Math.min(hi, d.hi)), y2: Y(Math.max(lo, d.lo)), class: 'ci-line s-' + l }, g);
+        svg('circle', { cx: X(i) + off, cy: Y(d.est), r: 6, class: 'dot-lang f-' + l }, g);
+        svg('circle', { cx: X(i) + off, cy: Y(d.est), r: 13, fill: 'transparent' }, g);
+      });
+      ends.push({ lang: l, x: X(1) + 16, y: Y(b.est), text: `${NAME[l]} ${p2(b.est)}` });
+    });
+    // the left-hand values, beside their dots (lower one below the other)
+    const L = ['zh', 'en'].map(l => ({ l, y: Y(o.next[l].N.est), v: o.next[l].N.est })).sort((a, b) => a.y - b.y);
+    if (L[1].y - L[0].y < 17) { const m = (L[0].y + L[1].y) / 2; L[0].y = m - 8.5; L[1].y = m + 8.5; }
+    L.forEach(e => text(s, X(0) - 16, e.y + 5, p2(e.v), { 'text-anchor': 'end', class: 'value-label halo' }));
+    endLabels(s, ends, 19, top + 6, H - bottom - 4);
+    return s;
+  };
+
+  /* ---------- 9. model lines with 95% bands, and observed means ----------
+     o: {series: {zh: {line: [{x, y, lo, hi}], dots: [{x, y, lo, hi, n}]}, en},
+     xDomain, xTicks, xLabel, xFmt, yStep, yFmt, yRef, yLabel, yFloor, yCeil, dotTitle, lineTitle, label}. */
+  C.lines = function (host, o) {
+    const W = widthOf(host, 420, 280, 680), H = 300, left = 62, right = 86, top = 14, bottom = 56;
+    const [x0, x1] = o.xDomain;
+    const all = ['zh', 'en'].flatMap(l => (o.series[l].line || []).flatMap(d => [d.lo, d.hi]).concat((o.series[l].dots || []).flatMap(d => [d.y, d.lo, d.hi])));
+    const [lo, hi] = o.yDomain || niceDomain(all, o.yStep, o.yFloor === undefined ? -Infinity : o.yFloor, o.yCeil === undefined ? Infinity : o.yCeil);
+    const pad = 10, X = v => left + pad + (v - x0) / (x1 - x0) * (W - left - right - 2 * pad), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+    const cl = v => Math.max(lo, Math.min(hi, v));
+    const s = root(host, W, H, o.label);
+    yFrame(s, o, W, H, left, right, top, bottom, Y, lo, hi, o.yStep);
+    (o.xTicks || []).forEach(v => text(s, X(v), H - bottom + 22, (o.xFmt || String)(v), { 'text-anchor': 'middle' }));
+    text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
+    const ends = [];
+    [['zh', -4], ['en', 4]].forEach(([l, off]) => {
+      const S = o.series[l], line = (S.line || []).filter(d => isFinite(d.y));
+      if (line.length > 1) {
+        const up = line.map(d => `${X(d.x).toFixed(1)} ${Y(cl(d.hi)).toFixed(1)}`), dn = line.slice().reverse().map(d => `${X(d.x).toFixed(1)} ${Y(cl(d.lo)).toFixed(1)}`);
+        if (line.every(d => isFinite(d.lo))) svg('path', { d: 'M' + up.concat(dn).join('L') + 'Z', class: 'band f-' + l }, s);
+        const g = svg('g', {}, s);
+        if (o.lineTitle) title(g, o.lineTitle(l));
+        svg('path', { d: line.map((d, i) => (i ? 'L' : 'M') + X(d.x).toFixed(1) + ' ' + Y(cl(d.y)).toFixed(1)).join(' '), class: 'series-line fit-line s-' + l }, g);
+        const last = line[line.length - 1];
+        ends.push({ lang: l, x: X(last.x) + 12, y: Y(cl(last.y)) });
+      }
+      (S.dots || []).filter(d => isFinite(d.y)).forEach(d => {
+        const g = svg('g', {}, s);
+        if (o.dotTitle) title(g, o.dotTitle(l, d));
+        if (isFinite(d.lo)) svg('line', { x1: X(d.x) + off, x2: X(d.x) + off, y1: Y(cl(d.hi)), y2: Y(cl(d.lo)), class: 'ci-line soft s-' + l }, g);
+        svg('circle', { cx: X(d.x) + off, cy: Y(cl(d.y)), r: 4, class: 'dot-lang f-' + l }, g);
+        svg('circle', { cx: X(d.x) + off, cy: Y(cl(d.y)), r: 10, fill: 'transparent' }, g);
+      });
+    });
+    endLabels(s, ends, 19, top + 6, H - bottom - 4);
     return s;
   };
 

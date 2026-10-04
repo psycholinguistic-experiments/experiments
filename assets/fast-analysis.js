@@ -16,11 +16,15 @@
      3 states     negative < 4.2 ≤ neutral < 5.8 ≤ positive
      transitions  answer k → answer k + 1 (k = 1–9); the seed → answer 1
                   transition is left out
-     model        mixed-effects logistic regression of "next state positive"
-                  on language × previous state + seed valence + position +
-                  block, random intercepts for participant and seed
-                  (Laplace approximation; the fixed effects are estimated
-                  jointly with the random effects, as lme4's nAGQ = 0).
+     models       A: logistic, next state positive ~ language × previous
+                  state + seed valence + position + block (Laplace; β with
+                  the random effects, as lme4's nAGQ = 0), and its continuous
+                  twin, next valence ~ language × previous valence + … (REML).
+                  B: answer valence ~ language × seed valence × position.
+                  C: answer valence ~ language × (position + position²).
+                  All with random intercepts for students, seeds and chains
+                  (a student's answers to one seed); linear models' tests use
+                  Satterthwaite degrees of freedom (as lmerTest).
 
    Browser: window.FAST_ANALYSIS. Node (tests): module.exports. */
 (function (root) {
@@ -37,12 +41,13 @@
 
   A.parseNorms = function (enText, zhText, lemText) {
     const en = new Map(), zh = new Map(), zhRaw = new Map(), lemmas = new Map();
-    table(enText).forEach(r => { const v = parseFloat(r.valence); if (isFinite(v)) en.set(r.word, v); });
+    const enList = [], zhRawList = [];
+    table(enText).forEach(r => { const v = parseFloat(r.valence); if (isFinite(v)) { en.set(r.word, v); enList.push(v); } });
     const simp = new Map();
     table(zhText).forEach(r => {
       const v = parseFloat(r.valence_en), raw = parseFloat(r.valence);
       if (!isFinite(v)) return;
-      zh.set(r.trad, v); zhRaw.set(r.trad, raw);
+      zh.set(r.trad, v); zhRaw.set(r.trad, raw); zhRawList.push(raw);
       if (r.simp && r.simp !== r.trad) (simp.get(r.simp) || simp.set(r.simp, []).get(r.simp)).push([v, raw]);
     });
     // A simplified form shared by two traditional words (证明: 證明, 証明) takes their mean.
@@ -52,7 +57,7 @@
       zhRaw.set(k, vs.reduce((s, x) => s + x[1], 0) / vs.length);
     });
     table(lemText).forEach(r => lemmas.set(r.form, r.lemma));
-    return { en, zh, zhRaw, lemmas };
+    return { en, zh, zhRaw, lemmas, enList, zhRawList };
   };
 
   A.loadNorms = async function (base) {
@@ -148,7 +153,7 @@
         const norm = (t, s) => s && lang === 'en' ? s.key : lang === 'en' ? A.enKey(t) : A.zhKey(t);
         P.chains.push({
           id, lang, category: seed.category, word: seed.word, block: order.indexOf(lang) + 1,
-          seedValence: sc ? sc.valence : NaN,
+          seedValence: sc ? sc.valence : NaN, seedRaw: sc ? (sc.raw !== undefined ? sc.raw : sc.valence) : NaN,
           seedNorm: lang === 'en' ? norm(seed.word, sc) : A.zhKey(seed.word),
           answers: texts.map(t => { const s = A.score(t, lang, N); return { text: t, key: s ? s.key : '', norm: norm(t, s), valence: s ? s.valence : null, raw: s ? (s.raw !== undefined ? s.raw : s.valence) : null }; })
         });
@@ -267,30 +272,126 @@
   };
 
   /* ---------- the mixed-effects logistic model ---------- */
-  A.modelData = function (trans) {
-    const pids = [...new Set(trans.map(t => t.pid))], seeds = [...new Set(trans.map(t => t.seed))];
-    const sv = trans.map(t => t.seedValence).filter(isFinite);
-    const svMean = sv.length ? sv.reduce((s, x) => s + x, 0) / sv.length : 5;
-    const cols = [
+  /* ---------- the models' data ----------
+     A design: the rows' source objects (data), the fixed-effect columns as
+     [name, function of a row] (cols, kept so rows can be re-predicted with a
+     value changed), the response, and the grouping factors, largest last
+     (chains, when present: a student's answers to one seed). */
+  A.design = function (data, cols, yFn, factors) {
+    const lv = factors.map(([, f]) => { const m = new Map(); data.forEach(d => { const k = f(d); if (!m.has(k)) m.set(k, m.size); }); return m; });
+    return {
+      data, cols, names: cols.map(c => c[0]),
+      X: data.map(d => cols.map(c => c[1](d))), y: data.map(yFn),
+      groups: factors.map(([, f], k) => data.map(d => lv[k].get(f(d)))),
+      nLevels: lv.map(m => m.size), groupNames: factors.map(f => f[0])
+    };
+  };
+  const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : NaN;
+  const LANG = 'Language (English − Chinese)', lc = d => d.lang === 'en' ? 0.5 : -0.5, bc = d => d.block === 2 ? 0.5 : -0.5;
+  const factorsFor = chain => [['Student', d => d.pid], ['Seed', d => d.seed]].concat(chain === false ? [] : [['Chain', d => d.pid + '|' + d.seed]]);
+
+  /* Model A (the main question): is the next answer positive, given the
+     previous answer's state, by language. Logistic, random intercepts for
+     students, seeds and chains (opts.chain === false: students and seeds). */
+  A.modelData = function (trans, opts) {
+    const ok = trans.filter(t => isFinite(t.seedValence));
+    const svMean = mean(ok.map(t => t.seedValence));
+    const pc = t => t.prev === 'P' ? 0.5 : -0.5;
+    const D = A.design(ok, [
       ['(Intercept)', () => 1],
-      ['Language (English − Chinese)', t => t.lang === 'en' ? 0.5 : -0.5],
-      ['Previous state (positive − negative)', t => t.prev === 'P' ? 0.5 : -0.5],
-      ['Language × previous state', t => (t.lang === 'en' ? 0.5 : -0.5) * (t.prev === 'P' ? 0.5 : -0.5)],
+      [LANG, lc],
+      ['Previous state (positive − negative)', pc],
+      ['Language × previous state', t => lc(t) * pc(t)],
       ['Seed valence (per point)', t => t.seedValence - svMean],
       ['Position (per step)', t => t.position - 5],
-      ['Block (second − first)', t => t.block === 2 ? 0.5 : -0.5]
-    ];
-    const ok = trans.filter(t => isFinite(t.seedValence));
-    const pIdx = new Map(pids.map((p, i) => [p, i])), sIdx = new Map(seeds.map((s, i) => [s, i]));
-    return {
-      names: cols.map(c => c[0]),
-      X: ok.map(t => cols.map(c => c[1](t))),
-      y: ok.map(t => t.next === 'P' ? 1 : 0),
-      groups: [ok.map(t => pIdx.get(t.pid)), ok.map(t => sIdx.get(t.seed))],
-      nLevels: [pids.length, seeds.length],
-      groupNames: ['Participant', 'Seed'],
-      svMean
-    };
+      ['Block (second − first)', bc]
+    ], t => t.next === 'P' ? 1 : 0, factorsFor((opts || {}).chain));
+    D.svMean = svMean;
+    return D;
+  };
+
+  /* Model A, continuous: the next answer's valence (1–9) on the previous
+     answer's valence (centred at 5, the state boundary), by language. */
+  A.modelDataC1 = function (trans, opts) {
+    const ok = trans.filter(t => isFinite(t.seedValence) && isFinite(t.prevV) && isFinite(t.nextV));
+    const svMean = mean(ok.map(t => t.seedValence));
+    const pv = t => t.prevV - 5;
+    const D = A.design(ok, [
+      ['(Intercept)', () => 1],
+      [LANG, lc],
+      ['Previous valence (per point)', pv],
+      ['Language × previous valence', t => lc(t) * pv(t)],
+      ['Seed valence (per point)', t => t.seedValence - svMean],
+      ['Position (per step)', t => t.position - 5],
+      ['Block (second − first)', bc]
+    ], t => t.nextV, factorsFor((opts || {}).chain));
+    D.svMean = svMean;
+    return D;
+  };
+
+  /* Every answer as a row: scored or not, with its chain's details. */
+  A.answers = parts => parts.flatMap(P => P.chains.flatMap(c => c.answers.map((a, k) => ({
+    pid: P.key, seed: c.id, lang: c.lang, block: c.block, category: c.category, position: k + 1,
+    valence: a.valence, scored: a.valence !== null && a.valence !== undefined, seedValence: c.seedValence
+  }))));
+
+  /* Model B (the seed): an answer's valence on its seed's valence, by language
+     and position. The pull fades fast at first and then levels off, so
+     position enters as log2(position): 0 at answer 1, 1 at answer 2, 2 at
+     answer 4, … "Language × seed valence" is then the language difference in
+     the seed's pull on the first answer, and "Seed valence × position" how
+     that pull changes each time the position doubles (negative: it fades). */
+  A.modelDataB = function (ans, opts) {
+    const ok = ans.filter(a => a.scored && isFinite(a.seedValence));
+    const svMean = mean(ok.map(a => a.seedValence));
+    const sv = a => a.seedValence - svMean, ps = a => Math.log2(a.position);
+    const D = A.design(ok, [
+      ['(Intercept)', () => 1],
+      [LANG, lc],
+      ['Seed valence (per point)', sv],
+      ['Position (per doubling, from answer 1)', ps],
+      ['Language × seed valence', a => lc(a) * sv(a)],
+      ['Language × position', a => lc(a) * ps(a)],
+      ['Seed valence × position', a => sv(a) * ps(a)],
+      ['Language × seed valence × position', a => lc(a) * sv(a) * ps(a)],
+      ['Block (second − first)', bc]
+    ], a => a.valence, factorsFor((opts || {}).chain));
+    D.svMean = svMean;
+    return D;
+  };
+
+  /* Model C (the chain over time): an answer's valence by position, with a
+     curve (position², centred), by language; position centred mid-chain. */
+  A.modelDataC = function (ans, opts) {
+    const ok = ans.filter(a => a.scored && isFinite(a.seedValence));
+    const svMean = mean(ok.map(a => a.seedValence));
+    const ps = a => a.position - 5.5, p2 = a => ps(a) * ps(a) - 8.25;
+    const D = A.design(ok, [
+      ['(Intercept)', () => 1],
+      [LANG, lc],
+      ['Position (per step)', ps],
+      ['Position² (curve)', p2],
+      ['Language × position', a => lc(a) * ps(a)],
+      ['Language × position²', a => lc(a) * p2(a)],
+      ['Seed valence (per point)', a => a.seedValence - svMean],
+      ['Block (second − first)', bc]
+    ], a => a.valence, factorsFor((opts || {}).chain));
+    D.svMean = svMean;
+    return D;
+  };
+
+  /* Missing valence: is an answer scored by the norms? Logistic, random
+     intercepts for students and seeds. */
+  A.modelDataMiss = function (ans) {
+    const ok = ans.filter(a => isFinite(a.seedValence));
+    const svMean = mean(ok.map(a => a.seedValence));
+    return A.design(ok, [
+      ['(Intercept)', () => 1],
+      [LANG, lc],
+      ['Position (per step)', a => a.position - 5.5],
+      ['Seed valence (per point)', a => a.seedValence - svMean],
+      ['Block (second − first)', bc]
+    ], a => a.scored ? 1 : 0, factorsFor(false));
   };
 
   // Cholesky of a symmetric positive-definite matrix (array of rows); null if not PD.
@@ -332,73 +433,143 @@
     return keep;
   }
 
-  /* Penalised IRLS for fixed theta: the joint mode of (beta, v), u = theta·v.
-     Returns the Laplace deviance and the pieces needed afterwards. */
-  function pirls(D, theta, start) {
-    const n = D.y.length, p = D.X[0].length, q = D.nLevels.reduce((s, x) => s + x, 0), m = p + q;
-    const off = [0, D.nLevels[0]];
-    const g = new Float64Array(m);
-    let par = start ? Float64Array.from(start) : new Float64Array(m);
-    const eta = par => {
-      const e = new Float64Array(n);
-      for (let i = 0; i < n; i++) {
-        let s = 0; const x = D.X[i];
-        for (let j = 0; j < p; j++) s += x[j] * par[j];
-        for (let k = 0; k < 2; k++) s += theta[k] * par[p + off[k] + D.groups[k][i]];
-        e[i] = s;
+  /* ---------- the shared solver ----------
+     Unknowns: the fixed effects β, then each factor's spherical random effects
+     v (u = θ·v), the last factor's at the end. For weights w the system is
+     H = Σ w a aᵀ + I on the v's, where a is a row's design: its x, then θ_k at
+     its level of each factor. The last factor's block of H is diagonal (a row
+     has one level of it), so it is eliminated exactly, S = A − B D⁻¹ Bᵀ, and
+     only S (fixed effects + the smaller factors) is factorised. This keeps a
+     model with hundreds of chains as cheap as one with students and seeds. */
+  function layout(D) {
+    const p = D.X[0].length, K = D.groups.length, off = [];
+    let m1 = p;
+    for (let k = 0; k < K - 1; k++) { off.push(m1); m1 += D.nLevels[k]; }
+    return { p, K, off, m1, qK: D.nLevels[K - 1], m: m1 + D.nLevels[K - 1] };
+  }
+  function assemble(D, Lo, theta, w, r) {
+    const { p, K, off, m1, qK } = Lo, n = D.y.length, tK = theta[K - 1], nnz = p + K - 1;
+    const Am = Array.from({ length: m1 }, () => new Float64Array(m1));
+    const dK = new Float64Array(qK).fill(1), Bc = Array.from({ length: qK }, () => new Float64Array(m1));
+    const g1 = new Float64Array(m1), g2 = new Float64Array(qK);
+    const idx = new Int32Array(nnz), val = new Float64Array(nnz);
+    for (let i = 0; i < n; i++) {
+      const x = D.X[i], wi = w ? w[i] : 1, ri = r[i];
+      for (let j = 0; j < p; j++) { idx[j] = j; val[j] = x[j]; }
+      for (let k = 0; k < K - 1; k++) { idx[p + k] = off[k] + D.groups[k][i]; val[p + k] = theta[k]; }
+      const c = D.groups[K - 1][i], bcol = Bc[c];
+      for (let a = 0; a < nnz; a++) {
+        const ia = idx[a], wa = wi * val[a], row = Am[ia];
+        g1[ia] += val[a] * ri;
+        bcol[ia] += wa * tK;
+        for (let b = 0; b <= a; b++) row[idx[b]] += wa * val[b];   // idx ascending: lower triangle
       }
-      return e;
-    };
+      dK[c] += wi * tK * tK;
+      g2[c] += tK * ri;
+    }
+    for (let j = p; j < m1; j++) Am[j][j] += 1;
+    for (let a = 0; a < m1; a++) for (let b = a + 1; b < m1; b++) Am[a][b] = Am[b][a];
+    const nzs = Bc.map(b => { const ix = []; for (let j = 0; j < m1; j++) if (b[j] !== 0) ix.push(j); return ix; });
+    const S = Am.map(row => Float64Array.from(row));
+    Bc.forEach((b, c) => { const ix = nzs[c], d = dK[c]; for (const a of ix) { const f = b[a] / d; for (const e of ix) S[a][e] -= f * b[e]; } });
+    return { S, dK, Bc, nzs, g1, g2 };
+  }
+  function solveSys(sys, L, g1, g2) {
+    const rhs = Float64Array.from(g1);
+    sys.Bc.forEach((b, c) => { const f = g2[c] / sys.dK[c]; for (const a of sys.nzs[c]) rhs[a] -= b[a] * f; });
+    const x1 = cholSolve(L, rhs), x2 = new Float64Array(sys.dK.length);
+    sys.Bc.forEach((b, c) => { let s = g2[c]; for (const a of sys.nzs[c]) s -= b[a] * x1[a]; x2[c] = s / sys.dK[c]; });
+    return [x1, x2];
+  }
+  const sumLog = a => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.log(a[i]); return s; };
+  // log|θZᵀWZθ + I|: the eliminated block's diagonal plus S without the fixed effects.
+  function logdetU(sys, p) {
+    const m1 = sys.S.length;
+    if (m1 === p) return sumLog(sys.dK);
+    const Lu = chol(sys.S.slice(p).map(r => r.slice(p)));
+    return Lu ? sumLog(sys.dK) + logdetChol(Lu) : NaN;
+  }
+  // Linear predictor: x·β + Σ θ_k v_k at the row's levels.
+  function linpred(D, Lo, theta, par) {
+    const { p, K, off, m1 } = Lo, n = D.y.length, e = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0; const x = D.X[i];
+      for (let j = 0; j < p; j++) s += x[j] * par[j];
+      for (let k = 0; k < K - 1; k++) s += theta[k] * par[off[k] + D.groups[k][i]];
+      e[i] = s + theta[K - 1] * par[m1 + D.groups[K - 1][i]];
+    }
+    return e;
+  }
+  // The β block of S⁻¹ (= the β block of H⁻¹).
+  function betaBlock(L, p) {
+    const m1 = L.length, cov = Array.from({ length: p }, () => new Float64Array(p));
+    for (let j = 0; j < p; j++) {
+      const e = new Float64Array(m1); e[j] = 1;
+      const col = cholSolve(L, e);
+      for (let i = 0; i < p; i++) cov[i][j] = col[i];
+    }
+    return cov;
+  }
+
+  /* Penalised IRLS for fixed theta (logistic): the joint mode of (β, v).
+     Returns the Laplace deviance and the pieces needed afterwards. */
+  function pirls(D, Lo, theta, start) {
+    const n = D.y.length, { p, m1, m } = Lo;
+    let par = start && start.length === m ? Float64Array.from(start) : new Float64Array(m);
     const objective = (par, e) => {   // log-likelihood − ½|v|²
       let s = 0;
       for (let i = 0; i < n; i++) s += D.y[i] * e[i] - (e[i] > 0 ? e[i] + Math.log1p(Math.exp(-e[i])) : Math.log1p(Math.exp(e[i])));
       for (let j = p; j < m; j++) s -= 0.5 * par[j] * par[j];
       return s;
     };
-    let e = eta(par), f = objective(par, e), H, L, ok = true, it = 0;
-    // Each pass builds the gradient and Hessian at the current point; the loop
-    // ends before moving once the step is negligible, so H belongs to the mode.
+    let e = linpred(D, Lo, theta, par), f = objective(par, e), sys, L, it = 0;
+    const w = new Float64Array(n), r = new Float64Array(n);
+    // Each pass builds the system at the current point; the loop ends before
+    // moving once the step is negligible, so the system belongs to the mode.
     for (; it < 80; it++) {
-      H = Array.from({ length: m }, () => new Float64Array(m));
-      g.fill(0);
-      for (let i = 0; i < n; i++) {
-        const mu = 1 / (1 + Math.exp(-e[i])), w = mu * (1 - mu), r = D.y[i] - mu, x = D.X[i];
-        const zi = [p + off[0] + D.groups[0][i], p + off[1] + D.groups[1][i]];
-        for (let a = 0; a < p; a++) {
-          g[a] += x[a] * r;
-          const wa = w * x[a];
-          for (let b = 0; b <= a; b++) H[a][b] += wa * x[b];
-          for (let k = 0; k < 2; k++) H[zi[k]][a] += wa * theta[k];
-        }
-        for (let k = 0; k < 2; k++) {
-          g[zi[k]] += theta[k] * r;
-          H[zi[k]][zi[k]] += w * theta[k] * theta[k];
-        }
-        const hi = Math.max(zi[0], zi[1]), lo = Math.min(zi[0], zi[1]);
-        H[hi][lo] += w * theta[0] * theta[1];
-      }
-      for (let j = p; j < m; j++) { g[j] -= par[j]; H[j][j] += 1; }
-      for (let a = 0; a < m; a++) for (let b = a + 1; b < m; b++) H[a][b] = H[b][a];
-      L = chol(H);
-      if (!L) { ok = false; break; }
-      const step = cholSolve(L, g);
-      if (Math.max(...step.map(Math.abs)) < 1e-7) break;
+      for (let i = 0; i < n; i++) { const mu = 1 / (1 + Math.exp(-e[i])); w[i] = mu * (1 - mu); r[i] = D.y[i] - mu; }
+      sys = assemble(D, Lo, theta, w, r);
+      L = chol(sys.S);
+      if (!L) return { ok: false };
+      const g1 = Float64Array.from(sys.g1), g2 = Float64Array.from(sys.g2);
+      for (let j = p; j < m1; j++) g1[j] -= par[j];
+      for (let c = 0; c < g2.length; c++) g2[c] -= par[m1 + c];
+      const [s1, s2] = solveSys(sys, L, g1, g2);
+      const step = new Float64Array(m); step.set(s1); step.set(s2, m1);
+      let big = 0; for (let j = 0; j < m; j++) big = Math.max(big, Math.abs(step[j]));
+      if (big < 1e-7) break;
       let t = 1, next, en, fn;
       for (let h = 0; h < 30; h++, t /= 2) {
         next = par.map((x, j) => x + t * step[j]);
-        en = eta(next); fn = objective(next, en);
+        en = linpred(D, Lo, theta, next); fn = objective(next, en);
         if (fn >= f - 1e-12) break;
       }
       if (!(fn >= f - 1e-12)) break;   // no ascent possible: at the mode
       par = next; e = en; f = fn;
     }
-    if (!ok || !L) return { ok: false };
     // Laplace: deviance = −2 [ℓ(β̂, û) − ½|v̂|² − ½ log|θZᵀWZθ + I|], all at the mode.
-    const Hvv = Array.from({ length: q }, (_, a) => Float64Array.from({ length: q }, (_, b) => H[p + a][p + b]));
-    const Lv = chol(Hvv);
-    if (!Lv) return { ok: false };
-    return { ok: true, par, dev: -2 * (f - 0.5 * logdetChol(Lv)), L, H, p, q, iterations: it };
+    const ld = logdetU(sys, p);
+    if (!isFinite(ld)) return { ok: false };
+    return { ok: true, par, dev: -2 * (f - 0.5 * ld), L, iterations: it };
   }
+
+  /* Penalised least squares for fixed theta (linear): β̂, v̂, the penalised
+     residual sum of squares r², and log|M| for the REML criterion
+     (M: the joint system, whose determinant is |L_θ|²|R_X|²). */
+  function pls(D, Lo, theta) {
+    const n = D.y.length, { p, m1, m } = Lo;
+    const sys = assemble(D, Lo, theta, null, D.y);
+    const L = chol(sys.S);
+    if (!L) return { ok: false };
+    const [x1, x2] = solveSys(sys, L, sys.g1, sys.g2);
+    const par = new Float64Array(m); par.set(x1); par.set(x2, m1);
+    const e = linpred(D, Lo, theta, par);
+    let r2 = 0;
+    for (let i = 0; i < n; i++) r2 += (D.y[i] - e[i]) * (D.y[i] - e[i]);
+    for (let j = p; j < m; j++) r2 += par[j] * par[j];
+    return { ok: true, par, r2, L, logdetM: sumLog(sys.dK) + logdetChol(L) };
+  }
+  const remlDev = (n, p, f) => f.logdetM + (n - p) * (1 + Math.log(2 * Math.PI * f.r2 / (n - p)));
 
   function nelderMead(fn, x0, step, maxEval) {
     const n = x0.length;
@@ -443,79 +614,250 @@
     return out;
   };
 
+  /* t distribution: two-tailed p and the 97.5% quantile (regularised
+     incomplete beta, Numerical Recipes' continued fraction). */
+  function lgamma(x) {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, t = x + 5.5; t -= (x + 0.5) * Math.log(t);
+    let ser = 1.000000000190015; for (const k of c) ser += k / ++y;
+    return -t + Math.log(2.5066282746310005 * ser / x);
+  }
+  function betacf(a, b, x) {
+    let c = 1, d = 1 - (a + b) * x / (a + 1); if (Math.abs(d) < 1e-300) d = 1e-300; d = 1 / d; let h = d;
+    for (let m = 1; m <= 300; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((a + m2 - 1) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < 1e-300) d = 1e-300; c = 1 + aa / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d; h *= d * c;
+      aa = -(a + m) * (a + b + m) * x / ((a + m2) * (a + m2 + 1));
+      d = 1 + aa * d; if (Math.abs(d) < 1e-300) d = 1e-300; c = 1 + aa / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d;
+      const del = d * c; h *= del;
+      if (Math.abs(del - 1) < 3e-14) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  A.pT = (t, df) => isFinite(t) && df > 0 ? (df > 1e6 ? A.pNorm(t) : ibeta(df / (df + t * t), df / 2, 0.5)) : NaN;
+  A.qT = df => {   // t such that two-tailed p = .05
+    if (!(df > 0)) return NaN;
+    if (df > 1e6) return 1.959964;
+    let lo = 0, hi = 1000;
+    for (let k = 0; k < 200; k++) { const mid = (lo + hi) / 2; if (A.pT(mid, df) > 0.05) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  };
+
+  // Columns the data cannot estimate are dropped (e.g. block while every
+  // student so far did the same order).
+  function prepare(Din) {
+    const keep = estimable(Din.X, Din.names);
+    const D = Object.assign({}, Din, { X: Din.X.map(r => keep.map(j => r[j])), names: keep.map(j => Din.names[j]), cols: keep.map(j => Din.cols[j]) });
+    return { D, dropped: Din.names.filter((_, j) => !keep.includes(j) && j > 0) };
+  }
+  // A fitted model's common face: coefficients, contrasts, predictions.
+  function finish(out, D, beta, cov, dfOf) {
+    const p = beta.length, z95 = 1.959964;
+    const test = (b, v, df) => {
+      const se = Math.sqrt(v), st = b / se, q = df ? A.qT(df) : z95;
+      return { b, se, df: df || null, stat: st, z: st, p: df ? A.pT(st, df) : A.pNorm(st), ci: [b - q * se, b + q * se] };
+    };
+    out.coef = D.names.map((name, j) => Object.assign({ name }, test(beta[j], cov[j][j], dfOf ? dfOf(D.names.map((_, k) => k === j ? 1 : 0)) : null)));
+    const idx = name => D.names.indexOf(name);
+    out.contrast = w => {   // w: {name: weight}
+      const v = D.names.map(n => w[n] || 0);
+      let b = 0, va = 0;
+      for (let a = 0; a < p; a++) { b += v[a] * beta[a]; for (let c = 0; c < p; c++) va += v[a] * v[c] * cov[a][c]; }
+      return test(b, va, dfOf ? dfOf(v) : null);
+    };
+    out.coefOf = name => out.coef[idx(name)] || null;
+    out.names = D.names; out.beta = beta; out.cov = cov;
+    return out;
+  }
+
+  /* Logistic mixed model (Laplace, β estimated with the random effects as
+     lme4's nAGQ = 0). trans: the transitions, for model A's separation check. */
   A.glmm = function (Din, trans) {
     const n = Din.y.length;
-    if (n < 20 || Din.nLevels[0] < 2 || Din.nLevels[1] < 2) return { ok: false, reason: 'few' };
+    if (n < 20 || Din.nLevels.slice(0, 2).some(q => q < 2)) return { ok: false, reason: 'few' };
     const empty = trans ? A.emptyCells(trans) : [];
     if (empty.length) return { ok: false, reason: 'separation', empty };
-    const keep = estimable(Din.X, Din.names);
-    const D = Object.assign({}, Din, { X: Din.X.map(r => keep.map(j => r[j])), names: keep.map(j => Din.names[j]) });
-    const dropped = Din.names.filter((_, j) => !keep.includes(j) && j > 0);
+    if (Din.y.every(y => y === Din.y[0])) return { ok: false, reason: 'novar' };
+    const { D, dropped } = prepare(Din), Lo = layout(D), K = D.groups.length;
     let warm = null;
     const dev = th => {
-      const theta = th.map(Math.abs);
-      const r = pirls(D, theta, warm);
+      const r = pirls(D, Lo, th.map(Math.abs), warm);
       if (!r.ok) return 1e300;
       warm = r.par;
       return r.dev;
     };
-    const nm = nelderMead(dev, [1, 1], 0.5, 300);
+    const maxEval = 250 * K, nm = nelderMead(dev, new Array(K).fill(1), 0.5, maxEval);
     const theta = nm.x.map(Math.abs);
-    const fit = pirls(D, theta, warm);
+    const fit = pirls(D, Lo, theta, warm);
     if (!fit.ok) return { ok: false, reason: 'converge' };
-    // Cov(β) = the β block of the inverse of the joint negative Hessian.
-    const p = fit.p, cov = Array.from({ length: p }, () => new Float64Array(p));
-    for (let j = 0; j < p; j++) {
-      const e = new Float64Array(p + fit.q); e[j] = 1;
-      const col = cholSolve(fit.L, e);
-      for (let i = 0; i < p; i++) cov[i][j] = col[i];
-    }
-    const beta = Array.from(fit.par.slice(0, p));
-    const se = beta.map((_, j) => Math.sqrt(cov[j][j]));
-    const coef = D.names.map((name, j) => {
-      const z = beta[j] / se[j];
-      return { name, b: beta[j], se: se[j], z, p: A.pNorm(z), ci: [beta[j] - 1.959964 * se[j], beta[j] + 1.959964 * se[j]] };
-    });
-    const idx = name => D.names.indexOf(name);
-    const contrast = w => {   // w: {name: weight}; estimate, SE, z, p
-      let b = 0, v = 0;
-      const ks = Object.keys(w).filter(k => idx(k) >= 0);
-      ks.forEach(k => { b += w[k] * beta[idx(k)]; });
-      ks.forEach(a => ks.forEach(c => { v += w[a] * w[c] * cov[idx(a)][idx(c)]; }));
-      const s = Math.sqrt(v), z = b / s;
-      return { b, se: s, z, p: A.pNorm(z), ci: [b - 1.959964 * s, b + 1.959964 * s] };
-    };
-    const good = coef.every(c => isFinite(c.se) && c.se < 50) && nm.evals < 300;
-    return { ok: true, converged: good, n, nLevels: D.nLevels, groupNames: D.groupNames, theta, deviance: fit.dev,
-      coef, cov, names: D.names, dropped, contrast, beta, evals: nm.evals };
+    const p = Lo.p, cov = betaBlock(fit.L, p), beta = Array.from(fit.par.slice(0, p));
+    const out = finish({ ok: true, kind: 'glmm', n, nLevels: D.nLevels, groupNames: D.groupNames, theta, sd: theta, deviance: fit.dev, dropped, evals: nm.evals, D }, D, beta, cov, null);
+    out.converged = out.coef.every(c => isFinite(c.se) && c.se < 50) && nm.evals < maxEval;
+    return out;
   };
 
-  /* The model's own reading of the language effect: log-odds of moving to (or
-     staying in) the positive state, English − Chinese, after a negative and
-     after a positive answer; and the implied persistence probabilities at the
-     average seed valence and the middle of the chain. */
-  A.modelSummary = function (fit) {
+  /* Linear mixed model by REML (lme4's default), with Satterthwaite degrees
+     of freedom for every test (as lmerTest): the variance parameters'
+     covariance from the REML criterion's curvature, and the gradient of each
+     contrast's variance, both by finite differences. */
+  A.lmm = function (Din) {
+    const n = Din.y.length;
+    if (n < 20 || Din.nLevels.slice(0, 2).some(q => q < 2)) return { ok: false, reason: 'few' };
+    const { D, dropped } = prepare(Din), Lo = layout(D), K = D.groups.length, p = Lo.p;
+    const crit = th => { const f = pls(D, Lo, th.map(Math.abs)); return f.ok ? remlDev(n, p, f) : 1e300; };
+    const maxEval = 250 * K, nm = nelderMead(crit, new Array(K).fill(1), 0.5, maxEval);
+    const theta = nm.x.map(Math.abs);
+    const f = pls(D, Lo, theta);
+    if (!f.ok) return { ok: false, reason: 'converge' };
+    const sigma = Math.sqrt(f.r2 / (n - p));
+    const covAt = (th, sg) => { const g = pls(D, Lo, th.map(Math.abs)); const c = betaBlock(g.L, p); return c.map(r => r.map(x => x * sg * sg)); };
+    const cov = covAt(theta, sigma), beta = Array.from(f.par.slice(0, p));
+    // Satterthwaite: φ = (θ, σ); the unprofiled criterion; boundary θ's left out.
+    const phi = theta.concat([sigma]);
+    const devU = ph => { const g = pls(D, Lo, ph.slice(0, K).map(Math.abs)); return g.ok ? g.logdetM + (n - p) * Math.log(2 * Math.PI * ph[K] * ph[K]) + g.r2 / (ph[K] * ph[K]) : NaN; };
+    const act = phi.map((x, j) => j === K || x > 1e-4 ? j : -1).filter(j => j >= 0);
+    const h = act.map(j => 1e-4 * Math.max(Math.abs(phi[j]), 0.05));
+    const at = (pairs) => { const q = phi.slice(); pairs.forEach(([j, d]) => { q[j] += d; }); return q; };
+    const Hm = act.map(() => new Float64Array(act.length));
+    const f0 = devU(phi);
+    act.forEach((a, ia) => act.forEach((b, ib) => {
+      if (ib < ia) return;
+      const ha = h[ia], hb = h[ib];
+      const v = ia === ib
+        ? (devU(at([[a, ha]])) - 2 * f0 + devU(at([[a, -ha]]))) / (ha * ha)
+        : (devU(at([[a, ha], [b, hb]])) - devU(at([[a, ha], [b, -hb]])) - devU(at([[a, -ha], [b, hb]])) + devU(at([[a, -ha], [b, -hb]]))) / (4 * ha * hb);
+      Hm[ia][ib] = Hm[ib][ia] = v;
+    }));
+    const LH = chol(Array.from(Hm, r => Array.from(r)));
+    let Avar = null;
+    if (LH) Avar = act.map((_, j) => { const e = new Float64Array(act.length); e[j] = 2; return cholSolve(LH, e); });   // 2 H⁻¹
+    const dCov = act.map((j, ia) => {
+      const up = covAt(at([[j, h[ia]]]).slice(0, K), at([[j, h[ia]]])[K]), dn = covAt(at([[j, -h[ia]]]).slice(0, K), at([[j, -h[ia]]])[K]);
+      return up.map((r, a) => r.map((x, b) => (x - dn[a][b]) / (2 * h[ia])));
+    });
+    const sat = { dCov: dCov.map(M => M.map(r => Array.from(r))), Avar: Avar ? Avar.map(r => Array.from(r)) : null };
+    const out = finish({ ok: true, kind: 'lmm', n, nLevels: D.nLevels, groupNames: D.groupNames, theta, sigma, sd: theta.map(t => t * sigma), reml: remlDev(n, p, f), dropped, evals: nm.evals, D, sat }, D, beta, cov, makeDf(cov, sat));
+    out.converged = out.coef.every(c => isFinite(c.se)) && nm.evals < maxEval;
+    return out;
+  };
+  // Satterthwaite df for a contrast v: 2V² / (gᵀ A g), V = vᵀ Cov v, g_j = vᵀ ∂Cov/∂φ_j v.
+  function makeDf(cov, sat) {
+    if (!sat || !sat.Avar) return null;
+    const p = cov.length, { dCov, Avar } = sat;
+    return v => {
+      let V = 0; const g = dCov.map(() => 0);
+      for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) { V += v[a] * v[b] * cov[a][b]; dCov.forEach((M, j) => { g[j] += v[a] * v[b] * M[a][b]; }); }
+      let q = 0; g.forEach((ga, i) => g.forEach((gb, j) => { q += ga * gb * Avar[i][j]; }));
+      const df = 2 * V * V / q;
+      return isFinite(df) && df > 0 ? Math.min(df, 1e7) : null;
+    };
+  }
+
+  /* A fit as plain data (no functions, no design), so it can be posted from a
+     Web Worker; revive() gives it its methods back. The column means stand in
+     for the design where a prediction needs "the average" of a covariate. */
+  A.plain = f => {
+    if (!f || !f.ok) return f ? { ok: false, reason: f.reason, empty: f.empty || null } : null;
+    const colMeans = {};
+    f.D.names.forEach((name, j) => { let s = 0; f.D.X.forEach(r => { s += r[j]; }); colMeans[name] = s / f.D.X.length; });
+    const keep = ['ok', 'kind', 'n', 'nLevels', 'groupNames', 'theta', 'sd', 'sigma', 'reml', 'deviance', 'dropped', 'evals', 'converged', 'names', 'beta', 'sat', 'carry'];
+    const out = { colMeans, cov: f.cov.map(r => Array.from(r)) };
+    keep.forEach(k => { if (f[k] !== undefined) out[k] = f[k]; });
+    return out;
+  };
+  A.revive = p => {
+    if (!p || !p.ok) return p;
+    const out = finish(Object.assign({}, p), { names: p.names }, p.beta, p.cov, makeDf(p.cov, p.sat));
+    out.converged = p.converged;
+    out.cm = name => p.colMeans[name] !== undefined ? p.colMeans[name] : 0;
+    return out;
+  };
+
+  /* One model-fitting job (the page's Web Worker runs these; so does the page
+     itself where workers are unavailable). j: {model, tr | ans, chain}. */
+  A.runJob = j => {
+    const o = { chain: j.chain !== false };
+    switch (j.model) {
+      case 'A': { const f = A.glmm(A.modelData(j.tr, o), j.tr); if (f.ok) f.carry = A.carryOver(f); return f; }
+      case 'C1': return A.lmm(A.modelDataC1(j.tr, o));
+      case 'B': return A.lmm(A.modelDataB(j.ans, o));
+      case 'C': return A.lmm(A.modelDataC(j.ans, o));
+      case 'Miss': return A.glmm(A.modelDataMiss(j.ans));
+    }
+    return { ok: false, reason: 'unknown' };
+  };
+
+  /* Model A on the probability scale: average marginal predictions. Every
+     observed transition is predicted with language and previous state set as
+     given (random effects at zero), then averaged, so the probabilities
+     average over this class's actual seeds, positions and blocks. CIs by the
+     delta method. */
+  A.carryOver = function (fit) {
     if (!fit || !fit.ok) return null;
-    const L = 'Language (English − Chinese)', S = 'Previous state (positive − negative)', I = 'Language × previous state', C = '(Intercept)';
-    const afterN = fit.contrast({ [L]: 1, [I]: -0.5 });
-    const afterP = fit.contrast({ [L]: 1, [I]: 0.5 });
-    const logistic = x => 1 / (1 + Math.exp(-x));
-    // Implied probability of the next answer being positive, with a 95% CI
-    // from the linear predictor's SE (delta method on the logit scale).
-    const nextPositive = (lang, prev) => {
-      const r = fit.contrast({ [C]: 1, [L]: lang, [S]: prev, [I]: lang * prev });
-      return { p: logistic(r.b), lo: logistic(r.ci[0]), hi: logistic(r.ci[1]) };
+    const D = fit.D, p = fit.beta.length, logistic = x => 1 / (1 + Math.exp(-x));
+    const amp = (lang, prev) => {
+      let m = 0; const g = new Float64Array(p);
+      D.data.forEach(t => {
+        const t2 = Object.assign({}, t, { lang, prev });
+        const x = D.cols.map(c => c[1](t2));
+        let e = 0; for (let j = 0; j < p; j++) e += x[j] * fit.beta[j];
+        const q = logistic(e); m += q;
+        for (let j = 0; j < p; j++) g[j] += q * (1 - q) * x[j];
+      });
+      return { est: m / D.data.length, g: g.map(v => v / D.data.length) };
     };
-    const stay = (lang, key) => {
-      const q = nextPositive(lang, key === 'N' ? -0.5 : 0.5);
-      return key === 'N' ? { p: 1 - q.p, lo: 1 - q.hi, hi: 1 - q.lo } : q;
+    const comb = terms => {   // Σ weight · prediction
+      const g = new Float64Array(p); let est = 0;
+      terms.forEach(([wt, a]) => { est += wt * a.est; for (let j = 0; j < p; j++) g[j] += wt * a.g[j]; });
+      let v = 0; for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) v += g[a] * g[b] * fit.cov[a][b];
+      const se = Math.sqrt(v), z = est / se;
+      return { est, se, lo: est - 1.959964 * se, hi: est + 1.959964 * se, z, p: A.pNorm(z) };
     };
-    const implied = {
-      zh: { NN: stay(-0.5, 'N').p, PP: stay(-0.5, 'P').p },
-      en: { NN: stay(0.5, 'N').p, PP: stay(0.5, 'P').p }
+    const P = { zh: { N: amp('zh', 'N'), P: amp('zh', 'P') }, en: { N: amp('en', 'N'), P: amp('en', 'P') } };
+    const next = { zh: { N: comb([[1, P.zh.N]]), P: comb([[1, P.zh.P]]) }, en: { N: comb([[1, P.en.N]]), P: comb([[1, P.en.P]]) } };
+    return {
+      next,                                                     // P(next positive) by language and previous state
+      diff: { N: comb([[1, P.en.N], [-1, P.zh.N]]), P: comb([[1, P.en.P], [-1, P.zh.P]]) },   // English − Chinese
+      carry: { zh: comb([[1, P.zh.P], [-1, P.zh.N]]), en: comb([[1, P.en.P], [-1, P.en.N]]) },  // after positive − after negative
+      did: comb([[1, P.en.P], [-1, P.en.N], [-1, P.zh.P], [1, P.zh.N]]),                       // carry-over, English − Chinese
+      interaction: fit.coefOf('Language × previous state')
     };
-    const impliedCI = { zh: { NN: stay(-0.5, 'N'), PP: stay(-0.5, 'P') }, en: { NN: stay(0.5, 'N'), PP: stay(0.5, 'P') } };
-    return { afterN, afterP, implied, impliedCI };
+  };
+
+  /* An alternative link for the sensitivity check: percentile (equipercentile)
+     equating. A Chinese rating takes the English value at the same percentile
+     of the two whole norm sets (mid-rank for ties), instead of the linear
+     mean–sigma link (which is the same as z-scoring each set). */
+  A.percentileLink = function (N) {
+    const zh = Float64Array.from(N.zhRawList).sort(), en = Float64Array.from(N.enList).sort();
+    const below = (a, v) => { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < v) lo = m + 1; else hi = m; } return lo; };
+    const atMost = (a, v) => { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= v) lo = m + 1; else hi = m; } return lo; };
+    return raw => {
+      const q = (below(zh, raw) + atMost(zh, raw)) / 2 / zh.length;
+      const pos = Math.min(en.length - 1, Math.max(0, q * en.length - 0.5)), i = Math.floor(pos), f = pos - i;
+      return i + 1 < en.length ? en[i] * (1 - f) + en[i + 1] * f : en[i];
+    };
+  };
+  // The same students with Chinese valence (answers and seeds) re-linked.
+  A.relink = (parts, link) => parts.map(P => Object.assign({}, P, {
+    chains: P.chains.map(c => c.lang !== 'zh' ? c : Object.assign({}, c, {
+      seedValence: isFinite(c.seedRaw) ? link(c.seedRaw) : NaN,
+      answers: c.answers.map(a => a.raw === null || a.raw === undefined ? a : Object.assign({}, a, { valence: link(a.raw) }))
+    }))
+  }));
+
+  // Benjamini–Hochberg adjusted p-values (same order as given).
+  A.bh = ps => {
+    const ix = ps.map((p, i) => [p, i]).filter(x => isFinite(x[0])).sort((a, b) => b[0] - a[0]), m = ix.length, out = ps.map(() => NaN);
+    let run = 1;
+    ix.forEach(([p, i], k) => { run = Math.min(run, p * m / (m - k)); out[i] = run; });
+    return out;
   };
 
   /* ---------- exports (CSV rows) ---------- */

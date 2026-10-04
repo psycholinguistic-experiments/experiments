@@ -57,6 +57,37 @@ Everything that compares or matches the languages uses the equated values:
 the seed criteria and matching, the Markov states, the answer valence and the
 trajectories.
 
+## The analysis on the results page
+
+`assets/fast-analysis.js` scores every answer and fits the models in the
+browser each time the results are drawn. It answers three questions, each
+English − Chinese:
+
+| | Model | Main tests |
+|---|---|---|
+| A | logistic: next answer positive ~ language × previous state + seed valence + position + block | language × previous state; follow-ups after a negative and after a positive answer (average marginal predictions) |
+| A | linear: next valence ~ language × previous valence + seed valence + position + block | language × previous valence |
+| B | linear: valence ~ language × seed valence × position (from answer 1) + block | language × seed valence (answer 1); language × seed valence × position |
+| C | linear: valence ~ language × (position + position²) + seed valence + block | language × position; position² |
+
+Every model has random intercepts for students, seeds and chains (a
+student's ten answers to one seed). The logistic model uses the Laplace
+approximation (as lme4's `nAGQ = 0`). The linear models use REML, with
+Satterthwaite degrees of freedom (as lmerTest).
+`dev/test_models.js` + `dev/check_models.R` check every model against
+lme4/lmerTest to four decimals.
+
+The robustness checks (fitted when opened) rerun the key results in three
+ways:
+- without chain intercepts;
+- with only the students who have at least 70% of their transitions valid
+  in both languages;
+- with percentile instead of linear equating of Chinese valence.
+
+They also model which answers go unscored. `random-slopes.R` refits model A,
+in both its logistic and linear forms, with per-student slopes from the
+Transitions download.
+
 ## Sources
 
 Put these in `sources/` under the names shown to rebuild the tables.
