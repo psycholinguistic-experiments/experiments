@@ -276,13 +276,17 @@
      A design: the rows' source objects (data), the fixed-effect columns as
      [name, function of a row] (cols, kept so rows can be re-predicted with a
      value changed), the response, and the grouping factors, largest last
-     (chains, when present: a student's answers to one seed). */
+     (chains, when present: a student's answers to one seed). A factor is
+     [name, level of a row] for a random intercept, or [name, level, value of
+     a row] for a random slope: the term is then θ·value at the row's level
+     (an uncorrelated slope, as lme4's ||). The last factor is an intercept. */
   A.design = function (data, cols, yFn, factors) {
     const lv = factors.map(([, f]) => { const m = new Map(); data.forEach(d => { const k = f(d); if (!m.has(k)) m.set(k, m.size); }); return m; });
     return {
       data, cols, names: cols.map(c => c[0]),
       X: data.map(d => cols.map(c => c[1](d))), y: data.map(yFn),
       groups: factors.map(([, f], k) => data.map(d => lv[k].get(f(d)))),
+      zv: factors.map(f => f[2] ? Float64Array.from(data, f[2]) : null),
       nLevels: lv.map(m => m.size), groupNames: factors.map(f => f[0])
     };
   };
@@ -380,6 +384,75 @@
     return D;
   };
 
+  /* Model C with position as a category (sensitivity check for the curve's
+     shape): valence ~ language × position (answer 1 the reference) + seed
+     valence + block. The language × position terms' joint test asks whether
+     the language difference changes across positions, with no assumed shape. */
+  A.modelDataCcat = function (ans, opts) {
+    const ok = ans.filter(a => a.scored && isFinite(a.seedValence));
+    const svMean = mean(ok.map(a => a.seedValence));
+    const ks = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const D = A.design(ok, [['(Intercept)', () => 1], [LANG, lc]]
+      .concat(ks.map(k => [`Position ${k}`, a => a.position === k ? 1 : 0]))
+      .concat(ks.map(k => [`Language × position ${k}`, a => a.position === k ? lc(a) : 0]))
+      .concat([['Seed valence (per point)', a => a.seedValence - svMean], ['Block (second − first)', bc]]),
+      a => a.valence, factorsFor((opts || {}).chain));
+    D.svMean = svMean;
+    return D;
+  };
+
+  /* Proficiency (exploratory): does a student's English self-rating change
+     the language differences? prof: Map of student key → rating; the rating is
+     centred on the mean over the students in the model. The rating varies only
+     between students, so the language terms get by-student random slopes
+     (uncorrelated, as lme4's ||): without them the cross-level interactions'
+     standard errors would be too small. */
+  const withRating = (rows, prof) => {
+    const ok = rows.filter(d => isFinite(d.seedValence) && isFinite(prof.get(d.pid))).map(d => Object.assign({}, d, { rating: prof.get(d.pid) }));
+    const byStudent = new Map(ok.map(d => [d.pid, d.rating]));
+    return { ok, rMean: mean([...byStudent.values()]) };
+  };
+  A.modelDataProfA = function (trans, prof) {
+    const { ok, rMean } = withRating(trans, prof);
+    const svMean = mean(ok.map(t => t.seedValence));
+    const pc = t => t.prev === 'P' ? 0.5 : -0.5, r = t => t.rating - rMean;
+    const D = A.design(ok, [
+      ['(Intercept)', () => 1],
+      [LANG, lc],
+      ['Previous state (positive − negative)', pc],
+      ['Language × previous state', t => lc(t) * pc(t)],
+      ['Seed valence (per point)', t => t.seedValence - svMean],
+      ['Position (per step)', t => t.position - 5],
+      ['Block (second − first)', bc],
+      ['Proficiency (per point)', r],
+      ['Language × proficiency', t => lc(t) * r(t)],
+      ['Previous state × proficiency', t => pc(t) * r(t)],
+      ['Language × previous state × proficiency', t => lc(t) * pc(t) * r(t)]
+    ], t => t.next === 'P' ? 1 : 0, [['Student', t => t.pid], ['Student: language', t => t.pid, lc], ['Student: language × previous state', t => t.pid, t => lc(t) * pc(t)],
+      ['Seed', t => t.seed], ['Chain', t => t.pid + '|' + t.seed]]);
+    D.svMean = svMean; D.rMean = rMean;
+    return D;
+  };
+  A.modelDataProfV = function (ans, prof) {
+    const { ok, rMean } = withRating(ans.filter(a => a.scored), prof);
+    const svMean = mean(ok.map(a => a.seedValence));
+    const ps = a => a.position - 5.5, p2 = a => ps(a) * ps(a) - 8.25, r = a => a.rating - rMean;
+    const D = A.design(ok, [
+      ['(Intercept)', () => 1],
+      [LANG, lc],
+      ['Position (per step)', ps],
+      ['Position² (curve)', p2],
+      ['Language × position', a => lc(a) * ps(a)],
+      ['Language × position²', a => lc(a) * p2(a)],
+      ['Seed valence (per point)', a => a.seedValence - svMean],
+      ['Block (second − first)', bc],
+      ['Proficiency (per point)', r],
+      ['Language × proficiency', a => lc(a) * r(a)]
+    ], a => a.valence, [['Student', a => a.pid], ['Student: language', a => a.pid, lc], ['Seed', a => a.seed], ['Chain', a => a.pid + '|' + a.seed]]);
+    D.svMean = svMean; D.rMean = rMean;
+    return D;
+  };
+
   /* Missing valence: is an answer scored by the norms? Logistic, random
      intercepts for students and seeds. */
   A.modelDataMiss = function (ans) {
@@ -445,71 +518,120 @@
     const p = D.X[0].length, K = D.groups.length, off = [];
     let m1 = p;
     for (let k = 0; k < K - 1; k++) { off.push(m1); m1 += D.nLevels[k]; }
-    return { p, K, off, m1, qK: D.nLevels[K - 1], m: m1 + D.nLevels[K - 1] };
+    // When the last factor is nested in the first (each chain belongs to one
+    // student), the factors with the first factor's grouping (a student's
+    // intercept and any slopes) touch no other student's, so S holds one small
+    // block per student; factorise() eliminates those too. Otherwise (e.g. the
+    // last factor is the seed, shared by all students) S stays dense.
+    const levelsOf = k => { const own = new Int32Array(D.nLevels[K - 1]).fill(-1);
+      for (let i = 0; i < D.y.length; i++) { const c = D.groups[K - 1][i]; if (own[c] < 0) own[c] = D.groups[k][i]; else if (own[c] !== D.groups[k][i]) return false; }
+      return true; };
+    const nested = K > 1 && levelsOf(0);
+    let lastNested = true;
+    for (let k = 0; k < K - 1 && lastNested; k++) lastNested = levelsOf(k);
+    const same = [];
+    if (nested) for (let k = 0; k < K - 1; k++) if (D.nLevels[k] === D.nLevels[0] && D.groups[k].every((g, i) => g === D.groups[0][i])) same.push(k);
+    const blocks = same.length ? Array.from({ length: D.nLevels[0] }, (_, j) => same.map(k => off[k] + j)) : [];
+    const inB = new Uint8Array(m1); blocks.forEach(b => b.forEach(i => { inB[i] = 1; }));
+    const dense = []; for (let i = 0; i < m1; i++) if (!inB[i]) dense.push(i);
+    return { p, K, off, m1, qK: D.nLevels[K - 1], m: m1 + D.nLevels[K - 1], blocks, dense, lastNested };
   }
+  /* Factorise S by eliminating the per-student blocks: S' = S_DD − Σ_b S_Db
+     S_bb⁻¹ S_bD on the dense part (fixed effects first, then e.g. the seeds).
+     Gives solves with S, log|S|, log|S without the fixed effects| and the
+     fixed-effect block of S⁻¹ (which is that of S'⁻¹). null if not PD. */
+  function factorise(S, Lo) {
+    const { blocks, dense, p } = Lo, nd = dense.length;
+    const Sp = dense.map(i => Float64Array.from(dense, j => S[i][j]));
+    const Bs = [];
+    let logdetB = 0;
+    for (const ib of blocks) {
+      const Lb = chol(ib.map(i => ib.map(j => S[i][j])));
+      if (!Lb) return null;
+      logdetB += logdetChol(Lb);
+      const Q = dense.map(i => Float64Array.from(ib, j => S[i][j]));          // S_Db, nd × s
+      const W = Q.map(q => cholSolve(Lb, q));                                   // rows of S_Db S_bb⁻¹
+      for (let a = 0; a < nd; a++) { const qa = Q[a]; for (let c = 0; c <= a; c++) { const wc = W[c]; let s = 0; for (let t = 0; t < ib.length; t++) s += qa[t] * wc[t]; Sp[a][c] -= s; } }
+      Bs.push({ ib, Lb, Q });
+    }
+    for (let a = 0; a < nd; a++) for (let c = a + 1; c < nd; c++) Sp[a][c] = Sp[c][a];
+    const Ld = chol(Sp);
+    if (!Ld) return null;
+    return {
+      logdet: logdetB + logdetChol(Ld),
+      logdetU() { if (nd === p) return logdetB; const Lu = chol(Array.from(Sp.slice(p), r => r.slice(p))); return Lu ? logdetB + logdetChol(Lu) : NaN; },
+      solve(rhs) {
+        const yD = Float64Array.from(dense, i => rhs[i]);
+        Bs.forEach(B => { const z = cholSolve(B.Lb, Float64Array.from(B.ib, i => rhs[i])); for (let a = 0; a < nd; a++) { let s = 0; for (let t = 0; t < z.length; t++) s += B.Q[a][t] * z[t]; yD[a] -= s; } });
+        const xD = cholSolve(Ld, yD), x = new Float64Array(rhs.length);
+        dense.forEach((i, a) => { x[i] = xD[a]; });
+        Bs.forEach(B => { const r = Float64Array.from(B.ib, (i, t) => { let s = rhs[i]; for (let a = 0; a < nd; a++) s -= B.Q[a][t] * xD[a]; return s; }); const xb = cholSolve(B.Lb, r); B.ib.forEach((i, t) => { x[i] = xb[t]; }); });
+        return x;
+      },
+      betaCov() {
+        const cov = Array.from({ length: p }, () => new Float64Array(p));
+        for (let j = 0; j < p; j++) { const e = new Float64Array(nd); e[j] = 1; const col = cholSolve(Ld, e); for (let i = 0; i < p; i++) cov[i][j] = col[i]; }
+        return cov;
+      }
+    };
+  }
+  /* The last factor's column of the system, per level, is kept sparse: {ix,
+     v}, its nonzero positions and values. When every row of a level shares
+     all its factor levels (a chain: one student, one seed), those positions
+     are the same for each of its rows and are filled in place. */
   function assemble(D, Lo, theta, w, r) {
-    const { p, K, off, m1, qK } = Lo, n = D.y.length, tK = theta[K - 1], nnz = p + K - 1;
-    const Am = Array.from({ length: m1 }, () => new Float64Array(m1));
-    const dK = new Float64Array(qK).fill(1), Bc = Array.from({ length: qK }, () => new Float64Array(m1));
+    const { p, K, off, m1, qK } = Lo, n = D.y.length, tK = theta[K - 1], nnz = p + K - 1, Xf = D.Xf, G = D.G, Z = D.Z;
+    const S = Array.from({ length: m1 }, () => new Float64Array(m1));
+    const dK = new Float64Array(qK).fill(1);
     const g1 = new Float64Array(m1), g2 = new Float64Array(qK);
     const idx = new Int32Array(nnz), val = new Float64Array(nnz);
+    const compact = Lo.lastNested;
+    const Bi = compact ? new Int32Array(qK * nnz) : null, Bv = compact ? new Float64Array(qK * nnz) : null;
+    const Bc = compact ? null : Array.from({ length: qK }, () => new Float64Array(m1));
     for (let i = 0; i < n; i++) {
-      const x = D.X[i], wi = w ? w[i] : 1, ri = r[i];
-      for (let j = 0; j < p; j++) { idx[j] = j; val[j] = x[j]; }
-      for (let k = 0; k < K - 1; k++) { idx[p + k] = off[k] + D.groups[k][i]; val[p + k] = theta[k]; }
-      const c = D.groups[K - 1][i], bcol = Bc[c];
+      const wi = w ? w[i] : 1, ri = r[i], xo = i * p;
+      for (let j = 0; j < p; j++) { idx[j] = j; val[j] = Xf[xo + j]; }
+      for (let k = 0; k < K - 1; k++) { idx[p + k] = off[k] + G[k][i]; val[p + k] = Z[k] ? theta[k] * Z[k][i] : theta[k]; }
+      const c = G[K - 1][i], co = c * nnz;
       for (let a = 0; a < nnz; a++) {
-        const ia = idx[a], wa = wi * val[a], row = Am[ia];
+        const ia = idx[a], wa = wi * val[a], row = S[ia];
         g1[ia] += val[a] * ri;
-        bcol[ia] += wa * tK;
+        if (compact) { Bi[co + a] = ia; Bv[co + a] += wa * tK; } else Bc[c][ia] += wa * tK;
         for (let b = 0; b <= a; b++) row[idx[b]] += wa * val[b];   // idx ascending: lower triangle
       }
       dK[c] += wi * tK * tK;
       g2[c] += tK * ri;
     }
-    for (let j = p; j < m1; j++) Am[j][j] += 1;
-    for (let a = 0; a < m1; a++) for (let b = a + 1; b < m1; b++) Am[a][b] = Am[b][a];
-    const nzs = Bc.map(b => { const ix = []; for (let j = 0; j < m1; j++) if (b[j] !== 0) ix.push(j); return ix; });
-    const S = Am.map(row => Float64Array.from(row));
-    Bc.forEach((b, c) => { const ix = nzs[c], d = dK[c]; for (const a of ix) { const f = b[a] / d; for (const e of ix) S[a][e] -= f * b[e]; } });
-    return { S, dK, Bc, nzs, g1, g2 };
+    for (let j = p; j < m1; j++) S[j][j] += 1;
+    for (let a = 0; a < m1; a++) for (let b = a + 1; b < m1; b++) S[a][b] = S[b][a];
+    const B = compact ? Array.from({ length: qK }, (_, c) => ({ ix: Bi.subarray(c * nnz, (c + 1) * nnz), v: Bv.subarray(c * nnz, (c + 1) * nnz) }))
+      : Bc.map(b => { const ix = []; for (let j = 0; j < m1; j++) if (b[j] !== 0) ix.push(j); return { ix, v: ix.map(j => b[j]) }; });
+    B.forEach(({ ix, v }, c) => { const d = dK[c]; for (let a = 0; a < ix.length; a++) { const f = v[a] / d, row = S[ix[a]]; for (let e = 0; e < ix.length; e++) row[ix[e]] -= f * v[e]; } });
+    return { S, dK, B, g1, g2 };
   }
   function solveSys(sys, L, g1, g2) {
     const rhs = Float64Array.from(g1);
-    sys.Bc.forEach((b, c) => { const f = g2[c] / sys.dK[c]; for (const a of sys.nzs[c]) rhs[a] -= b[a] * f; });
-    const x1 = cholSolve(L, rhs), x2 = new Float64Array(sys.dK.length);
-    sys.Bc.forEach((b, c) => { let s = g2[c]; for (const a of sys.nzs[c]) s -= b[a] * x1[a]; x2[c] = s / sys.dK[c]; });
+    sys.B.forEach(({ ix, v }, c) => { const f = g2[c] / sys.dK[c]; for (let a = 0; a < ix.length; a++) rhs[ix[a]] -= v[a] * f; });
+    const x1 = L.solve(rhs), x2 = new Float64Array(sys.dK.length);
+    sys.B.forEach(({ ix, v }, c) => { let s = g2[c]; for (let a = 0; a < ix.length; a++) s -= v[a] * x1[ix[a]]; x2[c] = s / sys.dK[c]; });
     return [x1, x2];
   }
   const sumLog = a => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.log(a[i]); return s; };
-  // log|θZᵀWZθ + I|: the eliminated block's diagonal plus S without the fixed effects.
-  function logdetU(sys, p) {
-    const m1 = sys.S.length;
-    if (m1 === p) return sumLog(sys.dK);
-    const Lu = chol(sys.S.slice(p).map(r => r.slice(p)));
-    return Lu ? sumLog(sys.dK) + logdetChol(Lu) : NaN;
-  }
+  // log|θZᵀWZθ + I|: the eliminated chains' diagonal plus S without the fixed effects.
+  const logdetU = (sys, F) => sumLog(sys.dK) + F.logdetU();
   // Linear predictor: x·β + Σ θ_k v_k at the row's levels.
   function linpred(D, Lo, theta, par) {
-    const { p, K, off, m1 } = Lo, n = D.y.length, e = new Float64Array(n);
+    const { p, K, off, m1 } = Lo, n = D.y.length, e = new Float64Array(n), Xf = D.Xf, G = D.G, Z = D.Z;
     for (let i = 0; i < n; i++) {
-      let s = 0; const x = D.X[i];
-      for (let j = 0; j < p; j++) s += x[j] * par[j];
-      for (let k = 0; k < K - 1; k++) s += theta[k] * par[off[k] + D.groups[k][i]];
-      e[i] = s + theta[K - 1] * par[m1 + D.groups[K - 1][i]];
+      let s = 0; const xo = i * p;
+      for (let j = 0; j < p; j++) s += Xf[xo + j] * par[j];
+      for (let k = 0; k < K - 1; k++) s += (Z[k] ? theta[k] * Z[k][i] : theta[k]) * par[off[k] + G[k][i]];
+      e[i] = s + theta[K - 1] * par[m1 + G[K - 1][i]];
     }
     return e;
   }
   // The β block of S⁻¹ (= the β block of H⁻¹).
-  function betaBlock(L, p) {
-    const m1 = L.length, cov = Array.from({ length: p }, () => new Float64Array(p));
-    for (let j = 0; j < p; j++) {
-      const e = new Float64Array(m1); e[j] = 1;
-      const col = cholSolve(L, e);
-      for (let i = 0; i < p; i++) cov[i][j] = col[i];
-    }
-    return cov;
-  }
+  const betaBlock = F => F.betaCov();
 
   /* Penalised IRLS for fixed theta (logistic): the joint mode of (β, v).
      Returns the Laplace deviance and the pieces needed afterwards. */
@@ -529,7 +651,7 @@
     for (; it < 80; it++) {
       for (let i = 0; i < n; i++) { const mu = 1 / (1 + Math.exp(-e[i])); w[i] = mu * (1 - mu); r[i] = D.y[i] - mu; }
       sys = assemble(D, Lo, theta, w, r);
-      L = chol(sys.S);
+      L = factorise(sys.S, Lo);
       if (!L) return { ok: false };
       const g1 = Float64Array.from(sys.g1), g2 = Float64Array.from(sys.g2);
       for (let j = p; j < m1; j++) g1[j] -= par[j];
@@ -548,7 +670,7 @@
       par = next; e = en; f = fn;
     }
     // Laplace: deviance = −2 [ℓ(β̂, û) − ½|v̂|² − ½ log|θZᵀWZθ + I|], all at the mode.
-    const ld = logdetU(sys, p);
+    const ld = logdetU(sys, L);
     if (!isFinite(ld)) return { ok: false };
     return { ok: true, par, dev: -2 * (f - 0.5 * ld), L, iterations: it };
   }
@@ -559,7 +681,7 @@
   function pls(D, Lo, theta) {
     const n = D.y.length, { p, m1, m } = Lo;
     const sys = assemble(D, Lo, theta, null, D.y);
-    const L = chol(sys.S);
+    const L = factorise(sys.S, Lo);
     if (!L) return { ok: false };
     const [x1, x2] = solveSys(sys, L, sys.g1, sys.g2);
     const par = new Float64Array(m); par.set(x1); par.set(x2, m1);
@@ -567,7 +689,7 @@
     let r2 = 0;
     for (let i = 0; i < n; i++) r2 += (D.y[i] - e[i]) * (D.y[i] - e[i]);
     for (let j = p; j < m; j++) r2 += par[j] * par[j];
-    return { ok: true, par, r2, L, logdetM: sumLog(sys.dK) + logdetChol(L) };
+    return { ok: true, par, r2, L, logdetM: sumLog(sys.dK) + L.logdet };
   }
   const remlDev = (n, p, f) => f.logdetM + (n - p) * (1 + Math.log(2 * Math.PI * f.r2 / (n - p)));
 
@@ -640,6 +762,25 @@
     const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
     return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
   }
+  // Regularised upper incomplete gamma Q(a, x) (Numerical Recipes gser/gcf).
+  function gammaQ(a, x) {
+    if (!(x > 0)) return 1;
+    const gln = lgamma(a);
+    if (x < a + 1) {
+      let sum = 1 / a, del = sum, ap = a;
+      for (let n = 0; n < 500; n++) { ap++; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 3e-14) break; }
+      return 1 - sum * Math.exp(-x + a * Math.log(x) - gln);
+    }
+    let b = x + 1 - a, c = 1 / 1e-300, d = 1 / b, h = d;
+    for (let i = 1; i < 500; i++) {
+      const an = -i * (i - a); b += 2;
+      d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300; c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d;
+      const del = d * c; h *= del; if (Math.abs(del - 1) < 3e-14) break;
+    }
+    return Math.exp(-x + a * Math.log(x) - gln) * h;
+  }
+  A.pChi2 = (x, df) => isFinite(x) && df > 0 ? gammaQ(df / 2, x / 2) : NaN;
+  A.pF = (F, d1, d2) => isFinite(F) && d1 > 0 && d2 > 0 ? (F <= 0 ? 1 : ibeta(d2 / (d2 + d1 * F), d2 / 2, d1 / 2)) : NaN;
   A.pT = (t, df) => isFinite(t) && df > 0 ? (df > 1e6 ? A.pNorm(t) : ibeta(df / (df + t * t), df / 2, 0.5)) : NaN;
   A.qT = df => {   // t such that two-tailed p = .05
     if (!(df > 0)) return NaN;
@@ -649,11 +790,33 @@
     return (lo + hi) / 2;
   };
 
+  function jacobiEigen(M) {
+    const n = M.length, a = M.map(r => Array.from(r)), v = a.map((_, i) => a.map((__, j) => i === j ? 1 : 0));
+    for (let sweep = 0; sweep < 100; sweep++) {
+      let off = 0;
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) off += a[i][j] * a[i][j];
+      if (off < 1e-30) break;
+      for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) {
+        if (Math.abs(a[p][q]) < 1e-300) continue;
+        const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+        const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < n; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+        for (let k = 0; k < n; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+        for (let k = 0; k < n; k++) { const vkp = v[k][p], vkq = v[k][q]; v[k][p] = c * vkp - s * vkq; v[k][q] = s * vkp + c * vkq; }
+      }
+    }
+    return { values: a.map((r, i) => r[i]), vectors: a.map((_, j) => v.map(r => r[j])) };   // vectors[j]: the j-th eigenvector
+  }
+
   // Columns the data cannot estimate are dropped (e.g. block while every
   // student so far did the same order).
   function prepare(Din) {
     const keep = estimable(Din.X, Din.names);
     const D = Object.assign({}, Din, { X: Din.X.map(r => keep.map(j => r[j])), names: keep.map(j => Din.names[j]), cols: keep.map(j => Din.cols[j]) });
+    const p = keep.length;
+    D.Xf = new Float64Array(D.X.length * p); D.X.forEach((r, i) => { for (let j = 0; j < p; j++) D.Xf[i * p + j] = r[j]; });
+    D.G = Din.groups.map(g => Int32Array.from(g));
+    D.Z = Din.groups.map((_, k) => Din.zv && Din.zv[k] ? Din.zv[k] : null);
     return { D, dropped: Din.names.filter((_, j) => !keep.includes(j) && j > 0) };
   }
   // A fitted model's common face: coefficients, contrasts, predictions.
@@ -672,13 +835,36 @@
       return test(b, va, dfOf ? dfOf(v) : null);
     };
     out.coefOf = name => out.coef[idx(name)] || null;
+    /* Joint (omnibus) Wald test that the named coefficients are all zero.
+       Logistic: χ² = bᵀ V⁻¹ b on q df. Linear: F = χ²/q, with Satterthwaite
+       denominator df for a multi-df contrast, as lmerTest's contest():
+       eigen-decompose L·Cov·Lᵀ, take each eigen-contrast's Satterthwaite df
+       ν_m, E = Σ ν_m/(ν_m − 2) and ddf = 2E/(E − q) (2 if any ν_m ≤ 2). */
+    out.wald = names => {
+      const ix = names.map(idx);
+      if (ix.some(i => i < 0)) return null;
+      const q = ix.length, b = ix.map(i => beta[i]), V = ix.map(i => ix.map(j => cov[i][j]));
+      const Lc = chol(V);
+      if (!Lc) return null;
+      const w = cholSolve(Lc, Float64Array.from(b));
+      let chi2 = 0; for (let k = 0; k < q; k++) chi2 += b[k] * w[k];
+      if (!dfOf) return { names, q, chi2, stat: chi2, df: q, p: A.pChi2(chi2, q), kind: 'chi2' };
+      const eg = jacobiEigen(V);
+      const nus = eg.vectors.map(vec => { const full = new Array(p).fill(0); ix.forEach((i, k) => { full[i] = vec[k]; }); return dfOf(full); });
+      let ddf;
+      if (q === 1) ddf = nus[0];
+      else if (nus.some(nu => !(nu > 2))) ddf = 2;
+      else { const E = nus.reduce((s, nu) => s + nu / (nu - 2), 0); ddf = E > q ? 2 * E / (E - q) : 2; }
+      const F = chi2 / q;
+      return { names, q, F, stat: F, df: q, ddf, p: A.pF(F, q, ddf), kind: 'F' };
+    };
     out.names = D.names; out.beta = beta; out.cov = cov;
     return out;
   }
 
   /* Logistic mixed model (Laplace, β estimated with the random effects as
      lme4's nAGQ = 0). trans: the transitions, for model A's separation check. */
-  A.glmm = function (Din, trans) {
+  A.glmm = function (Din, trans, start) {
     const n = Din.y.length;
     if (n < 20 || Din.nLevels.slice(0, 2).some(q => q < 2)) return { ok: false, reason: 'few' };
     const empty = trans ? A.emptyCells(trans) : [];
@@ -692,11 +878,11 @@
       warm = r.par;
       return r.dev;
     };
-    const maxEval = 250 * K, nm = nelderMead(dev, new Array(K).fill(1), 0.5, maxEval);
+    const maxEval = 250 * K, nm = nelderMead(dev, start && start.length === K ? start.slice() : new Array(K).fill(1), 0.5, maxEval);
     const theta = nm.x.map(Math.abs);
     const fit = pirls(D, Lo, theta, warm);
     if (!fit.ok) return { ok: false, reason: 'converge' };
-    const p = Lo.p, cov = betaBlock(fit.L, p), beta = Array.from(fit.par.slice(0, p));
+    const p = Lo.p, cov = betaBlock(fit.L), beta = Array.from(fit.par.slice(0, p));
     const out = finish({ ok: true, kind: 'glmm', n, nLevels: D.nLevels, groupNames: D.groupNames, theta, sd: theta, deviance: fit.dev, dropped, evals: nm.evals, D }, D, beta, cov, null);
     out.converged = out.coef.every(c => isFinite(c.se) && c.se < 50) && nm.evals < maxEval;
     return out;
@@ -706,17 +892,17 @@
      of freedom for every test (as lmerTest): the variance parameters'
      covariance from the REML criterion's curvature, and the gradient of each
      contrast's variance, both by finite differences. */
-  A.lmm = function (Din) {
+  A.lmm = function (Din, start) {
     const n = Din.y.length;
     if (n < 20 || Din.nLevels.slice(0, 2).some(q => q < 2)) return { ok: false, reason: 'few' };
     const { D, dropped } = prepare(Din), Lo = layout(D), K = D.groups.length, p = Lo.p;
     const crit = th => { const f = pls(D, Lo, th.map(Math.abs)); return f.ok ? remlDev(n, p, f) : 1e300; };
-    const maxEval = 250 * K, nm = nelderMead(crit, new Array(K).fill(1), 0.5, maxEval);
+    const maxEval = 250 * K, nm = nelderMead(crit, start && start.length === K ? start.slice() : new Array(K).fill(1), 0.5, maxEval);
     const theta = nm.x.map(Math.abs);
     const f = pls(D, Lo, theta);
     if (!f.ok) return { ok: false, reason: 'converge' };
     const sigma = Math.sqrt(f.r2 / (n - p));
-    const covAt = (th, sg) => { const g = pls(D, Lo, th.map(Math.abs)); const c = betaBlock(g.L, p); return c.map(r => r.map(x => x * sg * sg)); };
+    const covAt = (th, sg) => { const g = pls(D, Lo, th.map(Math.abs)); const c = betaBlock(g.L); return c.map(r => r.map(x => x * sg * sg)); };
     const cov = covAt(theta, sigma), beta = Array.from(f.par.slice(0, p));
     // Satterthwaite: φ = (θ, σ); the unprofiled criterion; boundary θ's left out.
     const phi = theta.concat([sigma]);
@@ -766,7 +952,7 @@
     if (!f || !f.ok) return f ? { ok: false, reason: f.reason, empty: f.empty || null } : null;
     const colMeans = {};
     f.D.names.forEach((name, j) => { let s = 0; f.D.X.forEach(r => { s += r[j]; }); colMeans[name] = s / f.D.X.length; });
-    const keep = ['ok', 'kind', 'n', 'nLevels', 'groupNames', 'theta', 'sd', 'sigma', 'reml', 'deviance', 'dropped', 'evals', 'converged', 'names', 'beta', 'sat', 'carry'];
+    const keep = ['ok', 'kind', 'n', 'nLevels', 'groupNames', 'theta', 'sd', 'sigma', 'reml', 'deviance', 'dropped', 'evals', 'converged', 'names', 'beta', 'sat', 'carry', 'rMean', 'profCurve'];
     const out = { colMeans, cov: f.cov.map(r => Array.from(r)) };
     keep.forEach(k => { if (f[k] !== undefined) out[k] = f[k]; });
     return out;
@@ -788,7 +974,10 @@
       case 'C1': return A.lmm(A.modelDataC1(j.tr, o));
       case 'B': return A.lmm(A.modelDataB(j.ans, o));
       case 'C': return A.lmm(A.modelDataC(j.ans, o));
+      case 'Ccat': return A.lmm(A.modelDataCcat(j.ans, o));
       case 'Miss': return A.glmm(A.modelDataMiss(j.ans));
+      case 'PA': { const D = A.modelDataProfA(j.tr, new Map(j.prof)), f = A.glmm(D, D.data, j.start); if (f.ok) { f.rMean = D.rMean; f.profCurve = A.profCurve(f, j.grid); } return f; }
+      case 'PV': { const D = A.modelDataProfV(j.ans, new Map(j.prof)), f = A.lmm(D, j.start); if (f.ok) f.rMean = D.rMean; return f; }
     }
     return { ok: false, reason: 'unknown' };
   };
@@ -828,6 +1017,40 @@
       did: comb([[1, P.en.P], [-1, P.en.N], [-1, P.zh.P], [1, P.zh.N]]),                       // carry-over, English − Chinese
       interaction: fit.coefOf('Language × previous state')
     };
+  };
+
+  /* The proficiency transition model on the probability scale: at each rating
+     in grid, the English − Chinese difference in staying positive,
+     P(next positive | previous positive), and in staying negative,
+     P(next negative | previous negative), as average marginal predictions
+     (every transition with language, previous state and rating set; random
+     effects at zero), with delta-method 95% CIs. */
+  A.profCurve = function (fit, grid) {
+    const D = fit.D, p = fit.beta.length, logistic = x => 1 / (1 + Math.exp(-x));
+    const rows = D.data.map(t => Object.assign({}, t)), x = new Float64Array(p);
+    const amp = (lang, prev, rating) => {
+      let m = 0; const g = new Float64Array(p);
+      rows.forEach(t => {
+        t.lang = lang; t.prev = prev; t.rating = rating;
+        for (let j = 0; j < p; j++) x[j] = D.cols[j][1](t);
+        let e = 0; for (let j = 0; j < p; j++) e += x[j] * fit.beta[j];
+        const q = logistic(e); m += q;
+        for (let j = 0; j < p; j++) g[j] += q * (1 - q) * x[j];
+      });
+      return { est: m / rows.length, g: g.map(v => v / rows.length) };
+    };
+    const diff = (a, b, sign) => {
+      const g = a.g.map((v, j) => sign * (v - b.g[j])); let v = 0;
+      for (let i = 0; i < p; i++) for (let k = 0; k < p; k++) v += g[i] * g[k] * fit.cov[i][k];
+      const est = sign * (a.est - b.est), se = Math.sqrt(v);
+      return { est, lo: est - 1.959964 * se, hi: est + 1.959964 * se };
+    };
+    const out = { PP: [], NN: [] };
+    grid.forEach(x => {
+      out.PP.push(Object.assign({ x }, diff(amp('en', 'P', x), amp('zh', 'P', x), 1)));
+      out.NN.push(Object.assign({ x }, diff(amp('en', 'N', x), amp('zh', 'N', x), -1)));   // staying negative = 1 − P(next positive)
+    });
+    return out;
   };
 
   /* An alternative link for the sensitivity check: percentile (equipercentile)

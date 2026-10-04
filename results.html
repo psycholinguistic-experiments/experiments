@@ -19,7 +19,7 @@
         .tab { font: 650 1rem var(--font); color: var(--text-secondary); background: none; border: 0; border-bottom: 3px solid transparent; padding: 0.7rem 1rem 0.6rem; margin-bottom: -1px; cursor: pointer; min-height: 2.75rem; }
         .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
         .tab:hover { color: var(--text); }
-        .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
+        .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; display: inline-block; min-width: 2ch; text-align: left; }
         /* Six tabs do not fit a tablet or phone: they wrap onto a second row. */
         .tab { white-space: nowrap; }
         @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
@@ -128,7 +128,8 @@
         .prof-grid { grid-template-columns: minmax(0, 1fr); }
         @media (min-width: 760px) { .prof-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2.5rem; } }
         @media (min-width: 1100px) { .prof-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; } }
-        .prof-grid h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .prof-grid h3, .prof-grid h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .traj-multiples h5 { font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); margin: 0 0 0.4rem; }
         .prof-grid .figure { margin-top: 0.5rem; }
         .prof-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin: 1rem 0 0; font-size: 0.92rem; font-weight: 600; color: var(--text); }
         .prof-legend i { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: -0.05rem; }
@@ -141,7 +142,7 @@
         #a-body.few .ci-txt { display: none; }
         #a-body.few .few-txt { display: inline; }
         /* Section sub-heads a step above the chart titles under them. */
-        #panel-fast h3.sub { font-size: 1.22rem; margin-top: 2.25rem; }
+        #panel-fast h3.sub { font-size: 1.1rem; margin-top: 2.25rem; }
         /* On a projector the single charts get a wider canvas; their text stays the size of every other chart's. */
         @media (min-width: 1100px) { #panel-fast .figure-narrow { max-width: 44rem; } }
         /* Test lines on a phone: one card per test, the label above the name. */
@@ -155,6 +156,131 @@
             #panel-fast ul.tests li.t-note { border-top: 0; padding-top: 0; margin-top: -0.2rem; }
         }
         .robust-sum { max-width: var(--measure); margin: 0.5rem 0 0.75rem; }
+        /* ---- Association task: the rebuilt layout ---- */
+        .found .findings { list-style: none; counter-reset: f; margin: 0.75rem 0 0; padding: 0; max-width: var(--measure); display: grid; gap: 0.75rem; }
+        .found .findings li { counter-increment: f; position: relative; padding-left: 2rem; border: 0; }
+        .found .findings li::before { content: counter(f); position: absolute; left: 0; top: 0.05rem; width: 1.35rem; height: 1.35rem; border: 1.5px solid var(--text); border-radius: 50%; display: grid; place-items: center; font-size: 0.78rem; font-weight: 750; }
+        .found .findings li strong { color: var(--text); }
+        .found .findings li.plain { padding-left: 0; }
+        .found .findings li.plain::before { display: none; }
+        .found-other, .found-note { max-width: var(--measure); margin: 0.85rem 0 0; color: var(--text-secondary); }
+        .found-note { font-size: 0.92rem; }
+        .stats.headline .stat-value.verdict { font-size: 1.45rem; line-height: 1.2; letter-spacing: -0.01em; }
+        .stats.headline .stat-label { font-weight: 650; color: var(--text); }
+        .stats.headline .stat { display: flex; flex-direction: column; }
+        .stats.headline .stat-test { display: block; margin-top: auto; padding-top: 0.5rem; }
+        .bridge { max-width: var(--measure); margin: 1.5rem 0 0; color: var(--text-secondary); }
+        /* observed transition tables */
+        .tm-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; margin-top: 0.75rem; max-width: 48rem; }
+        @media (min-width: 640px) { .tm-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        table.tm { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+        table.tm caption { text-align: left; font-weight: 650; color: var(--text); padding-bottom: 0.4rem; }
+        table.tm caption .n { font-weight: 500; color: var(--text-light); font-size: 0.88rem; margin-left: 0.15rem; }
+        table.tm th { font-weight: 600; font-size: 0.88rem; color: var(--text-secondary); text-align: left; padding: 0.4rem 0.5rem 0.4rem 0; }
+        table.tm thead th { text-align: center; }
+        table.tm td { text-align: center; font-size: 1.15rem; font-weight: 650; color: var(--text); padding: 0.55rem 0.4rem; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) calc(var(--p, 0) * 10%), #fff); }
+        /* one result per row: what it is, the answer in words, then the numbers */
+        ul.results { list-style: none; margin: 0.9rem 0 0; padding: 0; max-width: var(--measure); display: grid; gap: 0.85rem; }
+        ul.results li { padding: 0; }
+        ul.results .r-kind { display: block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-light); margin-bottom: 0.1rem; }
+        ul.results .r-sent { margin: 0; color: var(--text); }
+        ul.results .r-stat { margin: 0.15rem 0 0; font-size: 0.9rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+        details.more > summary .sum-note { font-weight: 400; color: var(--text-secondary); }
+        h4.panel-h { font-size: 1rem; font-weight: 650; color: var(--text); margin: 1.75rem 0 0.25rem; }
+        .figure-mid { max-width: 30rem; }
+        /* a main figure beside its result text, on wide screens and in print */
+        .fig-pair { display: block; }
+        @media (min-width: 1000px) { .fig-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 2.5rem; align-items: start; } .fig-pair > .figure { margin-top: 1rem; } .fig-pair ul.results { margin-top: 1.25rem; } }
+        @media print { .fig-pair { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0 1rem; align-items: start; } #panel-fast .chart.fc { max-width: 100% !important; } #panel-fast .traj-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media print {
+            body:has(#panel-fast:not([hidden])) .masthead .status-line, body:has(#panel-fast:not([hidden])) .dash-controls, body:has(#panel-fast:not([hidden])) .tabs { display: none !important; }
+            #panel-fast .print-title { display: block; font-size: 15pt; font-weight: 700; margin: 0 0 6pt; }
+            #panel-fast details:not([open]) { display: none; }
+            #status, .status-line { display: none !important; }
+            #panel-fast section[aria-labelledby="q-a"], #panel-fast section[aria-labelledby="q-b"] { break-before: page; }
+            #panel-fast h3, #panel-fast h4 { break-after: avoid; }
+            #panel-fast .traj-multiples, #panel-fast .fig-pair { break-inside: avoid; }
+            #panel-fast .traj-multiples + .chart-caption { break-before: avoid; }
+            #panel-fast h2 { break-inside: avoid; break-after: avoid; }
+            #panel-fast section[aria-labelledby="q-methods"]:not(:has(details[open])) { display: none; }
+            #panel-fast .est-row .er-text { font-size: 9pt; }
+            #panel-fast h2 + .q-lead, #panel-fast .q-lead { break-after: avoid; }
+            #panel-fast .found .findings li, #panel-fast .task-line { font-size: 9.5pt; }
+            #panel-fast table.data td .ci, #panel-fast table.data th { font-size: 8pt; }
+        }
+        .narrow-table { max-width: 36rem; margin-top: 0.75rem; }
+        table.data.compact td, table.data.compact th { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+        /* secondary results: compact rows, one estimate each */
+        #panel-fast .q-explore h2, #panel-fast .q-minor h2 { font-size: 1.22rem; }
+        #panel-fast h3.panel-h { font-size: 1rem; font-weight: 650; margin: 1.5rem 0 0.25rem; }
+        .task-line { max-width: var(--measure); color: var(--text-secondary); margin: 0 0 0.75rem; }
+        .updating { color: var(--text-light); font-size: 0.9rem; margin: 0.25rem 0 0; }
+        .print-title { display: none; }
+        .stats.headline .stat:last-child .stat-value { font-size: 1.6rem; }
+        ul.results li .r-sent .r-lead { font-weight: 650; }
+        details.more + details.more { border-top: 0; margin-top: 0; }
+        #panel-fast .narrow-table table.data tbody th[scope="row"], #panel-fast .narrow-table table.data thead th:first-child { position: static !important; min-width: 0 !important; max-width: none !important; box-shadow: none !important; }
+        @media (max-width: 420px) { #panel-fast .narrow-table table.data { font-size: 0.86rem; } #panel-fast .narrow-table table.data th, #panel-fast .narrow-table table.data td { padding-left: 0.3rem; padding-right: 0.3rem; } }
+        @media (max-width: 340px) { #panel-fast .narrow-table table.data { font-size: 0.8rem; } #panel-fast .narrow-table table.data th, #panel-fast .narrow-table table.data td { padding-left: 0.2rem; padding-right: 0.2rem; } }
+        #panel-fast .narrow-table table.data tbody th[scope="row"]::after, #panel-fast .narrow-table table.data thead th:first-child::after { display: none; }
+        .verdict-txt { font-weight: 600; color: var(--text); white-space: nowrap; }
+        .verdict-txt.no { font-weight: 500; color: var(--text-secondary); }
+        .est-rows { display: grid; gap: 0.6rem; margin-top: 0.75rem; max-width: 52rem; }
+        .est-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.2rem 1.25rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--border); }
+        @media (min-width: 700px) { .est-row { grid-template-columns: 9.5rem minmax(10rem, 16rem) minmax(0, 1fr); } }
+        .est-row .er-name { font-weight: 650; color: var(--text); }
+        .est-row .er-text { color: var(--text-secondary); font-size: 0.95rem; }
+        .est-row .er-text b { color: var(--text); }
+        .methods p { margin: 0.5rem 0; }
+        .methods .eq { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 0.86rem; background: var(--bg-alt); padding: 0.5rem 0.65rem; border-radius: 4px; overflow-wrap: anywhere; }
+        .methods span.eq { display: inline; padding: 0.1rem 0.35rem; }
+        table.robust-table td .rci { color: var(--text-secondary); font-size: 0.86rem; white-space: nowrap; }
+        table.data caption.tbl-cap { caption-side: top; text-align: left; font-weight: 650; color: var(--text); padding-bottom: 0.35rem; }
+        .chart.fc .dot-lang.faint { opacity: 0.32; stroke-width: 1; }
+        .chart.fc .scale-note { font-size: 13px; fill: var(--text-light); }
+        .chart.fc .count { font-size: 15px; font-weight: 650; fill: var(--text); font-variant-numeric: tabular-nums; }
+        .chart.fc .count.none { font-weight: 400; fill: var(--text-light); }
+        .chart.fc .hit { fill: transparent; }
+        .chart.fc g:hover > .bar-lang { filter: brightness(1.12); }
+        #panel-fast .chart .bar-lang { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .chart.fc .dot-diff { fill: var(--text-light); opacity: 0.35; }
+        .chart.fc .band-neutral { fill: var(--text-light); opacity: 0.13; }
+        .chart.fc .fit-neutral { stroke: var(--text); stroke-width: 2.75; stroke-linecap: round; }
+        .chart.fc .zero-ref { stroke: var(--text-light); stroke-dasharray: 3 4; }
+        .chart.fc .axis-light { stroke: var(--border); }
+        .chart.fc .fit-line { stroke-width: 2.75; }
+        .chart.fc .band { opacity: 0.12; }
+        @media print {
+            #panel-fast { font-size: 9.5pt; line-height: 1.35; }
+            #panel-fast h2 { font-size: 13pt; margin-top: 12pt; }
+            #panel-fast h3.sub, #panel-fast h4.panel-h { font-size: 10.5pt; margin-top: 8pt; }
+            #panel-fast .q-explore h2, #panel-fast .q-minor h2 { font-size: 12pt; }
+            #panel-fast .traj-multiples h5 { font-size: 9.5pt; }
+            #panel-fast ul.results { gap: 4pt; margin-top: 4pt; }
+            #panel-fast .fig-pair > .figure, #panel-fast .figure { margin-top: 4pt; margin-bottom: 4pt; }
+            #panel-fast .traj-multiples { gap: 4pt 12pt; margin-top: 2pt; }
+            #panel-fast .traj-multiples h5 { margin-bottom: 1pt; }
+            #panel-fast .stats .stat-test { font-size: 9pt; }
+            #panel-fast table.robust-table td .rci, #panel-fast table.robust-table td .rp { font-size: 0.9em; }
+            #panel-fast .q-lead, #panel-fast .bridge, #panel-fast .found-other, #panel-fast .found-note { font-size: 9.5pt; margin-top: 3pt; }
+            #panel-fast figcaption, #panel-fast .chart-caption, #panel-fast .r-stat, #panel-fast .stat-note { font-size: 8pt; }
+            #panel-fast .lang-key { display: none; }
+            #panel-fast .stats.headline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            #panel-fast .stats.headline .stat-value.verdict { font-size: 11.5pt; }
+            #panel-fast .est-row { grid-template-columns: 7rem 13rem minmax(0, 1fr); padding: 3pt 0; }
+            #panel-fast details.more { margin: 3pt 0; }
+            #panel-fast details.more > summary { padding: 3pt 0; min-height: 0; }
+            #panel-fast .figure { margin: 4pt 0; }
+            #panel-fast .figure-mid, #panel-fast .figure-narrow { max-width: none; }
+            #panel-fast ul.results { gap: 5pt; margin-top: 4pt; }
+            #panel-fast .figure, #panel-fast .tm-pair, #panel-fast table, #panel-fast .stats.headline { break-inside: avoid; }
+            #panel-fast .table-wrap { overflow: visible; }
+            #panel-fast table.data { font-size: 8pt; }
+            #panel-fast table.data th, #panel-fast table.data td { padding: 2pt 4pt; }
+            #panel-fast h2, #panel-fast h3, #panel-fast h4 { break-after: avoid; }
+            #panel-fast .seg, #panel-fast .lang-key { break-inside: avoid; }
+            #panel-fast .chart .band, #panel-fast .chart .series-line, #panel-fast .chart .dot-lang { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
         #a-robust-status.done { background: none; border: 0; padding: 0; color: var(--text-light); font-size: 0.88rem; }
         .unit { white-space: nowrap; hyphens: none; }
         /* Phones: the association tables' label column gets room to read; the numbers scroll beside it. */
@@ -251,7 +377,7 @@
         @media (max-width: 480px) { table.matrix col.head { width: 5.75rem; } table.matrix td { padding: 0.55rem 0.15rem; } table.matrix td b { font-size: 1.25rem; } }
         /* The three seed categories side by side on a projector, two across on a tablet, stacked on a phone. */
         .traj-multiples { grid-template-columns: minmax(0, 1fr); }
-        @media (min-width: 900px) { .traj-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; } }
+        @media (min-width: 900px) { .traj-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; max-width: 60rem; } }
         .traj-multiples .figure { max-width: 24rem; }
         h3.sub { font-size: 1.05rem; margin: 1.75rem 0 0.25rem; }
         details.more { margin: 1.25rem 0 0.5rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -451,141 +577,190 @@
                 </div>
                 <div class="results-body">
                     <p class="note" id="a-status" hidden></p>
-                    <section class="summary" aria-labelledby="a-sum-h"><h2 id="a-sum-h">Summary</h2><ul id="a-summary"></ul></section>
+                    <p class="print-title" id="a-print-title"></p>
+                    <section class="summary found" aria-labelledby="a-sum-h">
+                        <p class="task-line">Each student gave chains of ten associations from twenty starting words, ten in Chinese and ten in English. Two questions: what happens from one answer to the next (<em>transition probabilities</em>: the chance that the next answer is positive or negative, given the one before), and how a chain develops over its ten answers (<em>trajectories</em>: how average valence changes from answer 1 to 10).</p>
+                        <h2 id="a-sum-h">What we found</h2>
+                        <p class="updating" id="a-updating" role="status" hidden>Updating the models with the newest runs…</p>
+                        <ol class="findings" id="a-summary"></ol>
+                        <p class="found-other" id="a-other"></p>
+                        <p class="found-note" id="a-datanote"></p>
+                    </section>
                     <div id="a-body">
-                    <div class="stats" id="a-stats"></div>
+                    <div class="stats headline" id="a-stats"></div>
                     <p class="lang-key" aria-hidden="true"><span><i class="k-zh"></i>Chinese</span><span><i class="k-en"></i>English</span></p>
 
                     <section class="q" aria-labelledby="q-a">
-                        <h2 id="q-a"><span class="q-letter">A</span>Does carry-over from one answer to the next differ by language?</h2>
-                        <p class="q-lead">Each answer is negative (valence below 5) or positive. Carry-over: how much more likely the next answer is to be positive after a positive answer than after a negative one.</p>
-                        <div class="state-pair" id="a-states"></div>
-                        <p class="chart-caption">What happened, pooled over all students. Arrow width shows the probability; the number on each arrow is the share of answers in that state that were followed by an answer in the next state.</p>
-                        <h3 class="sub">Carry-over in each language</h3>
-                        <div class="multiples carry-grid">
-                            <figure class="figure"><h4>Probability the next answer is positive</h4><div id="a-inter"></div></figure>
-                            <figure class="figure"><h4>English − Chinese</h4><div id="a-diffs"></div></figure>
+                        <h2 id="q-a"><span class="q-letter">A</span>Do transition probabilities differ between Chinese and English?</h2>
+                        <p class="q-lead">Each answer counts as negative (valence below 5 on the 1–9 scale) or positive. A transition probability is the chance that the next answer is negative or positive, given the answer before it.</p>
+                        <h3 class="sub">Observed transition probabilities</h3>
+                        <div class="tm-pair" id="a-tm"></div>
+                        <p class="chart-caption">These are the raw proportions in the class data; the statistical comparisons below come from the mixed-effects model. Each row sums to 1.</p>
+                        <h3 class="sub">Model-adjusted transition probabilities</h3>
+                        <div class="fig-pair">
+                            <figure class="figure figure-mid"><div id="a-inter"></div><figcaption><strong>Model-adjusted.</strong> Probability that the next answer is positive, according to whether the previous answer was negative or positive. Parallel lines indicate similar dependence on the previous answer across languages. Bars: 95% confidence intervals.<span id="a-inter-note"></span></figcaption></figure>
+                            <ul class="results" id="a-res-a"></ul>
                         </div>
-                        <p class="chart-caption">Model estimates with 95% confidence intervals, averaged over this class’s actual seeds and positions. Lines that are equally steep mean the same carry-over in both languages.</p>
-                        <ul class="tests" id="a-tests-a"></ul>
-                        <h3 class="sub">With valence as a number (1–9)</h3>
-                        <figure class="figure figure-narrow"><div id="a-c1"></div></figure>
-                        <p class="chart-caption">Lines: model estimates with 95% bands. Dots: the mean next valence for previous answers within each whole point of valence (at least 10 answers). The steeper the line, the more the next answer follows the previous one.</p>
-                        <ul class="tests" id="a-tests-c1"></ul>
+                        <details class="more" id="a-c1-more">
+                            <summary>Continuous-valence check<span class="sum-note" id="a-c1-sum">: slopes in Chinese and English and their difference, still being fitted</span></summary>
+                            <p class="column">Instead of dividing answers into positive and negative states, this analysis asks how strongly the exact valence of one answer predicts the valence of the next.</p>
+                            <figure class="figure figure-narrow"><div id="a-c1"></div><figcaption><strong>Model-adjusted</strong> lines, with 95% bands: the valence of the next answer. <strong>Observed</strong> faint dots: mean next valence for previous answers within each whole point of valence (at least 10 answers).</figcaption></figure>
+                            <ul class="results" id="a-res-c1"></ul>
+                        </details>
                         <details class="more">
-                            <summary>Show the counts</summary>
+                            <summary>Additional transition measure</summary>
+                            <p class="column" id="a-carry"></p>
+                        </details>
+                        <details class="more">
+                            <summary>Counts behind the observed probabilities</summary>
                             <h3 class="sub">Two states: negative, positive</h3>
                             <div class="matrix-pair" id="a-matrices"></div>
                             <h3 class="sub">Three states: negative, neutral, positive</h3>
                             <div class="matrix-pair" id="a-matrices3"></div>
-                            <p class="small muted column">Negative below 4.2, neutral 4.2 to 5.8, positive 5.8 and above. Rows are the previous answer and sum to 1. The seed → first answer step is not counted.</p>
+                            <p class="small muted column">Negative below 4.2, neutral 4.2 to 5.8, positive 5.8 and above. Rows are the previous answer and sum to 1. The step from the starting word to the first answer is not counted.</p>
                         </details>
                     </section>
 
                     <section class="q" aria-labelledby="q-b">
-                        <h2 id="q-b"><span class="q-letter">B</span>Does the seed shape the chain differently by language?</h2>
-                        <p class="q-lead">Staying negative, staying positive and the valence of the answers, after negative, neutral and positive seeds.<span class="ci-txt"> Bars: 95% confidence intervals across students.</span><span class="few-txt"> Intervals appear from 3 students.</span></p>
-                        <div class="multiples seed-multiples" id="a-seedpanels"></div>
-                        <details class="more">
-                            <summary>Show the numbers</summary>
-                            <div class="table-wrap" data-label="Results by language and seed valence"><table class="data" id="a-bycat"></table></div>
-                            <p class="small muted column">Persistence: pooled transitions<span class="ci-txt">, with 95% CIs in the chart from resampling students (1,000 draws)</span>. Valence: each student’s mean over scored answers, then the class mean (1–9)<span class="ci-txt">, with 95% CIs across students in the chart</span>. Repeated answers: the share of answers that repeat an earlier word of the same chain, the seed included.</p>
-                        </details>
-                        <h3 class="sub">The seed’s pull along the chain</h3>
-                        <figure class="figure figure-narrow"><div id="a-bpull"></div></figure>
-                        <p class="chart-caption">How far an answer’s valence moves with each point of seed valence, at each answer. Lines: model estimates with 95% bands. Dots: the pull at each answer estimated from those answers alone, without the model. A pull that starts higher is a bigger immediate effect; a line that falls faster is a pull that fades sooner.</p>
-                        <ul class="tests" id="a-tests-b"></ul>
-                        <h3 class="sub">Valence along the chain, by seed</h3>
+                        <h2 id="q-b"><span class="q-letter">B</span>Do valence trajectories differ between Chinese and English?</h2>
+                        <p class="q-lead">A trajectory is how the average valence of answers changes from answer 1 to answer 10.</p>
+                        <div class="fig-pair">
+                            <figure class="figure figure-narrow"><div id="a-traj-main"></div><figcaption><strong>Model-adjusted</strong> lines, with 95% bands: mean valence at each answer position, averaged over the class’s starting words. <strong>Observed</strong> faint dots: the class means.</figcaption></figure>
+                            <div>
+                                <div class="table-wrap narrow-table" data-label="Model-adjusted valence at three positions"><table class="data compact" id="a-traj-contrasts"></table></div>
+                                <ul class="results" id="a-res-b"></ul>
+                            </div>
+                        </div>
+                        <h3 class="sub">Does the starting word influence the trajectory differently by language?</h3>
+                        <p class="q-lead">Every chain begins from a starting word (the “seed”) that is negative, neutral or positive. These words first push the chain towards different parts of the valence scale. This asks how long that influence stays visible, and whether it fades differently in Chinese and English.</p>
+                        <div class="fig-pair">
+                            <figure class="figure figure-narrow"><div id="a-sep"></div><figcaption id="a-sep-cap"></figcaption></figure>
+                            <ul class="results" id="a-res-seed"></ul>
+                        </div>
+                        <h4 class="panel-h">Observed trajectories after each kind of starting word</h4>
                         <div class="multiples traj-multiples" id="a-traj"></div>
-                        <p class="chart-caption">Mean valence of the answers (on the 1–9 scale) at each answer position.<span class="ci-txt"> Bands: 95% confidence intervals across students.</span><span class="few-txt"> Intervals appear from 3 students.</span></p>
+                        <p class="chart-caption"><strong>Observed means, not model estimates.</strong> These plots show how answer valence develops across the ten answers after differently valenced starting words.<span class="ci-txt"> Bands: 95% confidence intervals across students.</span><span class="few-txt"> Intervals appear from 3 students.</span></p>
                         <details class="more">
-                            <summary>Show the numbers</summary>
+                            <summary>Numbers by starting word</summary>
                             <div class="table-wrap" data-label="Mean valence by answer position"><table class="data traj-table" id="a-traj-table"></table></div>
                             <p class="small muted column" id="a-traj-note"></p>
+                            <div class="table-wrap" data-label="Results by language and starting word"><table class="data" id="a-bycat"></table></div>
+                            <p class="small muted column">Observed. Staying negative and staying positive: pooled transitions. Valence: each student’s mean over scored answers, then the class mean (1–9). Repeated answers: the share of answers that repeat an earlier word of the same chain, the starting word included.</p>
                         </details>
                     </section>
 
-                    <section class="q" aria-labelledby="q-c">
-                        <h2 id="q-c"><span class="q-letter">C</span>Does the chain change over time?</h2>
-                        <p class="q-lead">Whether answers drift as the chain goes on, and whether students repeat themselves or slow down, in each language.</p>
-                        <h3 class="sub">Valence by position</h3>
-                        <figure class="figure figure-narrow"><div id="a-drift"></div></figure>
-                        <p class="chart-caption">Dots: mean valence at each answer<span class="ci-txt">, with 95% confidence intervals across students</span>.<span class="few-txt"> Intervals appear from 3 students.</span> Lines: the model’s curve (position and position²) with 95% bands, at the average seed.</p>
-                        <ul class="tests" id="a-tests-c"></ul>
-                        <h3 class="sub">Repeated answers</h3>
-                        <figure class="figure figure-narrow"><div id="a-repeats"></div></figure>
-                        <p class="chart-caption">The share of a student’s answers that repeat an earlier word of the same chain, the seed included. Each grey line joins one student’s two scores; the marks at the edges are the class means<span class="ci-txt"> with 95% confidence intervals</span>.<span class="few-txt"> Intervals appear from 3 students.</span></p>
-                        <ul class="tests" id="a-tests-rep"></ul>
-                        <h3 class="sub">Response time</h3>
-                        <figure class="figure figure-narrow"><div id="a-rt"></div></figure>
-                        <p class="chart-caption">Each student’s median time to submit an answer, in seconds. Each grey line joins one student’s two medians; the marks at the edges are the class means<span class="ci-txt"> with 95% confidence intervals</span>.<span class="few-txt"> Intervals appear from 3 students.</span></p>
-                        <ul class="tests" id="a-tests-rt"></ul>
-                    </section>
-
-                    <section class="q" aria-labelledby="q-prof">
-                        <h2 id="q-prof">Does English proficiency matter? <span class="tag">exploratory</span></h2>
-                        <p class="q-lead">Students rated their English from 0 (no knowledge) to 10 (native-like) in five ways. For each rating: does the difference between English and Chinese change as the rating goes up?</p>
-                        <h3 class="sub">All five ratings</h3>
-                        <div class="multiples prof-grid" id="a-prof-all"></div>
-                        <p class="chart-caption">How much the English − Chinese difference changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. *Overall is the primary rating; the four skills are follow-ups, filled when significant after Benjamini–Hochberg adjustment across their twelve tests.</p>
-                        <h3 class="sub">One rating in detail</h3>
-                        <fieldset class="seg" id="a-prof-skill">
-                            <legend class="visually-hidden">English rating</legend>
-                            <label><input type="radio" name="a-prof-skill" value="overall" checked><span>Overall</span></label>
-                            <label><input type="radio" name="a-prof-skill" value="listening"><span>Listening</span></label>
-                            <label><input type="radio" name="a-prof-skill" value="speaking"><span>Speaking</span></label>
-                            <label><input type="radio" name="a-prof-skill" value="reading"><span>Reading</span></label>
-                            <label><input type="radio" name="a-prof-skill" value="writing"><span>Writing</span></label>
-                        </fieldset>
-                        <p class="prof-legend"><span><i class="k-zh"></i>Chinese</span><span><i class="k-en"></i>English</span><span class="ci-txt"><i class="k-line"></i>Fitted line, 95% band</span></p>
-                        <div class="multiples prof-grid" id="a-prof"></div>
-                        <p class="chart-caption">Each dot is one student, placed at their English rating: blue is their value in Chinese, orange their value in English. Where the two lines move apart or come together as the rating goes up, the language difference changes with English proficiency.</p>
+                    <section class="q q-secondary" aria-labelledby="q-c">
+                        <h2 id="q-c"><span class="q-letter">C</span>Other differences between Chinese and English</h2>
+                        <p class="q-lead"><strong>Observed.</strong> English − Chinese, one value per student and language (paired <i>t</i>-tests), with 95% confidence intervals; the vertical line is 0, no difference.</p>
+                        <div class="est-rows" id="a-secondary"></div>
                         <details class="more">
-                            <summary>Show the numbers</summary>
-                            <div class="table-wrap" data-label="English proficiency tests"><table class="data" id="a-prof-table"></table></div>
-                            <p class="small muted column">Change per point: the least-squares slope of each student’s English − Chinese difference on their English rating. Valence: the mean valence (1–9) of a student’s scored answers in each language. Students with no transitions from a state in one language are left out of that measure. The overall rating is the primary test for each measure (three tests, uncorrected). The four skills are exploratory follow-ups: their twelve tests are judged on Benjamini–Hochberg adjusted <i>p</i>-values (<i>p</i> (BH)).</p>
+                            <summary>Show individual data</summary>
+                            <h3 class="panel-h">Response time</h3>
+                            <figure class="figure figure-narrow"><div id="a-rt"></div><figcaption>Observed. Each student’s median time to submit an answer, in seconds. Grey lines join each student’s two medians; the marks at the edges are the class means of those medians<span class="ci-txt"> with 95% confidence intervals</span>.</figcaption></figure>
+                            <h3 class="panel-h">Repeated answers</h3>
+                            <figure class="figure figure-narrow"><div id="a-repeats"></div><figcaption>Observed. The number of students at each level of repetition: the share of a student’s answers that repeat an earlier word of the same chain (the starting word included).<span id="a-repeats-means"></span></figcaption></figure>
                         </details>
                     </section>
 
-                    <section class="q" aria-labelledby="q-robust">
-                        <h2 id="q-robust">Robustness checks</h2>
-                        <p class="q-lead">Do the main results hold with other reasonable choices: without the chain random effects, with only the students the norms covered well, and with another way of putting Chinese valence on the English scale? And are unscored answers missing at random?</p>
+                    <section class="q q-explore" aria-labelledby="q-prof">
+                        <h2 id="q-prof">Exploratory: Does English proficiency change the language difference?</h2>
+                        <p class="q-lead">An exploratory moderation analysis: does the English − Chinese difference become larger or smaller as English proficiency increases? The transition and valence models are refitted with each student’s English rating (self-rated, 0 = no knowledge to 10 = native-like) and its interactions with language, with by-student random slopes for the language terms. Measures: staying negative (a negative answer followed by another negative one), staying positive (the same for positive answers), and mean answer valence. The overall rating is primary.</p>
+                        <ul class="results" id="a-prof-line"></ul>
+                        <details class="more" id="a-prof-more">
+                            <summary>Show the plots</summary>
+                        <fieldset class="seg" id="a-prof-measure">
+                            <legend class="visually-hidden">Outcome</legend>
+                            <label><input type="radio" name="a-prof-measure" value="NN" checked><span>Staying negative</span></label>
+                            <label><input type="radio" name="a-prof-measure" value="PP"><span>Staying positive</span></label>
+                            <label><input type="radio" name="a-prof-measure" value="V"><span>Mean valence</span></label>
+                        </fieldset>
+                        <figure class="figure figure-narrow"><div id="a-prof"></div><figcaption id="a-prof-cap"></figcaption></figure>
+                        <ul class="results" id="a-res-prof"></ul>
+                        </details>
+                        <details class="more">
+                            <summary>Skill-specific follow-ups</summary>
+                            <p class="column">The same models for listening, speaking, reading and writing. These twelve tests are judged on Benjamini–Hochberg adjusted <i>p</i>-values; they are fitted after the overall rating, so they appear a little later.</p>
+                            <div class="multiples prof-grid" id="a-prof-all"></div>
+                            <p class="chart-caption">Change in the English − Chinese difference for each extra rating point (log-odds for staying negative and positive, valence points for mean valence), with 95% confidence intervals; 0 = no change with proficiency. Filled: clear after adjustment. Overall* is the primary rating, shown for comparison.</p>
+                            <div class="table-wrap" data-label="English proficiency tests"><table class="data" id="a-prof-table"></table></div>
+                            <p class="small muted column">Change per point: from the proficiency models (see Methods). Staying negative and staying positive: log-odds, Wald <i>z</i>; mean valence: valence points, Satterthwaite <i>t</i>. The overall rating is the primary test for each measure (three tests, unadjusted).</p>
+                        </details>
+                    </section>
+
+                    <section class="q q-minor" aria-labelledby="q-robust">
+                        <h2 id="q-robust">Robustness and data quality</h2>
+                        <p class="column" id="a-dq-line"></p>
+                        <p class="column">Limitation: Chinese and English used separate matched sets of starting words, not translations, so the language comparisons cannot completely separate language from differences between the two word sets.</p>
                         <details class="more" id="a-robust-more">
-                            <summary>Run the checks and show them</summary>
+                            <summary>Robustness checks</summary>
                             <p class="note" id="a-robust-status" role="status"></p>
-                            <p class="robust-sum" id="a-robust-sum"></p>
+                            <div class="robust-sum" id="a-robust-sum"></div>
                             <div class="table-wrap" data-label="Robustness checks"><table class="data robust-table" id="a-robust"></table></div>
                             <p class="small muted column" id="a-robust-note"></p>
-                            <h3 class="sub">Which answers go unscored?</h3>
+                            <h3 class="sub">Which answers could not be scored?</h3>
+                            <p class="column" id="a-miss-note"></p>
                             <div class="table-wrap" data-label="Missing valence model"><table class="data" id="a-miss"></table></div>
-                            <p class="small muted column" id="a-miss-note"></p>
-                            <p class="small muted column">Random slopes for each student (previous state, language) are not fitted here; <code>materials/fast/random-slopes.R</code> fits them in R from the Transitions download below.</p>
+                            <p class="small muted column">Random slopes for each student (previous state, language) are not fitted on this page; <code>materials/fast/random-slopes.R</code> fits them in R from the Transitions download.</p>
+                        </details>
+                        <details class="more">
+                            <summary>Data quality</summary>
+                            <div class="meters" id="a-coverage"></div>
+                            <p class="small muted column">Answers scored: found in the valence norms (Warriner et al., 2013; Chan &amp; Tse, 2024). Valid transitions: pairs of adjacent answers that were both scored, out of 90 per student and language (answers 1→2 to 9→10 in ten chains). An unscored answer removes the transitions on either side of it; transitions are never bridged across a missing valence rating.</p>
                         </details>
                     </section>
 
-                    <section class="q" aria-labelledby="q-tests">
-                        <h2 id="q-tests">The models and all tests</h2>
-                        <figure class="figure"><div id="a-forest"></div><figcaption>Model A (next answer positive), in log-odds with 95% confidence intervals. Top: the main test and the language difference after each kind of answer (the follow-ups in section A show the same on the probability scale). Bottom: the other terms. Filled and bold: significant; open: not.</figcaption></figure>
-                        <div class="table-wrap" data-label="Tests"><table class="data" id="a-tests"></table></div>
-                        <p class="small muted column" id="a-tests-note"></p>
+                    <section class="q q-minor" aria-labelledby="q-methods">
+                        <h2 id="q-methods">Methods and full statistical output</h2>
+                        <details class="more">
+                            <summary>Methods and model specifications</summary>
+                            <div class="methods column">
+                                <h3 class="sub">Scoring</h3>
+                                <p>Each answer is looked up in the valence norms: Warriner et al. (2013) for English (after lower-casing, British → American spelling and lemmatising), Chan &amp; Tse (2024) for Chinese (simplified or traditional form). Answers the norms do not rate stay in their chain as missing.</p>
+                                <p>The Chinese norms are more compressed around the middle of the scale, so they are linearly mapped onto the English normative scale before cross-language comparison. The map gives Chinese ratings the English mean and standard deviation over the two whole norm sets: <span class="eq">English-scale valence = −1.53 + 1.31 × Chinese valence</span> (<code>assets/data/equating.json</code>). The percentile-equating check in Robustness uses a non-linear map instead.</p>
+                                <p>States: negative below 5, positive 5 and above (on the English scale). Transitions are pairs of adjacent scored answers, from answer 1→2 to 9→10; the starting word → answer 1 step is not counted.</p>
+                                <h3 class="sub">Coding</h3>
+                                <p>Language: English = +½, Chinese = −½. Previous state: positive = +½, negative = −½. Block: second language done = +½, first = −½. Seed valence: the starting word’s valence on the English scale, minus its mean over the rows the model uses. Every model has random intercepts for students, starting words (seeds) and chains (one student’s ten answers to one starting word).</p>
+                                <h3 class="sub">Design limitation: the starting words</h3>
+                                <p>Chinese and English used separate matched sets of starting words rather than translation equivalents. Language comparisons therefore generalise across these matched sets, but cannot completely separate language from item-set differences. The random intercept for starting words absorbs variation among the words; it does not turn the comparison into an item-matched one.</p>
+                                <h3 class="sub">Transition model (logistic)</h3>
+                                <p class="eq">logit P(next answer positive) = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·Previous state + β<sub>3</sub>·Language × Previous state + β<sub>4</sub>·Seed valence + β<sub>5</sub>·Position + β<sub>6</sub>·Block + u<sub>student</sub> + u<sub>seed</sub> + u<sub>chain</sub></p>
+                                <p>One row per valid transition. Position: the earlier answer’s position minus 5 (transitions 1→2 to 9→10). Laplace approximation, with β estimated jointly with the random effects (as lme4’s <code>nAGQ = 0</code>).</p>
+                                <h3 class="sub">Continuous-valence check (linear)</h3>
+                                <p class="eq">Next valence = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·(Previous valence − 5) + β<sub>3</sub>·Language × (Previous valence − 5) + β<sub>4</sub>·Seed valence + β<sub>5</sub>·Position + β<sub>6</sub>·Block + u<sub>student</sub> + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <h3 class="sub">Trajectory model (linear)</h3>
+                                <p class="eq">Valence = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·P + β<sub>3</sub>·(P² − 8.25) + β<sub>4</sub>·Language × P + β<sub>5</sub>·Language × (P² − 8.25) + β<sub>6</sub>·Seed valence + β<sub>7</sub>·Block + u<sub>student</sub> + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <p>P = position − 5.5. One row per scored answer (positions 1–10). Because P is centred at the middle of the chain and the model also has a curve, β<sub>4</sub> is the language difference in slope at the centre of the chain, not a constant difference from position 1 to 10. The sensitivity check replaces P and P² with position as a category (answer 1 the reference).</p>
+                                <h3 class="sub">Starting-word model (linear)</h3>
+                                <p class="eq">Valence = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·Seed valence + β<sub>3</sub>·log<sub>2</sub>(position) + β<sub>4</sub>·Language × Seed valence + β<sub>5</sub>·Language × log<sub>2</sub>(position) + β<sub>6</sub>·Seed valence × log<sub>2</sub>(position) + β<sub>7</sub>·Language × Seed valence × log<sub>2</sub>(position) + β<sub>8</sub>·Block + u<sub>student</sub> + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <p>log<sub>2</sub>(position) is 0 at answer 1, so β<sub>4</sub> is the language difference in the starting word’s influence on the first answer, and β<sub>7</sub> the language difference in how that influence changes each time the position doubles. The separation plot multiplies the model’s influence per point of seed valence by the gap between the mean valence of all positive and all negative starting words (both languages’ words together, the same value for both languages).</p>
+                                <h3 class="sub">Proficiency models (exploratory)</h3>
+                                <p class="eq">logit P(next answer positive) = [the transition model’s terms] + β<sub>7</sub>·R + β<sub>8</sub>·Language × R + β<sub>9</sub>·Previous state × R + β<sub>10</sub>·Language × Previous state × R + u<sub>student</sub> + u<sub>student,L</sub>·Language + u<sub>student,LP</sub>·(Language × Previous state) + u<sub>seed</sub> + u<sub>chain</sub></p>
+                                <p class="eq">Valence = [the trajectory model’s terms] + β<sub>8</sub>·R + β<sub>9</sub>·Language × R + u<sub>student</sub> + u<sub>student,L</sub>·Language + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <p>R = the student’s English self-rating (0–10) minus the mean over the students in the model; one pair of models per rating. The rating varies only between students, so the language terms get by-student random slopes (uncorrelated, as lme4’s <code>||</code>); without them the standard errors of these cross-level interactions would be too small. Change in the English − Chinese difference per rating point: staying positive β<sub>8</sub> + ½β<sub>10</sub>, staying negative −β<sub>8</sub> + ½β<sub>10</sub> (log-odds, Wald <i>z</i>); mean valence β<sub>9</sub> (valence points, Satterthwaite <i>t</i>). The plots’ lines are the models’ English − Chinese differences at each rating (average marginal predictions for the transition model). Every student’s transitions count, weighted by how many they have, rather than one proportion per student. The overall rating is primary (three tests, unadjusted); the four skills’ twelve tests are judged on Benjamini–Hochberg adjusted <i>p</i>-values. This is an exploratory moderation analysis: ratings are self-reports, and the class was not sampled to vary in proficiency.</p>
+                                <h3 class="sub">Estimates, tests and intervals</h3>
+                                <p>Linear models: REML; <i>t</i>-tests and 95% CIs use Satterthwaite degrees of freedom (as lmerTest). Logistic model: Wald <i>z</i> and 95% CIs.</p>
+                                <p>Model-adjusted probabilities (logistic model): average marginal predictions. Every observed transition is predicted with language and previous state set as stated, random effects at zero, keeping its own seed valence, position and block; the predictions are averaged. CIs by the delta method. Model-adjusted valence (linear models): the same averaging, which for a linear model equals the prediction at the observed means of the other predictors.</p>
+                                <p>Omnibus tests are joint Wald tests that several coefficients are all zero. Transition pattern: Language and Language × Previous state (2 df, χ²). Trajectory shape: Language × P and Language × (P² − 8.25) (an <i>F</i>-test with Satterthwaite denominator degrees of freedom, as lmerTest’s <code>contest</code>). “Clear evidence” means a joint <i>p</i> &lt; .05 for an omnibus test, and a 95% CI excluding zero for a single estimate or contrast. The page’s sentences follow the same rule: a sentence says two things differ, or that something rises, falls or shrinks, only when that difference or change has clear evidence; otherwise it gives the estimate and says it is not clear. No size word (“small”, “similar”, “much”) comes from a cut-off. Display-only rules, which change no conclusion: the note on observed vs model-adjusted probabilities appears when they differ at two decimals; students who repeated an earlier word in more than half of their answers are flagged under data quality; classes under 10 students get a “small class” note; CI bounds that round to zero get a third decimal. Every model and joint test was checked against lme4 and lmerTest in R on the class data, to the reported precision.</p>
+                            </div>
+                        </details>
+                        <details class="more">
+                            <summary>All tests</summary>
+                            <figure class="figure"><div id="a-forest"></div><figcaption>Transition model terms in log-odds with 95% confidence intervals. Filled and bold: CI excludes zero; open: it does not.</figcaption></figure>
+                            <div class="table-wrap" data-label="Tests"><table class="data" id="a-tests"></table></div>
+                            <p class="small muted column" id="a-tests-note"></p>
+                        </details>
                         <details class="more">
                             <summary>All terms of every model</summary>
                             <div id="a-models"></div>
                         </details>
+                        <details class="more">
+                            <summary>Download the data</summary>
+                            <div class="actions" style="margin-top:0.75rem">
+                                <button class="btn-quiet" id="a-csv-answers" type="button">Answers with valence (CSV)</button>
+                                <button class="btn-quiet" id="a-csv-transitions" type="button">Transitions (CSV)</button>
+                            </div>
+                        </details>
                     </section>
-
-                    <section class="q" aria-labelledby="q-quality">
-                        <h2 id="q-quality">Data quality</h2>
-                        <div class="meters" id="a-coverage"></div>
-                        <p class="small muted column">Answers scored: found in the norms (Warriner et al., 2013; Chan &amp; Tse, 2024). Valid transitions: adjacent answers that were both scored, out of 90 per student and language (answers 1→2 to 9→10 in 10 chains). An unscored answer breaks both of its transitions; nothing is bridged across it.</p>
-                        <p class="small muted column">Chinese valence is on the English scale: the Chan &amp; Tse ratings are compressed towards the middle, so they are equated to Warriner over the two whole norm sets (English = −1.53 + 1.31 × Chinese; <code>assets/data/equating.json</code>). The downloads keep the raw ratings too.</p>
-                    </section>
-
-                    <h2>Data</h2>
-                    <div class="actions" style="margin-top:0.75rem">
-                        <button class="btn-quiet" id="a-csv-answers" type="button">Answers with valence (CSV)</button>
-                        <button class="btn-quiet" id="a-csv-transitions" type="button">Transitions (CSV)</button>
-                    </div>
                     </div>
                 </div>
             </section>
@@ -682,11 +857,11 @@
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/fast-stimuli.js?v=6"></script>
-    <script src="assets/fast-analysis.js?v=8"></script>
-    <script src="assets/fast-charts.js?v=17"></script>
+    <script src="assets/fast-analysis.js?v=12"></script>
+    <script src="assets/fast-charts.js?v=23"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
     <script src="assets/svt-charts.js?v=2"></script>
-    <script src="assets/dashboard.js?v=52"></script>
+    <script src="assets/dashboard.js?v=80"></script>
 </body>
 </html>

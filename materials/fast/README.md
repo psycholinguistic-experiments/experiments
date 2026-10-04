@@ -60,33 +60,59 @@ trajectories.
 ## The analysis on the results page
 
 `assets/fast-analysis.js` scores every answer and fits the models in the
-browser each time the results are drawn. It answers three questions, each
+browser (in a Web Worker, `assets/fast-worker.js`) each time the results are
+drawn. The page answers two primary questions and one related one, each
 English − Chinese:
 
-| | Model | Main tests |
+| Question | Model | Main test |
 |---|---|---|
-| A | logistic: next answer positive ~ language × previous state + seed valence + position + block | language × previous state; follow-ups after a negative and after a positive answer (average marginal predictions) |
-| A | linear: next valence ~ language × previous valence + seed valence + position + block | language × previous valence |
-| B | linear: valence ~ language × seed valence × position (from answer 1) + block | language × seed valence (answer 1); language × seed valence × position |
-| C | linear: valence ~ language × (position + position²) + seed valence + block | language × position; position² |
+| A. Do transition probabilities differ? | logistic: next answer positive ~ language × previous state + seed valence + position + block | joint Wald χ²(2) of Language and Language × previous state; follow-ups after a negative and a positive answer as average marginal predictions |
+| A, check | linear: next valence ~ language × (previous valence − 5) + seed valence + position + block | Language × previous valence |
+| B. Do valence trajectories differ? | linear: valence ~ language × (P + P² − 8.25) + seed valence + block, P = position − 5.5 | joint *F*-test (Satterthwaite) of Language × P and Language × P²; model-adjusted contrasts at answers 1, 5 and 10 |
+| B. Does the starting word's influence fade differently? | linear: valence ~ language × seed valence × log2(position) + block | Language × seed valence × log2(position); English − Chinese gap at answers 1 and 10 |
+| Exploratory: English proficiency | the transition and trajectory models + rating × language terms, with by-student random slopes for the language terms (uncorrelated, lme4's `\|\|`) | change in the English − Chinese difference per rating point (staying negative, staying positive, mean valence); overall rating primary, four skills BH-adjusted |
 
 Every model has random intercepts for students, seeds and chains (a
 student's ten answers to one seed). The logistic model uses the Laplace
 approximation (as lme4's `nAGQ = 0`). The linear models use REML, with
-Satterthwaite degrees of freedom (as lmerTest).
-`dev/test_models.js` + `dev/check_models.R` check every model against
-lme4/lmerTest to four decimals.
+Satterthwaite degrees of freedom (as lmerTest), including the joint tests
+(as lmerTest's `contest`). Every sentence on the page is generated from
+the current class's fit. For an omnibus test, "clear evidence" means joint
+*p* < .05; for a single estimate, a 95% CI that excludes zero. Sentences
+follow the same rule: something is said to differ, rise, fall or shrink only
+when that difference or change has clear evidence; otherwise the estimate is
+given and called not clear. No size word comes from a cut-off. The trajectory
+wording comes from the predicted values at answers 1, 5 and 10, the
+English − Chinese contrasts there, and the changes between them.
 
-The robustness checks (fitted when opened) rerun the key results in three
-ways:
+Design limitation: Chinese and English used separate matched sets of starting
+words rather than translation equivalents. Language comparisons therefore
+generalise across these matched sets, but cannot completely separate language
+from item-set differences. The seed random intercept absorbs variation among
+the words; it does not make the comparison item-matched.
+
+The proficiency models add each student's English rating (centred) and its
+interactions with language (and previous state) to the transition and
+trajectory models. The rating varies only between students, so the language
+terms get by-student random slopes; without them the cross-level
+interactions' standard errors would be too small. They are fitted in their
+own workers, the overall rating first, starting from the main models'
+estimates.
+
+Every model and joint test, the proficiency models included, was checked
+against lme4 and lmerTest in R on the class data.
+
+The robustness checks are fitted in the background once the main models
+are done. They rerun the three conclusions in four ways:
 - without chain intercepts;
 - with only the students who have at least 70% of their transitions valid
   in both languages;
-- with percentile instead of linear equating of Chinese valence.
+- with percentile instead of linear equating of Chinese valence;
+- for the trajectory, with position as a category (a 9-df joint test).
 
-They also model which answers go unscored. `random-slopes.R` refits model A,
-in both its logistic and linear forms, with per-student slopes from the
-Transitions download.
+They also model which answers go unscored. `random-slopes.R` refits the
+transition model, in both its logistic and continuous forms, with
+per-student slopes from the Transitions download.
 
 ## Sources
 

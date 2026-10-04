@@ -38,129 +38,6 @@
     });
   }
 
-  /* ---------- 1. a two-state transition diagram for one language ----------
-     Arrow width grows with the probability; self-loops are "staying". Laid
-     out from the left edge, so the diagram lines up with its heading. */
-  C.stateDiagram = function (host, m, lang) {
-    const R = 40, sep = 200, cy = 118, N = { x: R + 3, y: cy }, P = { x: R + 3 + sep, y: cy };
-    const W = P.x + R + 3, H = 192;
-    const STATE = { N: 'negative', P: 'positive' };
-    const pr = (a, b) => m.probs[a][b], ct = (a, b) => `${m.counts[a][b].toLocaleString('en-US')} of ${m.rowN[a].toLocaleString('en-US')}`;
-    const s = root(host, W, H, `${NAME[lang]} transitions: a negative answer stays negative ${p2(pr('N', 'N'))} and turns positive ${p2(pr('N', 'P'))}; ` +
-      `a positive answer stays positive ${p2(pr('P', 'P'))} and turns negative ${p2(pr('P', 'N'))}.`);
-    const defs = svg('defs', {}, s);
-    const width = p => 1.5 + 9 * p;
-    let k = 0;
-    const arrow = (d, p, from, to, labelAt) => {
-      if (!isFinite(p)) return;
-      const w = width(p), id = `ah-${lang}-${k++}`, size = 7 + w;
-      const mk = svg('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: size, markerHeight: size, markerUnits: 'userSpaceOnUse', orient: 'auto' }, defs);
-      svg('path', { d: 'M0 0L10 5L0 10z', class: 'f-' + lang }, mk);
-      const g = svg('g', { class: 'arrow' }, s);
-      title(g, `${STATE[from]} → ${STATE[to]}: ${p2(p)} (${ct(from, to)} transitions)`);
-      svg('path', { d, fill: 'none', class: 's-' + lang, 'stroke-width': w, 'stroke-linecap': 'round', 'marker-end': `url(#${id})` }, g);
-      svg('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': 22 }, g);   // a hit area wider than the mark
-      const at = labelAt(w);
-      text(g, at[0], at[1], p2(p), { 'text-anchor': 'middle', class: 'arrow-value' });
-    };
-    // staying: loops above each node, the value inside the loop
-    const loop = c => `M${c.x - 15} ${c.y - R + 1} C${c.x - 76} ${c.y - R - 86} ${c.x + 76} ${c.y - R - 86} ${c.x + 15} ${c.y - R + 1}`;
-    arrow(loop(N), pr('N', 'N'), 'N', 'N', () => [N.x, cy - R - 22]);
-    arrow(loop(P), pr('P', 'P'), 'P', 'P', () => [P.x, cy - R - 22]);
-    // switching: arcs between the nodes, each value clear of its arc's stroke
-    const a = 0.55, dx = R * Math.cos(a), dy = R * Math.sin(a), mid = (N.x + P.x) / 2, bow = 62, apex = (dy + bow) / 2;
-    arrow(`M${N.x + dx} ${cy - dy} Q${mid} ${cy - bow} ${P.x - dx} ${cy - dy}`, pr('N', 'P'), 'N', 'P', w => [mid, cy - apex - w / 2 - 6]);
-    arrow(`M${P.x - dx} ${cy + dy} Q${mid} ${cy + bow} ${N.x + dx} ${cy + dy}`, pr('P', 'N'), 'P', 'N', w => [mid, cy + apex + w / 2 + 17]);
-    [[N, 'Negative'], [P, 'Positive']].forEach(([c, label]) => {
-      svg('circle', { cx: c.x, cy: c.y, r: R, class: 'state-node s-' + lang }, s);
-      text(s, c.x, c.y + 5, label, { 'text-anchor': 'middle', class: 'label-strong' });
-    });
-    return s;
-  };
-
-  /* ---------- 2. a dumbbell: Chinese vs English per row, with 95% CIs ----------
-     Each language has its own rail: Chinese above the dots with its value
-     above, English below with its value below. The first row names them.
-     Wide: row labels in a column on the left. Narrow: each label above its row. */
-  C.dumbbell = function (host, rows, o) {
-    o = Object.assign({ fmt: p2 }, o);
-    const W = widthOf(host, 640, 300, 720), narrow = W < 540;
-    const rowH = narrow ? 118 : 92, left = narrow ? 14 : 200, right = narrow ? 24 : 48, top = 6, bottom = 52;
-    const H = top + rows.length * rowH + bottom;
-    const all = rows.flatMap(r => ['zh', 'en'].flatMap(l => [r[l].lo, r[l].hi, r[l].p])).filter(isFinite);
-    const lo = Math.max(0, Math.min(0.5, Math.floor(Math.min(...all) * 10) / 10)), hi = Math.min(1, Math.max(lo + 0.2, Math.ceil(Math.max(...all) * 10) / 10));
-    const X = v => left + (v - lo) / (hi - lo) * (W - left - right);
-    const s = root(host, W, H, o.label || 'Chinese and English, with 95% confidence intervals');
-    for (let v = lo; v <= hi + 1e-9; v += 0.1) {
-      svg('line', { class: Math.abs(v - 0.5) < 1e-9 ? 'chance' : 'grid', x1: X(v), x2: X(v), y1: top, y2: H - bottom + 6 }, s);
-      text(s, X(v), H - bottom + 24, p2(+v.toFixed(2)), { 'text-anchor': 'middle' });
-    }
-    rows.forEach((r, i) => {
-      const rowTop = top + i * rowH, y = rowTop + (narrow ? 64 : rowH / 2);
-      if (narrow) text(s, 0, rowTop + 16, r.label + (r.sub ? ', ' + r.sub : ''), { class: 'label-strong halo' });
-      else {
-        text(s, 0, y - 3, r.label, { class: 'label-strong' });
-        if (r.sub) text(s, 0, y + 16, r.sub, {});
-      }
-      const zh = r.zh, en = r.en;
-      if (isFinite(zh.p) && isFinite(en.p)) svg('line', { x1: X(zh.p), x2: X(en.p), y1: y, y2: y, class: 'dumbbell-bar' }, s);
-      [['zh', zh, -1], ['en', en, 1]].forEach(([l, d, side]) => {
-        if (!isFinite(d.p)) return;
-        const g = svg('g', {}, s);
-        title(g, `${NAME[l]}: ${o.fmt(d.p)}` + (isFinite(d.lo) ? ` (95% CI ${o.fmt(d.lo)} to ${o.fmt(d.hi)})` : ''));
-        const rail = y + side * 12;
-        if (isFinite(d.lo)) {
-          svg('line', { x1: X(d.lo), x2: X(d.hi), y1: rail, y2: rail, class: 'ci-line s-' + l }, g);
-          [d.lo, d.hi].forEach(v => svg('line', { x1: X(v), x2: X(v), y1: rail - 4, y2: rail + 4, class: 'ci-line s-' + l }, g));
-        }
-        svg('circle', { cx: X(d.p), cy: y, r: 7, class: 'dot-lang f-' + l }, g);
-        svg('circle', { cx: X(d.p), cy: y, r: 13, fill: 'transparent' }, g);
-        // the value on its own side of the dots; the first row also names the language
-        const t = svg('text', { x: X(d.p), y: side < 0 ? rail - 9 : rail + 21, 'text-anchor': 'middle', class: 'value-label halo' }, s);
-        if (i === 0) { const n = svg('tspan', { class: 'value-name' }, t); n.textContent = NAME[l] + ' '; }
-        const v = svg('tspan', {}, t); v.textContent = o.fmt(d.p);
-      });
-    });
-    if (o.xLabel) text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
-    return s;
-  };
-
-  /* ---------- 3. one small chart per measure: seed category × language ---------- */
-  C.seedPanel = function (host, o) {
-    const W = widthOf(host, 320, 280, 440), H = 248, left = 46, right = 66, top = 14, bottom = 50;
-    const cats = ['negative', 'neutral', 'positive'];
-    const [lo, hi] = o.domain;
-    const X = i => left + (i + 0.5) / 3 * (W - left - right), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
-    const s = root(host, W, H, o.label);
-    const step = o.step || (hi - lo) / 4;
-    for (let v = lo; v <= hi + 1e-9; v += step) {
-      svg('line', { class: o.ref !== undefined && Math.abs(v - o.ref) < 1e-9 ? 'chance' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
-      text(s, left - 8, Y(v) + 5, o.tick(v), { 'text-anchor': 'end' });
-    }
-    cats.forEach((c, i) => text(s, X(i), H - bottom + 21, c.charAt(0).toUpperCase() + c.slice(1), { 'text-anchor': 'middle' }));
-    text(s, (left + W - right) / 2, H - 5, 'Seed valence', { 'text-anchor': 'middle', class: 'label-strong' });
-    // Chinese a little left of each category, English a little right, so CIs never coincide
-    const ends = [];
-    [['zh', -7], ['en', 7]].forEach(([l, off]) => {
-      const v = o.values[l], ci = o.ci && o.ci[l];
-      const pts = v.map((y, i) => isFinite(y) ? [X(i) + off, Y(Math.max(lo, Math.min(hi, y)))] : null);
-      if (ci) ci.forEach((c, i) => { if (c && isFinite(c[0])) svg('line', { x1: X(i) + off, x2: X(i) + off, y1: Y(Math.min(hi, c[1])), y2: Y(Math.max(lo, c[0])), class: 'ci-line s-' + l }, s); });
-      const d = pts.filter(Boolean).map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-      if (d) svg('path', { d, class: 'series-line s-' + l }, s);
-      pts.forEach((p, i) => {
-        if (!p) return;
-        const g = svg('g', {}, s);
-        title(g, `${NAME[l]}, ${cats[i]} seeds: ${o.fmt(v[i])}` + (ci && ci[i] && isFinite(ci[i][0]) ? ` (95% CI ${o.fmt(ci[i][0])} to ${o.fmt(ci[i][1])})` : ''));
-        svg('circle', { cx: p[0], cy: p[1], r: 5, class: 'dot-lang f-' + l }, g);
-        svg('circle', { cx: p[0], cy: p[1], r: 12, fill: 'transparent' }, g);
-      });
-      const last = pts.filter(Boolean).pop();
-      if (last) ends.push({ lang: l, x: X(2) + 7 + 12, y: last[1] });
-    });
-    endLabels(s, ends, 19, top + 6, H - bottom - 4);
-    return s;
-  };
-
   /* ---------- 4. trajectories: mean valence by position, a 95% CI band per language ---------- */
   C.trajectory = function (host, S, n, domain, label) {
     const W = widthOf(host, 320, 280, 440), H = 248, left = 30, right = 78, top = 12, bottom = 50;
@@ -171,7 +48,8 @@
       svg('line', { class: v === 5 ? 'chance' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
       text(s, left - 8, Y(v) + 5, String(v), { 'text-anchor': 'end' });
     }
-    for (let k = 0; k < n; k++) text(s, X(k), H - bottom + 21, String(k + 1), { 'text-anchor': 'middle' });
+    const show = tickEvery(n, (W - left - right) / n);
+    for (let k = 0; k < n; k++) if (show(k)) text(s, X(k), H - bottom + 21, String(k + 1), { 'text-anchor': 'middle' });
     text(s, (left + W - right) / 2, H - 5, 'Answer position', { 'text-anchor': 'middle', class: 'label-strong' });
     const ends = [];
     ['zh', 'en'].forEach(l => {
@@ -200,6 +78,16 @@
      2d, … in direction dir) that keeps it at least d away from every dot
      already placed, so tied values sit side by side instead of on top of
      each other. Offsets are squeezed to fit within room. */
+  /* Which of n evenly spaced tick labels to show when they are px apart:
+     every k-th, with k as small as gives at least 26px between labels and,
+     where possible, dividing n − 1 so the last tick is labelled too. */
+  function tickEvery(n, px) {
+    let k = 1;
+    while (k < n - 1 && k * px < 26) k++;
+    const even = [k, k + 1, k + 2].find(j => j < n && (n - 1) % j === 0);
+    return i => i % (even || k) === 0;
+  }
+
   function swarm(ys, d, dir, room) {
     const placed = [], off = new Array(ys.length).fill(0);
     ys.map((y, i) => [y, i]).filter(p => isFinite(p[0])).sort((a, b) => a[0] - b[0]).forEach(([y, i]) => {
@@ -224,10 +112,11 @@
     const pw = W - left - right, XZ = left + pw * 0.43, XE = left + pw * 0.57;
     const edgeZ = left + 20, edgeE = W - right - 20;
     const s = root(host, W, H, o.label);
-    for (let v = 0; v <= hi + 1e-9; v += o.step) {
+    const ticks = o.ticks ? o.ticks.filter(v => v <= hi + 1e-9) : Array.from({ length: Math.floor(hi / o.step + 1e-9) + 1 }, (_, i) => i * o.step);
+    ticks.forEach(v => {
       svg('line', { class: 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
       text(s, left - 8, Y(v) + 5, o.tick(v), { 'text-anchor': 'end' });
-    }
+    });
     const both = pairs.map(p => isFinite(p.zh) && isFinite(p.en));
     const off = {
       zh: swarm(pairs.map((p, i) => both[i] ? Y(p.zh) : NaN), 2 * r + 1, -1, XZ - edgeZ - 24),
@@ -253,6 +142,36 @@
       if (isFinite(m.ci[0])) svg('line', { x1: x, x2: x, y1: yTop, y2: Y(Math.max(0, m.ci[0])), class: 'ci-line s-' + l }, g);
       svg('line', { x1: x - 9, x2: x + 9, y1: Y(m.m), y2: Y(m.m), class: 'mean-mark s-' + l }, g);
       text(s, x, yTop - 9, o.fmt(m.m), { 'text-anchor': 'middle', class: 'mean-label halo' });
+    });
+    return s;
+  };
+
+  /* ---------- 5b. back-to-back counts: how many students at each value ----------
+     For discrete values with many ties, where a swarm would pile fifty
+     students onto one dot. rows: [{label, zh, en}], lowest value first; drawn
+     with the highest at the top. Chinese bars run left from the value labels,
+     English bars run right; each bar carries its count. */
+  C.mirror = function (host, rows, o) {
+    const W = widthOf(host, 560, 280, 640);
+    const rowH = 30, bar = 18, top = 34, bottom = 6, mid = 82;
+    const H = top + rows.length * rowH + bottom, cx = W / 2;
+    const max = Math.max(1, ...rows.flatMap(r => [r.zh, r.en]));
+    const room = cx - mid / 2 - 34, L = n => n / max * room;
+    const s = root(host, W, H, o.label);
+    text(s, cx - mid / 2, 18, NAME.zh, { 'text-anchor': 'end', class: 'label-strong' });
+    text(s, cx + mid / 2, 18, NAME.en, { 'text-anchor': 'start', class: 'label-strong' });
+    text(s, cx, 18, o.head || '', { 'text-anchor': 'middle', class: 'row-label' });
+    rows.slice().reverse().forEach((r, k) => {
+      const y0 = top + k * rowH, yc = y0 + rowH / 2;
+      if (k) svg('line', { class: 'grid', x1: 0, x2: W, y1: y0, y2: y0 }, s);
+      text(s, cx, yc + 5, r.label, { 'text-anchor': 'middle', class: 'row-label' });
+      [['zh', -1], ['en', 1]].forEach(([l, dir]) => {
+        const n = r[l], x0 = cx + dir * mid / 2, g = svg('g', {}, s);
+        title(g, `${NAME[l]}: ${n} student${n === 1 ? '' : 's'} at ${r.label}`);
+        svg('rect', { x: dir < 0 ? 0 : x0, y: y0, width: dir < 0 ? x0 : W - x0, height: rowH, class: 'hit' }, g);
+        if (n > 0) svg('rect', { x: dir < 0 ? x0 - L(n) : x0, y: yc - bar / 2, width: Math.max(2, L(n)), height: bar, rx: 3, class: 'bar-lang f-' + l }, g);
+        text(g, x0 + dir * (L(n) + 6), yc + 5, String(n), { 'text-anchor': dir < 0 ? 'end' : 'start', class: n ? 'count' : 'count none' });
+      });
     });
     return s;
   };
@@ -300,57 +219,6 @@
         y0 += rowH;
       });
     });
-    return s;
-  };
-
-  /* ---------- 7. each student's Chinese and English value against their English rating ----------
-     o: {points: [{x, zh, en}], fit: {zh, en} (LAB.ols results or null), xDomain: [x0, 10],
-     yDomain: [lo, hi], yStep, yFmt, yRef (a dashed line), yLabel, xLabel, label}.
-     A student's two dots share one x (ties spread a little, the same way for
-     both); each language has its least-squares line with a 95% band, drawn
-     over the ratings students actually gave, and named at its end. */
-  C.profScatter = function (host, o) {
-    const W = widthOf(host, 420, 280, 520), H = 290, left = 62, right = 86, top = 12, bottom = 52, r = 4.5;
-    const [x0d, x1d] = o.xDomain || [0, 10], [lo0, hi] = o.yDomain || [0, 1];
-    const fy = o.yFmt || (v => v < 1e-9 ? '0' : v > 1 - 1e-9 ? '1' : p2(v));
-    // whole steps from the top down, so the top and bottom gridlines both carry a label
-    const yStep = o.yStep || (hi - lo0 > 0.6 ? 0.2 : 0.1), lo = Math.max(0, hi - Math.ceil((hi - lo0) / yStep - 1e-9) * yStep);
-    const X = v => left + (v - x0d) / (x1d - x0d) * (W - left - right), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
-    const clampY = v => Math.max(lo, Math.min(hi, v));
-    const s = root(host, W, H, o.label);
-    for (let v = lo; v <= hi + 1e-9; v += yStep) {
-      svg('line', { class: o.yRef !== undefined && Math.abs(v - o.yRef) < 1e-9 ? 'chance' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
-      text(s, left - 8, Y(v) + 5, fy(v), { 'text-anchor': 'end' });
-    }
-    if (o.yLabel) text(s, 0, 0, o.yLabel, { transform: `translate(15 ${((top + H - bottom) / 2).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', class: 'axis-title' });
-    const every = (W - left - right) / (x1d - x0d) < 26 ? 2 : 1;
-    for (let v = x1d; v >= x0d; v -= every) text(s, X(v), H - bottom + 21, String(v), { 'text-anchor': 'middle' });
-    text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
-    // ties on the rating: spread across ±0.3 of a rating point, in order of arrival
-    const seen = {}, unit = X(1) - X(0);
-    const pts = o.points.map(q => { const k = q.x, i = (seen[k] = (seen[k] || 0) + 1) - 1; return Object.assign({ i }, q); });
-    const count = {}; pts.forEach(q => { count[q.x] = (count[q.x] || 0) + 1; });
-    const jx = q => count[q.x] > 1 ? (q.i / (count[q.x] - 1) - 0.5) * Math.min(0.6 * unit, (count[q.x] - 1) * (r + 1)) : 0;
-    // dots first, the fitted lines over them
-    pts.forEach(q => ['zh', 'en'].forEach(l => {
-      const g = svg('g', {}, s);
-      title(g, `A student with English ${q.x}: ${NAME[l]} ${(o.vFmt || p2)(q[l])}`);
-      svg('circle', { cx: X(q.x) + jx(q), cy: Y(clampY(q[l])), r, class: 'dot-lang soft f-' + l }, g);
-    }));
-    const ends = [];
-    ['zh', 'en'].forEach(l => {
-      const f = o.fit && o.fit[l];
-      if (!f) return;
-      const xs = o.points.map(q => q.x), x0 = Math.min(...xs), x1 = Math.max(...xs);
-      const n = 24, up = [], dn = [];
-      for (let j = 0; j <= n; j++) { const x = x0 + (x1 - x0) * j / n, yv = f.at(x), h = f.band(x); up.push(`${X(x).toFixed(1)} ${Y(clampY(yv + h)).toFixed(1)}`); dn.unshift(`${X(x).toFixed(1)} ${Y(clampY(yv - h)).toFixed(1)}`); }
-      svg('path', { d: 'M' + up.concat(dn).join('L') + 'Z', class: 'band f-' + l }, s);
-      const g = svg('g', {}, s);
-      title(g, `${NAME[l]}: fitted line, ${f.b < 0 ? '−' : '+'}${Math.abs(f.b).toFixed(3)} per rating point`);
-      svg('line', { x1: X(x0), x2: X(x1), y1: Y(clampY(f.at(x0))), y2: Y(clampY(f.at(x1))), class: 'series-line fit-line s-' + l }, g);
-      ends.push({ lang: l, x: X(x1) + 10, y: Y(clampY(f.at(x1))) });
-    });
-    endLabels(s, ends, 19, top + 6, H - bottom - 4);
     return s;
   };
 
@@ -417,7 +285,8 @@
     const cl = v => Math.max(lo, Math.min(hi, v));
     const s = root(host, W, H, o.label);
     yFrame(s, o, W, H, left, right, top, bottom, Y, lo, hi, o.yStep);
-    (o.xTicks || []).forEach(v => text(s, X(v), H - bottom + 22, (o.xFmt || String)(v), { 'text-anchor': 'middle' }));
+    const xt = o.xTicks || [], show = xt.length > 1 ? tickEvery(xt.length, X(xt[1]) - X(xt[0])) : () => true;
+    xt.forEach((v, i) => { if (show(i)) text(s, X(v), H - bottom + 22, (o.xFmt || String)(v), { 'text-anchor': 'middle' }); });
     text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
     const ends = [];
     [['zh', -4], ['en', 4]].forEach(([l, off]) => {
@@ -431,15 +300,78 @@
         const last = line[line.length - 1];
         ends.push({ lang: l, x: X(last.x) + 12, y: Y(cl(last.y)) });
       }
+      // observed values: full dots, or faint ones under a dominant model line (o.faint)
       (S.dots || []).filter(d => isFinite(d.y)).forEach(d => {
         const g = svg('g', {}, s);
         if (o.dotTitle) title(g, o.dotTitle(l, d));
-        if (isFinite(d.lo)) svg('line', { x1: X(d.x) + off, x2: X(d.x) + off, y1: Y(cl(d.hi)), y2: Y(cl(d.lo)), class: 'ci-line soft s-' + l }, g);
-        svg('circle', { cx: X(d.x) + off, cy: Y(cl(d.y)), r: 4, class: 'dot-lang f-' + l }, g);
+        if (isFinite(d.lo) && !o.faint) svg('line', { x1: X(d.x) + off, x2: X(d.x) + off, y1: Y(cl(d.hi)), y2: Y(cl(d.lo)), class: 'ci-line soft s-' + l }, g);
+        svg('circle', { cx: X(d.x) + off, cy: Y(cl(d.y)), r: 4, class: 'dot-lang f-' + l + (o.faint ? ' faint' : '') }, g);
         svg('circle', { cx: X(d.x) + off, cy: Y(cl(d.y)), r: 10, fill: 'transparent' }, g);
       });
     });
     endLabels(s, ends, 19, top + 6, H - bottom - 4);
+    return s;
+  };
+
+  /* ---------- 10. a moderation scatter: English − Chinese difference against a rating ----------
+     o: {points: [{x, y}], fit (LAB.ols or null), xDomain, yDomain, yStep, yFmt, xLabel, yLabel, label}.
+     Faint dots, one fitted line with its 95% band, and a reference line at 0
+     (no language difference). */
+  C.diffScatter = function (host, o) {
+    const W = widthOf(host, 420, 280, 600), H = 290, left = 62, right = 24, top = 14, bottom = 56;
+    const [x0, x1] = o.xDomain, [lo, hi] = o.yDomain;
+    const pad = 10, X = v => left + pad + (v - x0) / (x1 - x0) * (W - left - right - 2 * pad), Y = v => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+    const cl = v => Math.max(lo, Math.min(hi, v));
+    const s = root(host, W, H, o.label);
+    for (let v = lo; v <= hi + 1e-9; v += o.yStep) {
+      svg('line', { class: Math.abs(v) < 1e-9 ? 'zero-ref' : 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
+      text(s, left - 8, Y(v) + 5, o.yFmt(v), { 'text-anchor': 'end' });
+    }
+    if (lo < 0 && hi > 0) svg('line', { class: 'zero-ref', x1: left, x2: W - right, y1: Y(0), y2: Y(0) }, s);
+    if (o.yLabel) text(s, 0, 0, o.yLabel, { transform: `translate(15 ${((top + H - bottom) / 2).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', class: 'axis-title' });
+    const every = (W - left - right) / (x1 - x0) < 26 ? 2 : 1;
+    for (let v = x1; v >= x0; v -= every) text(s, X(v), H - bottom + 22, String(v), { 'text-anchor': 'middle' });
+    text(s, (left + W - right) / 2, H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
+    // ties on the rating spread a little, so each student stays visible
+    const seen = {};
+    o.points.forEach(q => {
+      const i = seen[q.x] = (seen[q.x] || 0) + 1;
+      const g = svg('g', {}, s);
+      title(g, `A student with English ${q.x}: English − Chinese ${(o.vFmt || o.yFmt)(q.y)}`);
+      svg('circle', { cx: X(q.x) + ((i % 7) - 3) * 2.2, cy: Y(cl(q.y)), r: 4, class: 'dot-diff' }, g);
+    });
+    // a model's curve: [{x, est, lo, hi}], drawn with its 95% band
+    const cv = (o.curve || []).filter(c => isFinite(c.est));
+    if (cv.length > 1) {
+      if (cv.every(c => isFinite(c.lo) && isFinite(c.hi))) svg('path', { d: 'M' + cv.map(c => `${X(c.x).toFixed(1)} ${Y(cl(c.hi)).toFixed(1)}`).concat(cv.slice().reverse().map(c => `${X(c.x).toFixed(1)} ${Y(cl(c.lo)).toFixed(1)}`)).join('L') + 'Z', class: 'band-neutral' }, s);
+      const g = svg('g', {}, s);
+      if (o.curveTitle) title(g, [cv[0], cv[cv.length - 1]].map(o.curveTitle).join('; '));
+      svg('path', { d: cv.map((c, i) => (i ? 'L' : 'M') + X(c.x).toFixed(1) + ' ' + Y(cl(c.est)).toFixed(1)).join(' '), class: 'fit-neutral', fill: 'none' }, g);
+    }
+    const f = o.fit;
+    if (f) {
+      const xs = o.points.map(q => q.x), a = Math.min(...xs), b = Math.max(...xs), up = [], dn = [];
+      for (let j = 0; j <= 24; j++) { const x = a + (b - a) * j / 24, yv = f.at(x), h = f.band(x); up.push(`${X(x).toFixed(1)} ${Y(cl(yv + h)).toFixed(1)}`); dn.unshift(`${X(x).toFixed(1)} ${Y(cl(yv - h)).toFixed(1)}`); }
+      svg('path', { d: 'M' + up.concat(dn).join('L') + 'Z', class: 'band-neutral' }, s);
+      const g = svg('g', {}, s);
+      title(g, `Fitted line: ${(o.vFmt || o.yFmt)(f.b)} per rating point`);
+      svg('line', { x1: X(a), x2: X(b), y1: Y(cl(f.at(a))), y2: Y(cl(f.at(b))), class: 'fit-neutral' }, g);
+    }
+    return s;
+  };
+
+  /* ---------- 11. one estimate with its 95% CI, on its own scale around 0 ----------
+     For the compact secondary results: o: {est, lo, hi, fmt, label}. */
+  C.estimate = function (host, o) {
+    const W = widthOf(host, 260, 180, 320), H = 34, pad = 12;
+    const m = Math.max(Math.abs(o.lo), Math.abs(o.hi), Math.abs(o.est), 1e-9) * 1.15;
+    const X = v => pad + (v + m) / (2 * m) * (W - 2 * pad);
+    const s = root(host, W, H, o.label);
+    svg('line', { class: 'axis-light', x1: pad, x2: W - pad, y1: H / 2, y2: H / 2 }, s);
+    svg('line', { class: 'zero', x1: X(0), x2: X(0), y1: 5, y2: H - 5 }, s);
+    text(s, X(0) - 4, H - 3, '0', { 'text-anchor': 'end', class: 'scale-note' });
+    if (isFinite(o.lo)) svg('line', { class: 'forest-ci sig', x1: X(o.lo), x2: X(o.hi), y1: H / 2, y2: H / 2 }, s);
+    svg('circle', { class: 'forest-dot sig', cx: X(o.est), cy: H / 2, r: 5.5 }, s);
     return s;
   };
 
