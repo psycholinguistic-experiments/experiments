@@ -70,23 +70,27 @@ English − Chinese:
 | A, check | linear: next valence ~ language × (previous valence − 5) + seed valence + position + block | Language × previous valence |
 | B. Do valence trajectories differ? | linear: valence ~ language × (P + P² − 8.25) + seed valence + block, P = position − 5.5 | joint *F*-test (Satterthwaite) of Language × P and Language × P²; model-adjusted contrasts at answers 1, 5 and 10 |
 | B. Does the starting word's influence fade differently? | linear: valence ~ language × seed valence × log2(position) + block | Language × seed valence × log2(position); English − Chinese gap at answers 1 and 10 |
+| A, three states | multinomial (baseline-category) logit: next state ∈ {negative, neutral, positive} ~ language × previous state (3 levels) + seed valence + position + block; negative the reference destination | joint Wald χ²(6) of the language terms of both logits; after each previous state a 2-df test, Holm-adjusted; contrasts named in advance: negative → positive, positive → positive (average marginal predictions) |
 | Exploratory: English proficiency | the transition and trajectory models + rating × language terms, with by-student random slopes for the language terms (uncorrelated, lme4's `\|\|`) | change in the English − Chinese difference per rating point (staying negative, staying positive, mean valence); overall rating primary, four skills BH-adjusted |
 
-Analysed sample: every analysis uses only the students who meet three
-criteria, stated at the top of the tab with the counts. A student is
-excluded when
-- fewer than 70% of their possible transitions (adjacent answers both
-  scored for valence) are usable in either language;
+Analysed sample: every analysis uses the students who pass two behavioural
+and data-quality rules, stated at the top of the tab with the counts. A
+student is excluded when
 - more than half of their answers in a language repeat the starting word or
   an earlier answer in the same chain;
 - their first-language answer here contradicts their Judgement-task answer
   under the same code (the code is never shown).
 
+Normative coverage is not an exclusion criterion: it decides which answers
+can be scored (unscored answers drop out with the transitions on either side
+of them), not who is analysed. Requiring at least 50%, 60%, 70% or 80% usable
+transitions per language is a sensitivity analysis (Robustness).
+
 Response times are not trimmed or capped: the timing models use each
 student's median per language on a log scale, and a student is left out of
 a timing model only if a median is missing. The answers and transitions
 downloads keep every student, with `analysed` and `excluded_for`
-(coverage; repetition; l1) columns.
+(repetition; l1) columns.
 
 Every model has random intercepts for students, seeds and chains (a
 student's ten answers to one seed). The logistic model uses the Laplace
@@ -118,18 +122,51 @@ estimates.
 Every model and joint test, the proficiency models included, was checked
 against lme4 and lmerTest in R on the class data.
 
+The three-state model (states: negative < 4.2 ≤ neutral < 5.8 ≤ positive,
+on the same transitions as the two-state model) is a multinomial logit with
+two logits against the negative destination. Its random intercepts for
+students, seeds and chains are pairs (one per logit) with an unstructured
+2 × 2 covariance each, so the fit does not depend on the reference
+destination. It is fitted like the logistic model (Laplace, β with the random
+effects, as nAGQ = 0), in its own worker (about a minute for 88 students on a
+laptop). `dev/third_pass/check_m3.R` refits it with an independent sparse-matrix
+implementation in R (same deviance, coefficients, SEs, tests and
+probabilities) and with RTMB's full Laplace approximation (probabilities
+within .011, the same omnibus verdict); `dev/test_three_state.js` checks
+the coding, the cut-points, row sums and reference invariance. Its checks
+run in the background after the main fits: cut-points 4.0 / 6.0 and
+4.5 / 5.5; all students, no chain intercepts, by-student language slopes,
+percentile equating. Leaving out each starting word in turn (20 refits) runs
+only when its section is opened, and reports only ranges. A check without
+cut-points, next valence ~ language × (V + V²) + seed valence + position +
+block (V = previous valence − 5), tests the two language × V terms jointly;
+if it is not clear while the three-state verdicts change with the cut-points,
+the page calls the three-state evidence threshold-sensitive and secondary
+(`dev/third_pass/check_C1Q.R` matches lmerTest).
+
 The robustness checks are fitted in the background once the main models
 are done, in three workers. They rerun the primary conclusions (and the
 continuous-valence check and the trajectory contrasts at answers 1, 5, 10):
 - without chain intercepts;
 - with uncorrelated by-student random slopes for the language terms;
 - with all students (no exclusions);
+- for the primary models and the three-state model, on only the students
+  with at least 50%, 60%, 70% or 80% usable transitions in both languages
+  (the repetition and first-language rules kept), as a sensitivity table;
 - with percentile instead of linear equating of Chinese valence;
 - for the trajectory, with position as a category (a 9-df joint test).
 
 They also model which answers go unscored, and a collapsed panel counts
 the exclusions and other participant-level checks (never codes). `random-slopes.R` refits the
 transition model with per-student slopes from the Transitions download.
+
+Timing outliers (sensitivity only): on each student's log median, per
+language and measure, robust z = 0.6745 (x − median) / MAD (unscaled MAD),
+|z| > 3.5 flags (outer fences Q1 − 3·IQR, Q3 + 3·IQR if MAD is 0); a student
+is flagged for a measure if either language is. Flagged students are left
+out only of the timing sensitivity models, which have the same
+specification; they stay in every other analysis. The individual timing
+plots use a log scale and draw flagged values as open circles.
 
 Response timing: only each student's median onset (first keystroke) and
 total (submit) time per language are stored with the summaries; every

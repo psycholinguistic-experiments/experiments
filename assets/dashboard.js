@@ -497,11 +497,12 @@
   $('#a-prof-measure').addEventListener('change', () => { lastKey = ''; render(); });
   // Downloads keep every student, marked with whether they are analysed and, if not, why.
   const withExclusion = rs => rs.map(r => { const k = r.pid + '|' + r.session, E = fastState.excl;
-    const why = E ? [E.lowCov.has(k) && 'coverage', E.extreme.has(k) && 'repetition', E.l1.has(k) && 'l1'].filter(Boolean) : [];
+    const why = E ? [E.extreme.has(k) && 'repetition', E.l1.has(k) && 'l1'].filter(Boolean) : [];
     return Object.assign(r, { analysed: why.length ? 0 : 1, excluded_for: why.join(';') || 'NA' }); });
   $('#a-csv-answers').addEventListener('click', () => LAB.download(`lt5461-association-answers-${state.session}.csv`, LAB.toCSV(withExclusion(FA.responseRows(fastState.allParts || [])))));
   $('#a-csv-transitions').addEventListener('click', () => LAB.download(`lt5461-association-transitions-${state.session}.csv`, LAB.toCSV(withExclusion(FA.transitionRows(fastState.allParts || [])))));
   $('#a-robust-more').addEventListener('toggle', () => { if ($('#a-robust-more').open) runRobust(); });
+  $('#a-m3-loso-more').addEventListener('toggle', () => { if ($('#a-m3-loso-more').open) runLoso(); });
   // the exploratory mechanism models are fitted only once someone opens that section
   $('#a-mech-more').addEventListener('toggle', () => { if ($('#a-mech-more').open) { renderLex(); runMech(); renderMech(); } });
 
@@ -517,7 +518,7 @@
     const m = FA.matrix(tr.filter(t => t.lang === lang), states);
     const cell = (a, b) => {
       const p = m.probs[a][b];
-      return isFinite(p) ? `<td style="--p:${p.toFixed(3)}"><b>${p2(p)}</b><i class="visually-hidden">, </i><span>${m.counts[a][b].toLocaleString('en-US')} of ${m.rowN[a].toLocaleString('en-US')}</span></td>`
+      return isFinite(p) ? `<td style="--p:${p.toFixed(3)}"><b>${p2(p)}</b><i class="visually-hidden">, </i><span class="cnt-long">${m.counts[a][b].toLocaleString('en-US')} of ${m.rowN[a].toLocaleString('en-US')}</span><span class="cnt-short" aria-hidden="true">${m.counts[a][b].toLocaleString('en-US')}/${m.rowN[a].toLocaleString('en-US')}</span></td>`
         : `<td class="undef"><b>–</b><span>none from here</span></td>`;
     };
     return `<div><h4>${LANG_NAME[lang]} <span class="n">${m.n.toLocaleString('en-US')} transition${m.n === 1 ? '' : 's'}</span></h4>` +
@@ -568,6 +569,11 @@
     $('#a-tm').innerHTML = tmTable(P.zh, 'zh') + tmTable(P.en, 'en');
     $('#a-matrices').innerHTML = matrixTable(tr2, 'zh', FA.STATES2) + matrixTable(tr2, 'en', FA.STATES2);
     $('#a-matrices3').innerHTML = matrixTable(tr3, 'zh', FA.STATES3) + matrixTable(tr3, 'en', FA.STATES3);
+    $('#a-m3-n').textContent = ` (${tr3.length.toLocaleString('en-US')})`;
+    // timing: each student's medians, and the robust rule's flags (for the sensitivity analysis only)
+    const trows = FA.timingRows(rows), tOut = FA.timingOutliers(trows);
+    renderSample(EX, allParts.length, n, { trans: tr2.length, tOn: tOut.onset.n, tTot: tOut.total.n, fOn: tOut.onset.flagged.size, fTot: tOut.total.flagged.size });
+    renderStateShares(parts);
 
     // ---- B: observed trajectories after each kind of starting word ----
     const reps = FA.repetitions(parts), mv = FA.meanValence(parts), per = FA.perParticipant(parts);
@@ -614,12 +620,21 @@
     const tz = rows.map(r => num(r.rt_median_zh) / 1000), te = rows.map(r => num(r.rt_median_en) / 1000);
     const okRT = tz.map((v, i) => isFinite(v) && isFinite(te[i]));
     const rt = { zh: LAB.mean(tz.filter((v, i) => okRT[i])), en: LAB.mean(te.filter((v, i) => okRT[i])), test: gate(LAB.ttest(te.map((v, i) => v - tz[i]).filter((v, i) => okRT[i]), 0)) };
-    const rtMax = Math.max(4, ...tz.concat(te).filter(isFinite));
-    FC.paired($('#a-rt'), tz.map((z, i) => ({ zh: z, en: te[i] })), {
-      step: rtMax > 12 ? 4 : 2, minMax: 4, tick: v => v + ' s', fmt: sec1,
-      mean: { zh: { m: rt.zh, ci: ci3(tz.filter((v, i) => okRT[i])) }, en: { m: rt.en, ci: ci3(te.filter((v, i) => okRT[i])) } },
-      label: `Median time per answer per student: Chinese mean ${sec1(rt.zh)}, English mean ${sec1(rt.en)}`
-    });
+    // each student's medians on a log scale (as the models use), every value at its own place; flagged values open
+    const geo = a => { const lg = a.map(Math.log), c = ci3(lg); return { m: Math.exp(LAB.mean(lg)), ci: [Math.exp(c[0]), Math.exp(c[1])] }; };
+    const drawRT = (host, measure, name) => {
+      const by = new Map();
+      trows.forEach(t => { if (t[measure] > 0) { const o = by.get(t.pid) || {}; o[t.lang] = t[measure]; by.set(t.pid, o); } });
+      const pairs = [...by].filter(([, o]) => o.zh > 0 && o.en > 0).map(([pid, o]) => ({ zh: o.zh, en: o.en, flag: { zh: tOut[measure].flagRows.has(pid + '|zh'), en: tOut[measure].flagRows.has(pid + '|en') } }));
+      if (!pairs.length) { host.innerHTML = '<p class="empty">No timing data yet.</p>'; return; }
+      const g = { zh: geo(pairs.map(q => q.zh)), en: geo(pairs.map(q => q.en)) };
+      FC.paired(host, pairs, { log: true, ticks: [0.5, 1, 1.5, 2, 3, 5, 10, 20, 30, 60], tick: v => v + ' s', fmt: v => v.toFixed(2) + ' s', meanName: 'geometric mean',
+        flagNote: 'flagged by the robust timing rule: in the primary model, left out of the sensitivity analysis', mean: g,
+        label: `${name}: each student’s median time per answer on a log scale; geometric means ${sec1(g.zh.m)} in Chinese and ${sec1(g.en.m)} in English; ${pairs.filter(q => q.flag.zh || q.flag.en).length} student(s) with a flagged value, drawn open` });
+    };
+    drawRT($('#a-rto'), 'onset', 'Onset'); drawRT($('#a-rt'), 'total', 'Total time');
+    const nfo = tOut.onset.flagRows.size, nft = tOut.total.flagRows.size;
+    $('#a-rt-flag').textContent = nfo || nft ? `Open circles: values flagged by the prespecified robust timing rule (${nfo} onset, ${nft} total); they are in the primary timing models and left out only of the sensitivity analysis.` : 'No value is flagged by the robust timing rule.';
     const second = [
       ['Repeated answers', ttE(repeat.test), repeat.test, e => clearCI(e) ? `Repetition was ${e.est > 0 ? 'more' : 'less'} frequent in English by <b>${ppts(Math.abs(e.est)).replace('+', '')}</b> percentage points [${ppts(Math.min(Math.abs(e.lo), Math.abs(e.hi))).replace('+', '')}, ${ppts(Math.max(Math.abs(e.lo), Math.abs(e.hi))).replace('+', '')}]` : `No clear language difference in repetition (English − Chinese ${ppts(e.est)} percentage points [${ppts(e.lo)}, ${ppts(e.hi)}])`, `${pct1(repeat.zh)} of Chinese and ${pct1(repeat.en)} of English answers repeated an earlier word of the chain`]
     ];
@@ -675,7 +690,7 @@
     };
     // lexical reuse, per student and language, under three response keys (exploratory)
     const lex = { norm: FA.lexicalByStudent(parts, 'norm'), raw: FA.lexicalByStudent(parts, 'raw'), lemma: FA.lexicalByStudent(parts, 'lemma') };
-    fastState.ctx = { other, n, P, C, polarity, repeat, rt, PROF, tr2, ans, parts, nPos, gapCov, lowL, hiL, dSV, dqText, extreme, l1Flag, qc, lex, rows, EX, allN: allParts.length };
+    fastState.ctx = { other, n, P, C, polarity, repeat, rt, PROF, tr2, tr3, ans, parts, nPos, gapCov, lowL, hiL, dSV, dqText, extreme, l1Flag, qc, lex, rows, EX, allN: allParts.length, trows, tOut };
     renderQC();
     renderLex();
     $('#a-print-title').textContent = `Association task · ${$('#session').selectedOptions[0] ? $('#session').selectedOptions[0].textContent.replace(/\s*\(\d+\)$/, '') : state.session}`;
@@ -687,14 +702,24 @@
     if (fresh) {
       const sameClass = fastState.session === state.session && Object.keys(fastState.fits).length > 0;
       fastState.fitKey = fitKey; fastState.session = state.session; fastState.updating = sameClass;
-      if (!sameClass) { fastState.fits = {}; fastState.robust = null; fastState.robustNext = null; fastState.robustKey = ''; }
+      if (!sameClass) { fastState.fits = {}; fastState.robust = null; fastState.robustNext = null; fastState.robustKey = ''; fastState.m3 = null; fastState.extras = null; }
     }
     $('#a-updating').hidden = !fastState.updating;
     renderFastModels();
     if (!fresh) return;
-    const trows = FA.timingRows(rows);
-    const got = {}, jobs = [{ key: 'A', model: 'A', tr: tr2 }, { key: 'C', model: 'C', ans }, { key: 'B', model: 'B', ans }, { key: 'C1', model: 'C1', tr: tr2 },
-      { key: 'TO', model: 'T', trows, measure: 'onset' }, { key: 'TT', model: 'T', trows, measure: 'total' }];
+    // the timing sensitivity models: the same specification, without the students the robust rule flags for that measure
+    const tSub = m => trows.filter(t => !tOut[m].flagged.has(t.pid));
+    const got = {}, jobs = [{ key: 'A', model: 'A', tr: tr2 }, { key: 'C', model: 'C', ans }, { key: 'B', model: 'B', ans }, { key: 'C1', model: 'C1', tr: tr2 }, { key: 'C1Q', model: 'C1Q', tr: tr2 },
+      { key: 'TO', model: 'T', trows, measure: 'onset' }, { key: 'TT', model: 'T', trows, measure: 'total' },
+      { key: 'TOx', model: 'T', trows: tSub('onset'), measure: 'onset' }, { key: 'TTx', model: 'T', trows: tSub('total'), measure: 'total' }];
+    // The three-state model takes longest, so it has a worker of its own; its checks follow it.
+    fitJobs('m3', [{ key: 'M3', model: 'M3', tr: tr3 }], (key, f) => {
+      if (fastState.fitKey !== fitKey) return;
+      fastState.m3 = f; fastState.m3Key = fitKey;
+      renderFastModels();
+      runExtras();
+      if ($('#a-m3-loso-more').open) runLoso();
+    });
     fitJobs('main', jobs, (key, f) => {
       if (fastState.fitKey !== fitKey) return;
       got[key] = f;
@@ -704,6 +729,7 @@
         $('#a-updating').hidden = true;
         runRobust();
         runProf();
+        runExtras();
       }
       renderFastModels();
     });
@@ -833,11 +859,14 @@
   }
 
   /* ---------- exclusion criteria (applied before any analysis) ----------
-     A student is excluded when (1) fewer than 70% of their possible
-     transitions are usable in either language, (2) more than half of their
-     answers in a language repeat the starting word or an earlier answer in the
-     same chain, or (3) their first-language answer here contradicts their
-     answer to the Judgement task under the same code (classes on the page). */
+     Behavioural and data-quality rules only. A student is excluded when (1)
+     more than half of their answers in a language repeat the starting word or
+     an earlier answer in the same chain, or (2) their first-language answer
+     here contradicts their answer to the Judgement task under the same code
+     (classes on the page). Normative coverage decides which answers can be
+     scored, not who is analysed: lowCov (fewer than 70% of the possible
+     transitions usable in either language) is kept for the coverage-threshold
+     sensitivity analysis only. */
   function exclusions(all) {
     const per = FA.perParticipant(all), reps = FA.repetitions(all);
     const rate = (x, l) => x[l].all[1] ? x[l].all[0] / x[l].all[1] : NaN;
@@ -845,19 +874,20 @@
     const extreme = new Set(all.filter((Pp, i) => rate(reps[i], 'zh') > 0.5 || rate(reps[i], 'en') > 0.5).map(Pp => Pp.key));
     const fleL1 = new Map(); (state.rows.fle || []).forEach(r => { if (r.l1_chinese) fleL1.set(r.pid, String(r.l1_chinese)); });
     const l1 = new Set(all.filter(Pp => Pp.l1 && fleL1.has(Pp.pid) && ((Pp.l1 !== 'chinese') === (fleL1.get(Pp.pid) === 'yes'))).map(Pp => Pp.key));
-    return { lowCov, extreme, l1, any: new Set([...lowCov, ...extreme, ...l1]), l1Checked: all.filter(Pp => fleL1.has(Pp.pid)).length,
+    return { lowCov, extreme, l1, any: new Set([...extreme, ...l1]), l1Checked: all.filter(Pp => fleL1.has(Pp.pid)).length,
       l1NotZhUnchecked: all.filter(Pp => Pp.l1 && Pp.l1 !== 'chinese' && !fleL1.has(Pp.pid)).length };
   }
   // The statement at the top of the tab: who is analysed, who is excluded and why, and how response times are handled.
-  function renderSample(EX, N, n) {
+  function renderSample(EX, N, n, S) {
     const st = k => `${k} student${k === 1 ? '' : 's'}`;
     const also = (set, earlier) => { const k = [...set].filter(key => earlier.some(e => e.has(key))).length; return k ? ` (${k} of them also excluded above)` : ''; };
     $('#a-sample').innerHTML = !N ? '' :
       `<p><strong>Sample:</strong> ${n} of ${N} students are analysed. A student is excluded when</p><ul>` +
-      `<li>fewer than 70% of their possible transitions (adjacent answers both scored for valence) are usable in either language: ${st(EX.lowCov.size)};</li>` +
-      `<li>more than half of their answers in a language repeat the starting word or an earlier answer in the same chain: ${st(EX.extreme.size)}${also(EX.extreme, [EX.lowCov])};</li>` +
-      `<li>their first-language answer here contradicts their answer to the Judgement task under the same code: ${EX.l1Checked ? st(EX.l1.size) + also(EX.l1, [EX.lowCov, EX.extreme]) : 'not checkable for this class (nobody also did the Judgement task)'}.</li></ul>` +
-      (n ? `<p><strong>Timing:</strong> no response times are trimmed or capped. The timing models use each student’s median per language on a log scale, which damps slow outliers without removing anyone. A student is left out of a timing model only if a median is missing.</p>` : '');
+      `<li>more than half of their answers in a language repeat the starting word or an earlier answer in the same chain: ${st(EX.extreme.size)};</li>` +
+      `<li>their first-language answer here contradicts their answer to the Judgement task under the same code: ${EX.l1Checked ? st(EX.l1.size) + also(EX.l1, [EX.extreme]) : 'not checkable for this class (nobody also did the Judgement task)'}.</li></ul>` +
+      `<p><strong>Coverage</strong> is not an exclusion criterion: an answer the valence norms do not rate is left out as an observation (with the transitions on either side of it), but the student stays in. Requiring at least 50%, 60%, 70% or 80% usable transitions is a sensitivity analysis (under Robustness).</p>` +
+      (n && S ? `<p><strong>Analysis sizes:</strong> the valence, transition and trajectory analyses use ${n} of ${N} students (${S.trans.toLocaleString('en-US')} transitions; the three-state analysis uses the same transitions); the timing models use ${S.tOn === S.tTot ? `${S.tOn} students` : `${S.tOn} students (onset) and ${S.tTot} (total)`}${S.fOn || S.fTot ? `, and the timing sensitivity analysis ${S.tOn - S.fOn} (onset) and ${S.tTot - S.fTot} (total)` : ''}.</p>` : '') +
+      (n ? `<p><strong>Timing:</strong> no response times are trimmed or capped. The timing models use each student’s median per language on a log scale, which damps slow outliers without removing anyone. A student is left out of a timing model only if a median is missing. A robust rule fixed in advance flags extreme medians; flagged students are left out only of a timing sensitivity analysis.</p>` : '');
   }
 
   /* ---------- participant-level data checks (counts only, never codes) ---------- */
@@ -866,7 +896,7 @@
     if (!x) return;
     const q = x.qc, E = x.EX, st = n => `${n} student${n === 1 ? '' : 's'}`;
     $('#a-qc').innerHTML = [
-      `<li><strong>Excluded before the analysis:</strong> ${st(E.any.size)} of ${x.allN} (low coverage ${E.lowCov.size}, extreme repetition ${E.extreme.size}, first-language inconsistency ${E.l1.size}; a student can meet more than one rule). Codes belong to a device, so a first-language inconsistency may not be an error.${E.l1NotZhUnchecked ? ` ${st(E.l1NotZhUnchecked)} gave a first language other than Chinese here but could not be cross-checked, and stay in the analysis.` : ''}</li>`,
+      `<li><strong>Excluded before the analysis:</strong> ${st(E.any.size)} of ${x.allN} (extreme repetition ${E.extreme.size}, first-language inconsistency ${E.l1.size}; a student can meet both rules). Not an exclusion: ${st(E.lowCov.size)} have fewer than 70% usable transitions in a language (see the coverage-threshold analysis). Codes belong to a device, so a first-language inconsistency may not be an error.${E.l1NotZhUnchecked ? ` ${st(E.l1NotZhUnchecked)} gave a first language other than Chinese here but could not be cross-checked, and stay in the analysis.` : ''}</li>`,
       `<li><strong>Missing language-background values</strong> among the analysed students (English age of acquisition, English use, overall self-ratings): ${st(q.missingBg)}.</li>`,
       `<li><strong>No usable transition of a required type</strong> among the analysed students (from a negative, or from a positive, answer in a language): ${st(q.noType)}.</li>`
     ].join('');
@@ -1116,7 +1146,7 @@
     // the main-test result: the changes between the three answers, with their CIs (the table beside it has the differences)
     const cl = e => clearCI(e) ? 'clear' : 'not clear';
     const detail = segs.map(s => `From answer ${s.a} to ${s.b} the English − Chinese gap changes by ${eTxt(s.g, s2)}, ${cl(s.g)}; Chinese answers change by ${eTxt(s.zh, s2)}, ${cl(s.zh)}, and English answers by ${eTxt(s.en, s2)}, ${cl(s.en)}.`).join(' ') + ' Changes are computed before rounding.';
-    return { w, pred, diff, d1, d5, d10, lead, values, diffs, gapSay, detail, label: `${values} ${diffs}` };
+    return { w, pred, diff, d1, d5, d10, segs, lead, values, diffs, gapSay, detail, label: `${values} ${diffs}` };
   }
   /* Response timing from the per-student medians (log seconds ~ language ×
      block + (1 | student)): each language's predicted time (geometric mean
@@ -1200,6 +1230,8 @@
     const st = smallTag(n);
     const RV = robustVerdicts();
     const T = okA ? transitionStory(fA) : null, J = okC ? trajectoryStory(fC, RV) : null, S = okB ? seedStory(fB, dSV, nPos, RV) : null;
+    const M3 = renderM3(x, J);
+    const TOx = timingStory(F.TOx), TTx = timingStory(F.TTx);
     const nA = okA && !T ? { ok: false, reason: 'dropped' } : fA, nC = okC && !J ? { ok: false, reason: 'dropped' } : fC, nB = okB && !S ? { ok: false, reason: 'dropped' } : fB;
     const emptyText = fA && fA.reason === 'separation' ? [...new Set(fA.empty.map(c => c.prev + c.next))].map(k => {
       const langs = fA.empty.filter(c => c.prev + c.next === k).map(c => c.lang);
@@ -1213,7 +1245,14 @@
       B: 'Being estimated: whether the starting word influences the chain differently in the two languages. This finding will give how much more positive chains that began with a positive rather than a negative starting word are at answer 1 and at answer 10 in each language, whether each of those gaps is clearly different from zero, and whether the gap differs between the languages at answer 1, shrinks at a different rate, or still differs at answer 10. The starting-word model takes a few seconds to fit.' };
     const waitLine = (f, k) => `<span class="muted">${!f ? FITTING[k] : whyNot(f)}${f && f.reason === 'separation' && emptyText ? ': ' + emptyText : ''}</span>`;
     $('#a-summary').innerHTML =
-      `<li><strong>Transitions.</strong> ${T ? `${T.lead} ${T.values}${T.explain ? ' ' + T.explain : ''} ${!RV ? '<span class="muted">Its robustness checks are still being fitted.</span>' : RV.trans === false ? 'This verdict is sensitive to modelling choices.' : RV.trans ? 'This verdict holds in all robustness checks.' : 'Too few runs yet to check its robustness.'}` : waitLine(nA, 'A')}</li>` +
+      `<li><strong>Transitions.</strong> ${T ? `${T.lead} ${T.values}${T.explain ? ' ' + T.explain : ''} ${!RV ? '<span class="muted">Its robustness checks are still being fitted.</span>' : RV.trans === false ? 'This verdict is sensitive to modelling choices.' : RV.trans ? 'This verdict holds in all robustness checks.' : 'Too few runs yet to check its robustness.'}` : waitLine(nA, 'A')}` +
+        // one sentence on the three-state model, only when its overall test is clear
+        (T && M3 && M3.clearO ? (M3.secondary
+          ? ` Separating a neutral state shows a language difference in the three-state transition pattern (${wTxt(M3.w)}), but it changes with the cut-points and a check without cut-points finds no clear difference, so it is treated as descriptive and secondary.`
+          : ` Separating a neutral state shows a language difference in the three-state transition pattern (${wTxt(M3.w)})${[M3.NP, M3.PP].filter(c => c.ok).map(c => `; ${c.say.replace(/\.$/, '').replace(/^./, ch => ch.toLowerCase())}`).join('')}${M3.cutsDiffer && M3.cutsDiffer.length ? '; this depends on the cut-points' : ''}` +
+            // and what the check without cut-points shows: a difference in shape, or only in level
+            (!M3.Q ? '.' : M3.Q.clear ? '; on the continuous scale the next answer’s valence also depends on the previous answer’s differently in the two languages.'
+              : clearCI(M3.Q.lvl) ? `; on the continuous scale, English next answers are ${M3.Q.lvl.est > 0 ? 'more' : 'less'} positive at the same previous valence (${s2(M3.Q.lvl.est)} points), with no clear difference in shape.` : '; on the continuous scale there is no clear language difference.')) : '') + `</li>` +
       `<li><strong>Trajectories.</strong> ${J ? `${J.lead} ${J.values} ${J.diffs}${J.gapSay ? ' ' + J.gapSay : ''}${RV && RV.traj === false ? ' This verdict is sensitive to modelling choices.' : ''}` : waitLine(nC, 'C')}</li>` +
       `<li><strong>Starting word.</strong> ${S ? `${S.lead} ${S.values} ${S.compare}${RV && RV.fade === false ? (RV.fadeDir === false ? ' The direction of the difference in how fast the gap changes is sensitive to modelling choices.' : ' The decay verdict is sensitive to modelling choices.') : ''}` : waitLine(nB, 'B')}</li>`;
     const rtE = ttE(rt.test), repE = ttE(repeat.test);
@@ -1247,13 +1286,17 @@
     [[TO, 'a-er-onset', 'Response onset'], [TT, 'a-er-total', 'Total response time']].forEach(([e, id, nm]) => { if (e) FC.estimate($('#' + id), { est: e.est, lo: e.lo, hi: e.hi, lim: tLim, clear: clearCI(e), label: `${nm}, English − Chinese in seconds, with 95% CI (same scale as the other timing row)` }); });
     $('#a-timing-say').innerHTML = !TO || !TT ? '' : [
       clearCI(TO) && clearCI(TT) && TO.est > 0 && TT.est > 0
-        ? `English answers were already slower to begin: ${s2(TO.est)} s at the first keystroke against ${s2(TT.est)} s by submission, so the onset difference is ${Math.round(100 * TO.est / TT.est)}% of the total (point estimates). This suggests that the English cost is not simply slower typing or response completion.`
+        ? `English answers were slower already at the first keystroke: ${s2(TO.est)} s at onset against ${s2(TT.est)} s by submission, so the onset difference is ${Math.round(100 * TO.est / TT.est)}% of the total (point estimates).` +
+          (!TOx || !TTx ? '' : ' ' + timingSensSay(TO, TT, TOx, TTx, x.tOut) + (clearCI(TOx) && clearCI(TTx) && TOx.est > 0 && TTx.est > 0 ? ' English responses are already slower before the first keystroke, so the total English cost is not simply due to slower typing or response completion.' : ' Without the extreme timing medians this pattern is not clear, so it is not interpreted further.'))
         : clearCI(TT) && !clearCI(TO) ? `English answers took longer to submit, with no clear language difference at the first keystroke.` : '',
       TO.block && TT.block ? (clearCI(TO.block.log) || clearCI(TT.block.log)
         ? `On average over the two languages, answers were ${TT.block.est < 1 ? 'faster' : 'slower'} in the second block (onset ${xr(TO.block.est)} [${TO.block.lo.toFixed(2)}, ${TO.block.hi.toFixed(2)}], total ${xr(TT.block.est)} [${TT.block.lo.toFixed(2)}, ${TT.block.hi.toFixed(2)}]); the language differences are estimated with the block in the model.`
         : 'On average over the two languages, there is no clear difference between the first and the second block.') : '',
-      TO.order && TT.order ? `${clearCI(TO.order.log) || clearCI(TT.order.log) ? 'The two order groups differ' : 'The two order groups did not clearly differ'} in overall speed (students who did Chinese first, relative to those who did English first: onset ${xr(TO.order.est)} [${TO.order.lo.toFixed(2)}, ${TO.order.hi.toFixed(2)}], total ${xr(TT.order.est)} [${TT.order.lo.toFixed(2)}, ${TT.order.hi.toFixed(2)}]).` : ''
+      TO.order && TT.order ? `${clearCI(TO.order.log) || clearCI(TT.order.log) ? 'The two order groups differ' : 'The two order groups did not clearly differ'} in overall speed (students who did Chinese first, relative to those who did English first: onset ${xr(TO.order.est)} [${TO.order.lo.toFixed(2)}, ${TO.order.hi.toFixed(2)}], total ${xr(TT.order.est)} [${TT.order.lo.toFixed(2)}, ${TT.order.hi.toFixed(2)}]).` : '',
+      // the sensitivity sentence sits with the onset sentence above when that one is shown
+      clearCI(TO) && clearCI(TT) && TO.est > 0 && TT.est > 0 && TOx && TTx ? '' : timingSensSay(TO, TT, TOx, TTx, x.tOut)
     ].filter(Boolean).join(' ');
+    renderTimingSens(TO, TT, TOx, TTx, x);
 
     // ---- A: the model-adjusted plot and its four results ----
     const box = (id, html) => { $(id).innerHTML = `<p class="empty">${html}</p>`; };
@@ -1366,7 +1409,8 @@
         : `With all ${x.allN} students (no exclusions), the primary conclusions are the same. `) : '';
       return `Robustness: ${dq}${parts.join('; ').replace(/^./, c => c.toUpperCase())}.`;
     })();
-    $('#a-dq-line').innerHTML = `${rob} ${x.dqText}`;
+    const CV = renderCov();
+    $('#a-dq-line').innerHTML = `${rob}${CV ? ` Requiring at least 50%, 60%, 70% or 80% usable transitions per student: ${CV.say.replace(/^./, c => c.toLowerCase())}` : ''} ${x.dqText}`;
 
     // ---- methods and full statistical output (collapsed) ----
     const fhost = $('#a-forest');
@@ -1395,6 +1439,13 @@
       trow('Follow-up: after a negative answer, English − Chinese', T && U(T.co.diff.N), pr2, 'probability', whyNot(nA), T && T.w) +
       trow('Follow-up: after a positive answer, English − Chinese', T && U(T.co.diff.P), pr2, 'probability', whyNot(nA), T && T.w) +
       trow('Additional: carry-over, English − Chinese', T && U(T.co.did), pr2, 'probability', whyNot(nA)) +
+      grp('A · Three-state transitions (multinomial model)') +
+      (() => { const mm = fastState.m3 && fastState.m3.ok && fastState.m3.m3, why = whyNot(fastState.m3), w = mm && m3W(mm.omni);
+        return wrow('Main test: overall three-state difference (the six language terms)', w, why) +
+          ['N', 'U', 'P'].map(a => wrow(`Follow-up: after a ${NM3[a]} answer (2 df)${mm ? `; Holm-adjusted ${LAB.fmtP(mm.rows[a].padj)}` : ''}`, mm && m3W(mm.rows[a]), why)).join('') +
+          trow('Contrast named in advance: negative → positive, English − Chinese', mm && U(mm.diff.N.P), pr2, 'probability', why, w) +
+          trow('Contrast named in advance: positive → positive, English − Chinese', mm && U(mm.diff.P.P), pr2, 'probability', why, w); })() +
+      (() => { const Q = c1qStory(F.C1Q); return wrow('Check without cut-points: language × previous valence and × previous valence² (curved continuous model)', Q && Q.w, whyNot(F.C1Q)); })() +
       grp('A · Continuous-valence check (linear model)') +
       trow('Language × previous valence', okC1 ? U(fC1.coefOf('Language × previous valence')) : null, s2, 'per point', whyNot(fC1)) +
       grp('B · Trajectories (linear model, quadratic in position)') +
@@ -1408,6 +1459,8 @@
       grp('C · Other behavioural differences') +
       trow('Response onset, English − Chinese (model of students’ medians)', TO, s2, 's', whyT(F.TO)) +
       trow('Total response time, English − Chinese (model of students’ medians)', TT, s2, 's', whyT(F.TT)) +
+      trow(`Sensitivity, onset without flagged medians (${x.tOut.onset.flagged.size} students)`, TOx, s2, 's', whyT(F.TOx)) +
+      trow(`Sensitivity, total without flagged medians (${x.tOut.total.flagged.size} students)`, TTx, s2, 's', whyT(F.TTx)) +
       trow('Second − first block, onset', TO && TO.block, xr, 'ratio', whyT(F.TO)) +
       trow('Second − first block, total', TT && TT.block, xr, 'ratio', whyT(F.TT)) +
       trow('Order groups (Chinese first ÷ English first), onset', TO && TO.order, xr, 'ratio', whyT(F.TO)) +
@@ -1425,10 +1478,14 @@
     const MODELS = [
       ['Transition model (logistic)', fA, 'logit P(next positive) ~ language * previous_state + seed_valence + position + block'],
       ['Continuous-valence check (linear)', fC1, 'next_valence ~ language * (previous_valence − 5) + seed_valence + position + block'],
+      ['Check without cut-points (curved, linear model)', F.C1Q, 'next_valence ~ language * (V + V^2) + seed_valence + position + block,  V = previous_valence − 5'],
       ['Trajectory model (linear)', fC, 'valence ~ language * (P + (P^2 − 8.25)) + seed_valence + block,  P = position − 5.5'],
       ['Starting-word model (linear)', fB, 'valence ~ language * seed_valence * log2(position) + block'],
       ['Response onset (linear, log seconds)', F.TO, 'log(median onset) ~ language * block', ' + (1 | student)'],
-      ['Total response time (linear, log seconds)', F.TT, 'log(median total) ~ language * block', ' + (1 | student)']
+      ['Total response time (linear, log seconds)', F.TT, 'log(median total) ~ language * block', ' + (1 | student)'],
+      ['Response onset, without flagged medians (linear, log seconds)', F.TOx, 'log(median onset) ~ language * block', ' + (1 | student)'],
+      ['Total response time, without flagged medians (linear, log seconds)', F.TTx, 'log(median total) ~ language * block', ' + (1 | student)'],
+      ['Three-state transition model (multinomial logit)', fastState.m3, 'log[P(next = k) / P(next = negative)] ~ language * previous_state3 + seed_valence + position + block,  k = neutral, positive', ' + (1 | student) + (1 | seed) + (1 | chain), each a pair over k with an unstructured covariance']
     ];
     $('#a-models').innerHTML = MODELS.map(([ttl, f, formula, re]) => `<h4 class="model-h">${ttl}</h4><p class="small muted"><code>${formula}${re || ' + (1 | student) + (1 | seed) + (1 | chain)'}</code></p>` +
       (!f || !f.ok ? `<p class="small">${whyNot(f)}.</p>` :
@@ -1436,16 +1493,322 @@
         `<th class="num sep" scope="col">${f.kind === 'lmm' ? '<i>t</i> (df)' : '<i>z</i>'}</th><th class="num" scope="col"><i>p</i></th></tr></thead><tbody>` +
         f.coef.map(c => `<tr><th scope="row">${c.name}</th><td class="num">${b3(c.b)}</td><td class="num">${c.se.toFixed(3)}</td><td class="num">${b3(c.ci[0])} to ${b3(c.ci[1])}</td>` +
           `<td class="num sep">${b2(c.stat)}${c.df ? ` (${dfShow(c.df)})` : ''}</td>${pCell(c)}</tr>`).join('') +
-        `<tr class="group"><th scope="rowgroup" colspan="6"><span class="stick">Random intercepts (SD) · ${f.n.toLocaleString('en-US')} ${f === fA || f === fC1 ? 'transitions' : f === F.TO || f === F.TT ? 'student medians' : 'answers'}${f.kind === 'lmm' ? ` · residual SD ${f.sigma.toFixed(2)}` : ''}</span></th></tr>` +
-        f.groupNames.map((g, i) => `<tr><th scope="row">${g}s (${f.nLevels[i]})</th><td class="num">${f.sd[i].toFixed(3)}</td><td colspan="4"></td></tr>`).join('') + '</tbody></table></div>')).join('');
+        `<tr class="group"><th scope="rowgroup" colspan="6"><span class="stick">Random intercepts (SD) · ${f.n.toLocaleString('en-US')} ${f === fA || f === fC1 || f === F.C1Q || f.kind === 'mglmm' ? 'transitions' : [F.TO, F.TT, F.TOx, F.TTx].includes(f) ? 'student medians' : 'answers'}${f.kind === 'lmm' ? ` · residual SD ${f.sigma.toFixed(2)}` : ''}</span></th></tr>` +
+        (f.kind === 'mglmm' ? f.re.map((r, i) => `<tr><th scope="row">${r.name}s (${f.nLevels[i]})</th><td class="num" colspan="5">SD ${r.sd.map(v => v.toFixed(3)).join(' (neutral) and ')} (positive); correlation ${isFinite(r.corr) ? b2(r.corr) : '–'}</td></tr>`).join('')
+          : f.groupNames.map((g, i) => `<tr><th scope="row">${g}s (${f.nLevels[i]})</th><td class="num">${f.sd[i].toFixed(3)}</td><td colspan="4"></td></tr>`).join('')) + '</tbody></table></div>')).join('');
     if ($('#a-robust-more').open) renderRobust();
     syncScrollers();
   }
 
+  /* ---------- three-state transitions (multinomial model) ----------
+     A: the omnibus test of the language terms; B: after each previous state, a
+     2-df test, Holm-adjusted across the three; C: the two contrasts named in
+     advance, negative → positive and positive → positive. A contrast is said
+     to differ only when its CI excludes 0, its row's adjusted test is clear
+     and the omnibus test is clear; otherwise the estimates are given. */
+  const NM3 = { N: 'negative', U: 'neutral', P: 'positive' };
+  const m3W = o => o && isFinite(o.p) ? { q: o.df, chi2: o.chi2, p: o.p, kind: 'chi2' } : null;
+  const CUTS = [['c40', 4.0, 6.0, '4.0 / 6.0'], ['c45', 4.5, 5.5, '4.5 / 5.5']];
+  const M3V = [['omni', 'the overall test', mm => clearW(m3W(mm.omni))],
+    ['N', 'the test after a negative answer', mm => mm.rows.N.padj < 0.05], ['U', 'the test after a neutral answer', mm => mm.rows.U.padj < 0.05], ['P', 'the test after a positive answer', mm => mm.rows.P.padj < 0.05],
+    ['NP', 'the negative → positive contrast', mm => clearCI(mm.diff.N.P)], ['PP', 'the positive → positive contrast', mm => clearCI(mm.diff.P.P)]];
+  const m3Changes = (mm, main) => M3V.filter(([, , f]) => f(mm) !== f(main)).map(([k, name, f]) => ({ k, name, clear: f(mm) }));
+  function m3Story(m) {
+    const w = m3W(m.omni), clearO = clearW(w), adj = s => m.rows[s] ? m.rows[s].padj : NaN;
+    const rowOK = s => isFinite(adj(s)) && adj(s) < 0.05;
+    const pr = (l, a, b) => m.prob[l][a][b].est, d = (a, b) => U(m.diff[a][b]);
+    const lead = clearO ? 'The three-state transition pattern differs between Chinese and English.' : 'There is no clear overall language difference in the three-state transition pattern.';
+    const clearRows = ['N', 'U', 'P'].filter(rowOK), otherRows = ['N', 'U', 'P'].filter(s => !rowOK(s));
+    const rowsSay = !clearRows.length ? 'Taken one previous state at a time, none shows a clear language difference in where the next answer goes (Holm-adjusted).'
+      : `After a ${orList(clearRows.map(s => NM3[s]))} answer, the distribution of the next state differs by language (Holm-adjusted)${otherRows.length ? `; after a ${orList(otherRows.map(s => NM3[s]))} answer there is no clear difference` : ''}.` +
+        (clearO ? '' : ' The overall test is not clear, so this is not evidence of a language difference on its own.');
+    const rowStat = ['N', 'U', 'P'].map(s => m.rows[s] ? `after a ${NM3[s]} answer χ²(2) = ${m.rows[s].chi2.toFixed(2)}, ${LAB.fmtP(m.rows[s].p)} (Holm-adjusted ${LAB.fmtP(m.rows[s].padj)})` : '').filter(Boolean).join('; ');
+    // a contrast and, when it is supported, its complement in the same row
+    const cell = (a, b, verb, comp, compVerb) => {
+      const e = d(a, b), en = pr('en', a, b), zh = pr('zh', a, b), ok = clearO && rowOK(a) && clearCI(e);
+      const c = d(a, comp), compSay = ok && clearCI(c) ? ` and ${compVerb} ${c.est > 0 ? 'more' : 'less'} often (${p2(pr('en', a, comp))} vs ${p2(pr('zh', a, comp))})` : '';
+      const name = `${cap(NM3[a])} → ${NM3[b]}`;
+      const say = ok ? `After a ${NM3[a]} answer, English ${verb} ${e.est > 0 ? 'more' : 'less'} often than Chinese (${p2(en)} vs ${p2(zh)})${compSay}.`
+        : clearCI(e) ? `${name}: English ${p2(en)}, Chinese ${p2(zh)}. The difference’s CI excludes zero, but ${!clearO ? 'the overall test is not clear' : `the test after a ${NM3[a]} answer is not clear after adjustment`}, so this is not evidence of a language difference on its own.`
+        : `${name}: English ${p2(en)}, Chinese ${p2(zh)}; no clear language difference.`;
+      return { e, ok, say, name, stat: `English − Chinese ${eTxt(e, pr2)}; ${statTxt(e)}` };
+    };
+    const NP = cell('N', 'P', 'moves to a positive state', 'N', 'stays negative'), PP = cell('P', 'P', 'stays in a positive state', 'U', 'moves to a neutral state');
+    return { w, clearO, lead, rowsSay, rowStat, NP, PP, rowOK };
+  }
+  /* The check without cut-points: next valence as a curve of previous valence
+     (linear and squared, centred at 5), by language. Its test is the joint
+     test of the two language × previous-valence terms (a difference in shape);
+     the language term is the level difference at a previous valence of 5. */
+  function c1qStory(f) {
+    if (!f || !f.ok) return null;
+    const w = f.wald(['Language × previous valence', 'Language × previous valence²']), lvl = U(f.coefOf(LANGT));
+    if (!w || !lvl) return null;
+    const cv = { '(Intercept)': 1, 'Seed valence (per point)': cm(f, 'Seed valence (per point)'), 'Position (per step)': cm(f, 'Position (per step)'), 'Block (second − first)': cm(f, 'Block (second − first)') };
+    const pred = (L, v) => U(f.contrast(Object.assign({ [LANGT]: L, 'Previous valence (per point)': v - 5, 'Previous valence²': (v - 5) * (v - 5), 'Language × previous valence': L * (v - 5), 'Language × previous valence²': L * (v - 5) * (v - 5) }, cv)));
+    const say = clearW(w) ? 'The two curves differ in shape: the next answer’s valence depends on the previous answer’s differently in Chinese and English.'
+      : 'No clear language difference in how the next answer’s valence depends on the previous answer’s: the two curves do not clearly differ in shape.';
+    const level = clearCI(lvl) ? ` At a previous valence of 5 the next answer is ${s2(lvl.est)} points ${lvl.est > 0 ? 'more' : 'less'} positive in English (a difference in level, not in shape).` : '';
+    return { w, lvl, pred, say: say + level, clear: clearW(w) };
+  }
+  function renderC1Q(x, Q) {
+    const f = fastState.fits.C1Q;
+    if (!Q) { $('#a-c1q').innerHTML = `<p class="empty">${dot(whyNot(f))}</p>`; $('#a-res-c1q').innerHTML = pending(f); return; }
+    $('#a-res-c1q').innerHTML = res('Check without cut-points', Q.say, `Joint test of Language × previous valence and Language × previous valence²: ${wTxt(Q.w)}; English − Chinese at a previous valence of 5: ${eTxt(Q.lvl, s2, 'points')}${smallTag(x.n)}`, 'primary');
+    const series = {};
+    ['zh', 'en'].forEach(l => {
+      const L = l === 'en' ? 0.5 : -0.5, line = [];
+      for (let v = 1; v <= 9 + 1e-9; v += 0.25) { const c = Q.pred(L, v); line.push({ x: v, y: c.est, lo: c.lo, hi: c.hi }); }
+      const dots = [];
+      for (let b = 1; b <= 9; b++) { const ys = x.tr2.filter(t => t.lang === l && Math.round(t.prevV) === b).map(t => t.nextV); if (ys.length >= 10) dots.push({ x: b, y: LAB.mean(ys), n: ys.length }); }
+      series[l] = { line, dots };
+    });
+    FC.lines($('#a-c1q'), { series, faint: true, xDomain: [1, 9], xTicks: [1, 2, 3, 4, 5, 6, 7, 8, 9], xLabel: 'Previous answer’s valence',
+      yStep: 1, yFmt: v => String(Math.round(v)), yRef: 5, yFloor: 1, yCeil: 9, yLabel: 'Next answer’s valence',
+      dotTitle: (l, d) => `${LANG_NAME[l]}, observed: previous answers rated about ${d.x}, next answer ${d.y.toFixed(2)} on average (${d.n} transitions)`,
+      lineTitle: l => `${LANG_NAME[l]}, model-adjusted curve`,
+      label: `Next answer’s valence as a curve of the previous answer’s valence, model-adjusted, by language. ${Q.say}` });
+  }
+  /* Leave one starting word out: the three-state model refitted without each
+     starting word in turn (fitted when its section is opened). Only ranges and
+     counts are shown, never which word. */
+  function runLoso() {
+    const key = fastState.fitKey, M = fastState.m3, x = fastState.ctx;
+    if (!x || !M || !M.ok || fastState.m3Key !== key) { renderLoso(); return; }
+    if (fastState.loso && fastState.loso.key === key) { renderLoso(); return; }
+    const seeds = [...new Set(x.tr3.map(t => t.seed))].sort();
+    const L = { key, fits: {}, total: seeds.length, done: 0 };
+    fastState.loso = L;
+    const lanes = [[], [], [], []];
+    seeds.forEach((sd, i) => lanes[i % 4].push({ key: 'loso:' + sd, model: 'M3', tr: x.tr3.filter(t => t.seed !== sd), start: M.theta }));
+    lanes.forEach((jobs, i) => fitJobs('loso:' + i, jobs, (k, f) => { if (fastState.loso !== L) return; L.fits[k.slice(5)] = f; L.done++; renderLoso(); }));
+    renderLoso();
+  }
+  function renderLoso() {
+    const L = fastState.loso, M = fastState.m3, st = $('#a-m3-loso-status');
+    if (!M || !M.ok || !L || L.key !== fastState.fitKey) {
+      st.textContent = !M ? 'Waits for the three-state model.' : !M.ok ? 'The three-state model could not be estimated.' : $('#a-m3-loso-more').open ? 'Starting…' : '';
+      $('#a-m3-loso').innerHTML = ''; $('#a-m3-loso-note').textContent = ''; return;
+    }
+    const fin = L.done >= L.total, m = M.m3;
+    st.textContent = fin ? 'All refits done.' : `Fitting… ${L.done} of ${L.total}`;
+    st.classList.toggle('visually-hidden', fin);
+    const fits = Object.values(L.fits).filter(f => f && f.ok && f.m3).map(f => f.m3), bad = L.done - fits.length;
+    const mainO = clearW(m3W(m.omni));
+    const rows = [
+      ['Overall test, χ²(6)', mm => mm.omni.chi2, v => v.toFixed(2), mm => clearW(m3W(mm.omni)), mm => mm.omni.p],
+      ['Negative → positive, E − C', mm => mm.diff.N.P.est, pr2, mm => clearCI(mm.diff.N.P), mm => mm.diff.N.P.p],
+      ['Positive → positive, E − C', mm => mm.diff.P.P.est, pr2, mm => clearCI(mm.diff.P.P), mm => mm.diff.P.P.p],
+      // the claim about positive → positive also rests on this test
+      ['Test after a positive answer, Holm-adjusted <i>p</i>', mm => mm.rows.P.padj, v => LAB.fmtPval(v), mm => mm.rows.P.padj < 0.05, null]
+    ];
+    const lo = (g, fmt) => fits.length ? `${fmt(Math.min(...fits.map(g)))} to ${fmt(Math.max(...fits.map(g)))}` : '–';
+    $('#a-m3-loso').innerHTML = `<thead><tr><th scope="col">Result</th><th class="num" scope="col">Main analysis</th><th class="num sep" scope="col">Across the refits</th><th class="num" scope="col">Same verdict</th></tr></thead><tbody>` +
+      rows.map(([name, g, fmt, ok, pv]) => `<tr><th scope="row">${name}</th><td class="num">${fmt(g(m))}${pv ? ` <span class="rp">${LAB.fmtP(pv(m))}</span>` : ''}</td>` +
+        `<td class="num sep">${lo(g, fmt)}${pv ? ` <span class="rp">${fits.length ? `<i>p</i> ${LAB.fmtPval(Math.min(...fits.map(pv)))} to ${LAB.fmtPval(Math.max(...fits.map(pv)))}` : ''}</span>` : ''}</td>` +
+        `<td class="num">${fits.length ? `${fits.filter(mm => ok(mm) === ok(m)).length} of ${fits.length}` : '–'}</td></tr>`).join('') + '</tbody>';
+    const flipO = fits.filter(mm => clearW(m3W(mm.omni)) !== mainO).length, flipP = fits.filter(mm => (mm.rows.P.padj < 0.05) !== (m.rows.P.padj < 0.05)).length;
+    const say = !fin ? '' : `${!fits.length ? 'No refit could be estimated.' : flipO ? `Leaving out one starting word changes the overall verdict in ${flipO} of ${fits.length} refits.` : `Leaving out any one starting word keeps the overall verdict (${mainO ? 'clear' : 'not clear'}) in all ${fits.length} refits.`}${bad ? ` ${bad} refit${bad > 1 ? 's' : ''} could not be estimated.` : ''}`;
+    $('#a-m3-loso-note').innerHTML = `Same verdict: a clear omnibus test (<i>p</i> &lt; .05), a contrast whose CI excludes zero, or an adjusted <i>p</i> below .05, as in the main analysis. ${say}${fin && flipP ? ` The test after a positive answer, which the positive → positive statement also needs, changes verdict in ${flipP} of ${fits.length} refits, so that statement depends on the particular set of starting words.` : ''}`;
+    $('#a-m3-loso-sum').textContent = !fin ? `: fitting ${L.done} of ${L.total}` : !fits.length ? '' : flipO ? `: the overall verdict changes in ${flipO} of ${fits.length} refits` : `: the same overall verdict in all ${fits.length} refits`;
+  }
+  // The share of each language's scored answers in each state, under the main and the alternative cut-points and equating.
+  function renderStateShares(parts) {
+    const pct = FA.relink(parts, FA.percentileLink(fastState.norms));
+    const share = (ps, st) => { const o = {}; ['zh', 'en'].forEach(l => { const v = ps.flatMap(Pp => Pp.chains.filter(c => c.lang === l).flatMap(c => c.answers.map(a => st(a.valence)))).filter(Boolean);
+      o[l] = { n: v.length }; FA.STATES3.forEach(k => { o[l][k] = v.length ? v.filter(x => x === k).length / v.length : NaN; }); }); return o; };
+    const R = [['Linear equating, 4.2 / 5.8 (main)', share(parts, FA.state3)], ['Percentile equating, 4.2 / 5.8', share(pct, FA.state3)], ['Linear equating, 4.0 / 6.0', share(parts, FA.state3cuts(4, 6))], ['Linear equating, 4.5 / 5.5', share(parts, FA.state3cuts(4.5, 5.5))]];
+    $('#a-m3-props').innerHTML = `<caption class="tbl-cap">Share of scored answers in each state</caption><thead><tr><th scope="col" rowspan="2">States from</th><th scope="colgroup" colspan="3" class="sep">Chinese</th><th scope="colgroup" colspan="3" class="sep">English</th></tr>` +
+      `<tr>${'<th class="num sep" scope="col">Neg.</th><th class="num" scope="col">Neutral</th><th class="num" scope="col">Pos.</th>'.repeat(2)}</tr></thead><tbody>` +
+      R.map(([name, o]) => `<tr><th scope="row">${name}</th>${['zh', 'en'].map(l => FA.STATES3.map((k, i) => `<td class="num${i ? '' : ' sep'}">${pct1(o[l][k])}</td>`).join('')).join('')}</tr>`).join('') + '</tbody>';
+    const m = R[0][1], q = R[1][1];
+    $('#a-m3-props-note').textContent = `Descriptive. Every scored answer, wherever it sits in a chain (${m.zh.n.toLocaleString('en-US')} Chinese, ${m.en.n.toLocaleString('en-US')} English); unscored answers are in no state, and an unscored answer removes the transitions on either side of it in both analyses. Under the main cut-points, ${pct1(m.zh.U)} of Chinese and ${pct1(m.en.U)} of English answers are neutral; percentile equating changes only the Chinese values (neutral ${pct1(q.zh.U)}).`;
+  }
+  function renderM3(x, J) {
+    const f = fastState.m3, m = f && f.ok && f.m3, X = fastState.extras, st = smallTag(x.n), Q = c1qStory(fastState.fits.C1Q);
+    renderC1Q(x, Q);
+    renderLoso();
+    if (!m) {
+      $('#a-m3-sum').textContent = !f ? ': still being fitted' : `: ${whyNot(f).toLowerCase()}`;
+      $('#a-res-m3').innerHTML = pending(f); $('#a-m3').innerHTML = `<p class="empty">${dot(whyNot(f))}</p>`;
+      $('#a-m3-table').innerHTML = ''; $('#a-m3-table-note').textContent = ''; $('#a-m3-cuts').innerHTML = ''; $('#a-m3-cuts-note').textContent = ''; $('#a-m3-cuts-sum').textContent = '';
+      return null;
+    }
+    const M = m3Story(m);
+    $('#a-m3-sum').innerHTML = `: ${M.clearO ? 'differs by language' : 'no clear overall language difference'} (${wTxt(M.w)})`;
+    FC.dest3($('#a-m3'), { prob: m.prob, label: `Model-adjusted three-state transition probabilities. ${['N', 'U', 'P'].map(a => `After a ${NM3[a]} answer, next negative, neutral, positive: Chinese ${['N', 'U', 'P'].map(b => p2(m.prob.zh[a][b].est)).join(', ')}; English ${['N', 'U', 'P'].map(b => p2(m.prob.en[a][b].est)).join(', ')}`).join('. ')}.` });
+    // the cut-point checks, once fitted
+    const cutF = X && X.key === fastState.fitKey ? X.cuts : {};
+    const cutW = CUTS.map(([k, lo, hi, label]) => { const f = cutF[k], mm = f && f.ok && f.m3; return { label, f, mm, w: mm ? m3W(mm.omni) : null, ch: mm ? m3Changes(mm, m) : [] }; });
+    const cutsDone = cutW.every(c => c.f), cutsDiffer = cutW.filter(c => c.w && clearW(c.w) !== M.clearO), anyCh = cutW.some(c => c.ch.length);
+    const cutSay = !cutsDone ? 'The same model with other cut-points is being fitted.' :
+      cutW.map(c => !c.mm ? `At ${c.label} the model could not be estimated.` : `At ${c.label} (overall ${wTxt(c.w)}), ${c.ch.length ? andList(c.ch.map(x => `${x.name} ${x.clear ? 'becomes clear' : 'is no longer clear'}`)) : 'every verdict is the same as at 4.2 / 5.8'}.`).join(' ') +
+      (cutsDiffer.length ? ' So the overall three-state verdict depends on where the neutral band is drawn.' : anyCh ? ' The overall verdict is the same, but some follow-up verdicts depend on the cut-points.' : '');
+    // the robustness checks, once fitted
+    const R3 = X && X.key === fastState.fitKey ? X.r3 : {}, RK = [['all', 'with all students'], ['nochain', 'without chain intercepts'], ['slopes', 'with by-student language slopes'], ['percentile', 'with percentile equating']];
+    const r3Done = RK.every(([k]) => R3[k]), r3W = RK.map(([k, t]) => ({ t, f: R3[k], w: R3[k] && R3[k].ok && R3[k].m3 ? m3W(R3[k].m3.omni) : null }));
+    // threshold-sensitive: no clear difference without cut-points, and some verdict changes with them
+    const secondary = !!Q && !Q.clear && cutsDone && anyCh;
+    const r3Say = !r3Done ? 'Its robustness checks are being fitted.' : (() => {
+      const est = r3W.filter(c => c.w), no = r3W.filter(c => !c.w), diff = est.filter(c => clearW(c.w) !== M.clearO);
+      const same = est.filter(c => clearW(c.w) === M.clearO);
+      return (est.length ? (diff.length ? `In the robustness checks the overall verdict ${same.length ? `is the same ${andList(same.map(c => c.t))}, but it ` : ''}changes ${andList(diff.map(c => `${c.t} (${wTxt(c.w)})`))}` : `The overall verdict is the same in ${est.length === RK.length ? 'all four' : `the ${est.length} estimable`} robustness checks`) : 'No robustness check could be estimated') +
+        (no.length ? `; ${andList(no.map(c => c.t))}: could not be estimated` : '') + '.';
+    })();
+    $('#a-res-m3').innerHTML =
+      res('Main test', `<span class="r-lead">${M.lead}</span>`, `Joint test of the six language terms (both logits): ${wTxt(M.w)}${st}`, 'primary') +
+      res('Follow-up, by previous state', M.rowsSay, M.rowStat + st) +
+      res('Contrast named in advance', M.NP.say, M.NP.stat + st) +
+      res('Contrast named in advance', M.PP.say, M.PP.stat + st) +
+      res('Sensitivity', `${cutSay} ${r3Say}`, '') +
+      (Q ? res('Check without cut-points', Q.say, `${wTxt(Q.w)} (see below)`) : '') +
+      (secondary ? res('Conclusion', `The check without cut-points finds no clear language difference in the shape of the transitions, while the three-state verdicts change with the cut-points. The three-state evidence is therefore threshold-sensitive and is treated as descriptive and secondary.`, '') : '') +
+      (() => {   // the bridge to the trajectory result, only when every part of it is supported
+        const seg = J && J.segs && J.segs[1], laterZh = seg && clearW(J.w) && clearCI(seg.g) && clearCI(seg.zh) && !clearCI(seg.en);
+        const pat = [M.NP.ok && M.NP.e.est > 0 && 'more moves from a negative to a positive state', M.PP.ok && M.PP.e.est > 0 && 'more positive persistence'].filter(Boolean);
+        return M.clearO && pat.length && laterZh && !cutsDiffer.length ? res('Interpretation', `The three-state transitions may help describe how the broader trajectories develop: English shows ${andList(pat)}, while Chinese continues changing in mean valence later in the chain. This describes; it does not show that the transitions produce the trajectories.`, '') : '';
+      })();
+    // numbers
+    const ci = e => `<span class="ci">[${p2(e.lo)}, ${p2(e.hi)}]</span>`;
+    $('#a-m3-table').innerHTML = `<caption class="tbl-cap">Model-adjusted three-state transition probabilities</caption><thead><tr><th scope="col">Next state</th><th class="num" scope="col">Chinese</th><th class="num" scope="col">English</th><th class="num sep" scope="col">English − Chinese</th></tr></thead><tbody>` +
+      ['N', 'U', 'P'].map(a => `<tr class="group"><th scope="rowgroup" colspan="4"><span class="stick">After a ${NM3[a]} answer · χ²(2) = ${m.rows[a].chi2.toFixed(2)}, ${LAB.fmtP(m.rows[a].p)}, Holm-adjusted ${LAB.fmtP(m.rows[a].padj)}</span></th></tr>` +
+        ['N', 'U', 'P'].map(b => { const e = m.diff[a][b], key = (a === 'N' && b === 'P') || (a === 'P' && b === 'P');
+          return `<tr><th scope="row">${cap(NM3[b])}${key ? ' <small class="muted">(named in advance)</small>' : ''}</th><td class="num">${p2(m.prob.zh[a][b].est)}${ci(m.prob.zh[a][b])}</td><td class="num">${p2(m.prob.en[a][b].est)}${ci(m.prob.en[a][b])}</td>` +
+            `<td class="num sep${clearCI(e) ? ' r-sig' : ''}"><strong>${pr2(e.est)}</strong><span class="ci">[${fine(pr2, e.lo)}, ${fine(pr2, e.hi)}]</span>${key ? `<span class="rp">${LAB.fmtP(e.p)}</span>` : ''}</td></tr>`; }).join('')).join('') + '</tbody>';
+    $('#a-m3-table-note').innerHTML = `Model-adjusted probabilities with 95% CIs; within each previous state the three sum to 1 in each language. Group rows: the joint test of the language difference after that previous state (χ², 2 df) and its Holm-adjusted <i>p</i> across the three. <i>p</i> is shown only for the two contrasts named in advance. ${m.n.toLocaleString('en-US')} transitions.`;
+    // cut-point table
+    // bold: clear; "clear here" / "not clear here": a verdict that differs from the main cut-points
+    const cutRow = (label, mm, note) => {
+      if (!mm) return `<tr><th scope="row">${label}</th><td colspan="6" class="muted">${note}</td></tr>`;
+      const ch = mm === m ? [] : m3Changes(mm, m), flip = k => { const c = ch.find(x => x.k === k); return c ? `<span class="flip">${c.clear ? 'clear here' : 'not clear here'}</span>` : ''; };
+      const bold = (on, t) => on ? `<b>${t}</b>` : t;
+      return `<tr><th scope="row">${label}</th><td class="num${clearW(m3W(mm.omni)) ? ' r-sig' : ''}">${bold(clearW(m3W(mm.omni)), mm.omni.chi2.toFixed(2))}<span class="rp">${LAB.fmtP(mm.omni.p)}</span>${flip('omni')}</td>` +
+        ['N', 'U', 'P'].map(a => `<td class="num${mm.rows[a].padj < 0.05 ? ' r-sig' : ''}">${bold(mm.rows[a].padj < 0.05, LAB.fmtPval(mm.rows[a].padj))}${flip(a)}</td>`).join('') +
+        [['N', 'P', 'NP'], ['P', 'P', 'PP']].map(([a, b, k]) => { const e = mm.diff[a][b]; return `<td class="num${clearCI(e) ? ' r-sig' : ''}">${bold(clearCI(e), pr2(e.est))} <span class="rci">[${fine(pr2, e.lo)}, ${fine(pr2, e.hi)}]</span>${flip(k)}</td>`; }).join('') + '</tr>';
+    };
+    $('#a-m3-cuts').innerHTML = `<thead><tr><th scope="col">Cut-points</th><th class="num" scope="col">Overall χ²(6)</th><th class="num" scope="col">After neg. (Holm <i>p</i>)</th><th class="num" scope="col">After neutral</th><th class="num" scope="col">After pos.</th><th class="num sep" scope="col">Neg. → pos., E − C</th><th class="num" scope="col">Pos. → pos., E − C</th></tr></thead><tbody>` +
+      cutRow('4.2 / 5.8 (main)', m) + cutW.map(c => cutRow(c.label, c.f && c.f.ok ? c.f.m3 : null, !c.f ? 'Being fitted…' : `${whyNot(c.f)}.`)).join('') + '</tbody>';
+    $('#a-m3-cuts-note').innerHTML = `Each row is the same model with its own neutral band (negative below the first value, positive from the second). Bold: clear (omnibus <i>p</i> &lt; .05, Holm-adjusted <i>p</i> &lt; .05, or a CI excluding zero); “clear here” / “not clear here”: the verdict differs from 4.2 / 5.8. ${cutsDone ? cutSay : ''}`;
+    $('#a-m3-cuts-sum').textContent = !cutsDone ? '' : cutsDiffer.length ? ': the overall verdict depends on the cut-points' : anyCh ? ': some follow-up verdicts depend on the cut-points' : ': the same verdicts';
+    return Object.assign(M, { cutsDiffer, cutsDone, secondary, Q });
+  }
+
+  /* ---------- timing: with and without the medians the robust rule flags ---------- */
+  // One sentence: do the language differences keep their verdicts without the flagged medians? (The counts and intervals are in the fold.)
+  function timingSensSay(TO, TT, TOx, TTx, O) {
+    if (!TO || !TT) return '';
+    const nf = { onset: O.onset.flagged.size, total: O.total.flagged.size };
+    if (!nf.onset && !nf.total) return 'The prespecified robust timing rule flags no student’s median.';
+    if ((nf.onset && !TOx) || (nf.total && !TTx)) return 'The timing models without the medians flagged by the robust timing rule are being fitted.';
+    const both = [[TO, TOx, 'onset'], [TT, TTx, 'total']].filter(([, , nm]) => nf[nm]);
+    const S = '\u00a0s', nums = both.map(([a, b, nm]) => `${nm} ${s2(b.est)}${S} (${xr(b.lang.est)}), against ${s2(a.est)}${S} with everyone`).join('; ');
+    const flagged = `flagged: ${andList(both.map(([, , nm]) => `${nf[nm]} student${nf[nm] === 1 ? '' : 's'} for ${nm}`))}`;
+    const kept = both.every(([a, b]) => clearCI(a) && clearCI(b) && a.est > 0 && b.est > 0);
+    const flips = both.filter(([a, b]) => clearCI(a) !== clearCI(b)).map(([, , nm]) => nm);
+    return kept ? `English responses remained slower after excluding extreme timing observations (${flagged}): ${nums}.`
+      : `Without the extreme timing observations (${flagged}): ${nums}${flips.length ? `; the ${andList(flips)} difference changes verdict` : ''}.`;
+  }
+  function renderTimingSens(TO, TT, TOx, TTx, x) {
+    const O = x.tOut, ci = e => `<span class="ci">[${e.lo.toFixed(2)}, ${e.hi.toFixed(2)}]</span>`;
+    const row = (label, e, n) => !e ? `<tr><th scope="row">${label}</th><td colspan="8" class="muted">Being fitted…</td></tr>` :
+      `<tr><th scope="row">${label}</th><td class="num">${n}</td><td class="num">${b2(e.zh)}</td><td class="num">${b2(e.en)}</td>` +
+      `<td class="num sep${clearCI(e) ? ' r-sig' : ''}"><strong>${s2(e.est)}</strong><span class="ci">[${s2(e.lo)}, ${s2(e.hi)}]</span></td><td class="num">${xr(e.lang.est)}${ci(e.lang)}</td><td class="num">${LAB.fmtPval(e.p)}</td>` +
+      `<td class="num sep">${xr(e.block.est)}${ci(e.block)}</td><td class="num">${xr(e.order.est)}${ci(e.order)} <span class="rp">${LAB.fmtP(e.order.p)}</span></td></tr>`;
+    $('#a-tsens').innerHTML = `<thead><tr><th scope="col">Model</th><th class="num" scope="col">Students</th><th class="num" scope="col">Chinese (s)</th><th class="num" scope="col">English (s)</th><th class="num sep" scope="col">English − Chinese (s)</th><th class="num" scope="col">Ratio</th><th class="num" scope="col"><i>p</i></th><th class="num sep" scope="col">Block, second ÷ first</th><th class="num" scope="col">Order groups (language × block)</th></tr></thead><tbody>` +
+      ['onset', 'total'].map(m => { const all = m === 'onset' ? TO : TT, sub = m === 'onset' ? TOx : TTx, nf = O[m].flagged.size, Nm = cap(m);
+        return row(`${Nm}, all analysed students`, all, O[m].n) + (nf ? row(`${Nm}, without the ${nf} flagged`, sub, O[m].n - nf) : `<tr><th scope="row">${Nm}: no value flagged</th><td colspan="8" class="muted">The sensitivity model is the primary model.</td></tr>`); }).join('') + '</tbody>';
+    const desc = m => ['zh', 'en'].filter(l => O[m].byLang[l].flagged).map(l => { const b = O[m].byLang[l]; return `${b.flagged} ${LANG_NAME[l]} median${b.flagged > 1 ? 's' : ''} (${b.slow === b.flagged ? 'slow' : !b.slow ? 'fast' : `${b.slow} slow, ${b.flagged - b.slow} fast`})`; }).join(' and ') || 'none';
+    $('#a-tsens-note').innerHTML = `Flagged values: onset ${desc('onset')}; total ${desc('total')}. ` + 'The same model in every row: log(median time) ~ language × block + (1 | student). Chinese and English: predicted times (geometric means over students); ratio: English ÷ Chinese; order groups: Chinese-first ÷ English-first, from the language × block term. Flagged: |robust <i>z</i>| &gt; 3.5 on a log median in either language (see Methods). Flagged students stay in every other analysis.';
+    $('#a-tsens-method').textContent = `In this class: ${O.onset.flagged.size} student${O.onset.flagged.size === 1 ? '' : 's'} flagged for onset and ${O.total.flagged.size} for total time, of ${O.onset.n} and ${O.total.n}${['onset', 'total'].some(m => ['zh', 'en'].some(l => O[m].byLang[l].method !== 'mad')) ? '; the fences were used where MAD was 0' : ''}.`;
+  }
+
+  /* ---------- after the main fits and the three-state model: their checks ----------
+     The three-state model with other cut-points and in the robustness checks,
+     and the primary models and the three-state model with other coverage
+     thresholds (the repetition and first-language rules kept). Each
+     three-state fit starts from the main fit's covariance parameters. */
+  const COVTH = [0.5, 0.6, 0.7, 0.8];
+  function coverageSample(th) {
+    const all = fastState.allParts, E = fastState.excl, per = FA.perParticipant(all);
+    return all.filter((Pp, i) => !E.extreme.has(Pp.key) && !E.l1.has(Pp.key) && (th <= 0 || ['zh', 'en'].every(l => per[i].lang[l].possible > 0 && per[i].lang[l].valid / per[i].lang[l].possible >= th)));
+  }
+  function runExtras() {
+    const key = fastState.fitKey, F = fastState.fits, M = fastState.m3;
+    if (!fastState.norms || !fastState.parts.length || fastState.updating) return;
+    if (!M || fastState.m3Key !== key || !['A', 'B', 'C', 'TO', 'TT'].every(k => F[k])) return;
+    if (fastState.extras && fastState.extras.key === key) return;
+    const X = { key, cuts: {}, r3: {}, cov: {}, done: 0, total: 0 };
+    fastState.extras = X;
+    const parts = fastState.parts, th3 = M.ok ? M.theta : null;
+    const pct = FA.relink(parts, FA.percentileLink(fastState.norms));
+    const m3job = (k, ps, extra) => Object.assign({ key: k, model: 'M3', tr: FA.transitions(ps, FA.state3), start: th3 }, extra || {});
+    const cut = ([k, lo, hi]) => ({ key: 'cut:' + k, model: 'M3', tr: FA.transitions(parts, FA.state3cuts(lo, hi)), start: th3 });
+    const cov = th => {
+      const ps = coverageSample(th), tr = FA.transitions(ps, FA.state2), an = FA.answers(ps);
+      X.cov[th] = { n: ps.length };
+      return [{ key: `cov:${th}:A`, model: 'A', tr }, { key: `cov:${th}:C`, model: 'C', ans: an }, { key: `cov:${th}:B`, model: 'B', ans: an }, m3job(`cov:${th}:M3`, ps)];
+    };
+    // four workers of about equal length (the all-students three-state fit is the largest single job)
+    const lanes = [
+      [m3job('r3:all', fastState.allParts)],
+      [cut(CUTS[1])].concat(cov(0.7), cov(0.8)),
+      [cut(CUTS[0]), m3job('r3:nochain', parts, { chain: false, start: th3 && th3.slice(0, 6) })].concat(cov(0.5)),
+      [m3job('r3:percentile', pct), m3job('r3:slopes', parts, { slopes: true, start: th3 && th3.slice(0, 3).concat([0.3, 0, 0.3], th3.slice(3)) })].concat(cov(0.6))
+    ];
+    X.total = lanes.reduce((s0, l) => s0 + l.length, 0);
+    const got = (k, f) => {
+      if (fastState.extras !== X) return;
+      const [g, a, b] = k.split(':');
+      if (g === 'cut') X.cuts[a] = f; else if (g === 'r3') X.r3[a] = f; else X.cov[a][b] = f;
+      X.done++;
+      renderFastModels();
+    };
+    lanes.forEach((jobs, i) => fitJobs('extra:' + i, jobs, got));
+    renderFastModels();
+  }
+  // The primary conclusions (and the three-state test) at each coverage threshold.
+  function covRows() {
+    const X = fastState.extras, x = fastState.ctx, F = fastState.fits;
+    if (!X || X.key !== fastState.fitKey || !x) return null;
+    const seedW = fB => fB && fB.ok ? scaleE(U(fB.coefOf('Language × seed valence × position')), x.dSV * Math.log2(x.nPos)) : null;
+    const one = (th, n, fA, fC, fB, f3) => ({ th, n, fA, fC, fB, f3,
+      A: fA && fA.ok ? fA.wald([LANGT, PREV]) : null, C: fC && fC.ok ? fC.wald(['Language × position', 'Language × position²']) : null, B: seedW(fB), M3: f3 && f3.ok && f3.m3 ? m3W(f3.m3.omni) : null });
+    const rows = COVTH.map(th => { const c = X.cov[th]; return one(th, c.n, c.A, c.C, c.B, c.M3); });
+    rows.unshift(one(0, x.n, F.A, F.C, F.B, fastState.m3));
+    return rows;
+  }
+  function renderCov() {
+    const rows = covRows();
+    if (!rows) { $('#a-cov').innerHTML = ''; $('#a-cov-status').textContent = 'Fitted after the main models.'; $('#a-cov-sum').textContent = ''; return null; }
+    const X = fastState.extras, covJobs = COVTH.length * 4, covDone = COVTH.reduce((s0, th) => s0 + ['A', 'C', 'B', 'M3'].filter(k => X.cov[th][k]).length, 0);
+    const st = $('#a-cov-status'), fin = covDone >= covJobs;
+    st.textContent = fin ? 'All thresholds fitted.' : `Fitting… ${covDone} of ${covJobs}`;
+    st.classList.toggle('visually-hidden', fin);
+    const main = rows.find(r => r.th === 0);
+    const verdict = (k, e) => k === 'B' ? clearCI(e) : clearW(e);
+    const cell = (r, k, f, sep) => {
+      const e = r[k];
+      if (!e) return `<td class="num${sep ? ' sep' : ''} muted">${!f ? '…' : '–'}</td>`;
+      const flip = r !== main && main[k] && verdict(k, main[k]) !== verdict(k, e);
+      const body = k === 'B' ? `<b>${s2(e.est)}</b> <span class="rci">[${fine(s2, e.lo)}, ${fine(s2, e.hi)}]</span>` : `<b>${(k === 'C' ? e.F : e.chi2).toFixed(2)}</b>`;
+      return `<td class="num${sep ? ' sep' : ''}${verdict(k, e) ? ' r-sig' : ''}">${body}<span class="rp">${LAB.fmtP(e.p)}</span>${flip ? `<span class="flip">${verdict(k, e) ? 'clear here' : 'not clear here'}</span>` : ''}</td>`;
+    };
+    $('#a-cov').innerHTML = `<thead><tr><th scope="col">Coverage rule</th><th class="num" scope="col">Students</th><th class="num sep" scope="col">Transition pattern, χ²(2)</th><th class="num" scope="col">Trajectory shape, <i>F</i></th><th class="num" scope="col">Starting-word decay, E − C (points)</th><th class="num" scope="col">Three-state, χ²(6)</th></tr></thead><tbody>` +
+      rows.map(r => `<tr${r === main ? ' class="main-row"' : ''}><th scope="row">${r.th ? `At least ${Math.round(r.th * 100)}%` : 'None'}${r === main ? ' <small class="muted">(main analysis)</small>' : ''}</th><td class="num">${r.n}</td>` +
+        `${cell(r, 'A', r.fA, true)}${cell(r, 'C', r.fC)}${cell(r, 'B', r.fB)}${cell(r, 'M3', r.f3)}</tr>`).join('') + '</tbody>';
+    // which conclusions change verdict at another threshold
+    const NAMES = [['A', 'the transition conclusion'], ['C', 'the trajectory conclusion'], ['B', 'the starting-word decay conclusion'], ['M3', 'the three-state conclusion']];
+    const changes = NAMES.map(([k, name]) => ({ name, at: rows.filter(r => r !== main && r[k] && main[k] && verdict(k, r[k]) !== verdict(k, main[k])).map(r => `${Math.round(r.th * 100)}%`) })).filter(c => c.at.length);
+    const say = !fin ? '' : !changes.length ? 'Every conclusion has the same verdict at every threshold.' :
+      `${cap(andList(changes.map(c => `${c.name} changes verdict with ${andList(c.at)}`)))}; the others keep their verdicts.`;
+    $('#a-cov-note').innerHTML = `Repetition and first-language rules kept in every row; bold: clear (joint <i>p</i> &lt; .05, or a CI excluding zero); “clear here” / “not clear here”: the verdict differs from the main analysis (no coverage rule). ${say}`;
+    $('#a-cov-sum').textContent = !fin ? '' : changes.length ? ': some conclusions depend on the threshold' : ': the same verdicts at every threshold';
+    return fin ? { changes, say } : null;
+  }
+
   /* ---------- robustness: the three conclusions under other choices ----------
-     Fitted when the fold-out opens: (1) no chain random intercepts, (2) only
-     students with at least 70% of their possible transitions valid in both
-     languages (a cut-off fixed in advance), (3) Chinese valence on the English
+     Fitted when the fold-out opens: (1) no chain random intercepts, (2) all
+     students, without the exclusions, (3) Chinese valence on the English
      scale by percentile instead of linear equating, and for the trajectory
      (4) position as a category, assuming no curve shape. Plus a model of which
      answers go unscored. Judged by direction, size and precision, not by
@@ -1463,6 +1826,10 @@
       { name: 'Follow-up: after a negative answer', unit: 'probability', key: 'fn', get: v => v.A && v.A.ok ? U(v.A.carry.diff.N) : null, fmt: pr2 },
       { name: 'Follow-up: after a positive answer', unit: 'probability', key: 'fp', get: v => v.A && v.A.ok ? U(v.A.carry.diff.P) : null, fmt: pr2 },
       { name: 'Continuous-valence check: language × previous valence', unit: 'per point', key: 'c1', get: v => v.C1 && v.C1.ok ? U(v.C1.coefOf('Language × previous valence')) : null, fmt: s2 },
+      { group: '1b · Three-state transitions' },
+      { name: 'Overall test (joint, 6 df)', key: 'm3w', m3: true, get: v => v.M3 && v.M3.ok && v.M3.m3 ? m3W(v.M3.m3.omni) : null, joint: true },
+      { name: 'Contrast: negative → positive', unit: 'probability', key: 'm3np', m3: true, get: v => v.M3 && v.M3.ok && v.M3.m3 ? U(v.M3.m3.diff.N.P) : null, fmt: pr2 },
+      { name: 'Contrast: positive → positive', unit: 'probability', key: 'm3pp', m3: true, get: v => v.M3 && v.M3.ok && v.M3.m3 ? U(v.M3.m3.diff.P.P) : null, fmt: pr2 },
       { group: '2 · Trajectory shape' },
       { name: 'Overall test (joint)', key: 'jw', get: v => v.C && v.C.ok ? v.C.wald(['Language × position', 'Language × position²']) : v.Ccat && v.Ccat.ok ? v.Ccat.wald([2, 3, 4, 5, 6, 7, 8, 9, 10].map(k => `Language × position ${k}`)) : null, joint: true },
       ...[1, 5, 10].map(k => ({ name: `Follow-up: English − Chinese at answer ${k}`, unit: 'valence', key: 'd' + k, fmt: s2,
@@ -1513,13 +1880,17 @@
   function renderRobust() {
     const R = fastState.robust, x = fastState.ctx;
     if (!R || !x) return;
+    // the three-state fits live with the other extra checks
+    const XR = fastState.extras && fastState.extras.key === fastState.fitKey ? fastState.extras.r3 : {};
+    const r3n = ['all', 'nochain', 'slopes', 'percentile'].filter(k => XR[k]).length;
     const st = $('#a-robust-status');
     const mainDone = ['A', 'C', 'B'].every(k => fastState.fits[k]);
     const finished = R.done >= R.total && mainDone;
-    st.textContent = R.done < R.total ? `Fitting the checks… ${R.done} of ${R.total}` : mainDone ? 'All robustness checks done.' : 'Waiting for the main models…';
+    st.textContent = R.done < R.total ? `Fitting the checks… ${R.done} of ${R.total}` : !mainDone ? 'Waiting for the main models…' : r3n < 4 ? `Fitting the three-state checks… ${r3n} of 4` : 'All robustness checks done.';
     st.classList.toggle('done', finished);
     st.classList.toggle('visually-hidden', finished);
-    const V = Object.assign({ main: fastState.fits }, R.variants);
+    const V = { main: Object.assign({}, fastState.fits, { M3: fastState.m3 || undefined }) };
+    Object.keys(R.variants).forEach(k => { V[k] = Object.assign({}, R.variants[k], k in XR ? { M3: XR[k] } : {}); });
     const COLS = rcols(), rows = robustRows(x.dSV);
     const verdict = (r, e) => r.joint ? clearW(e) : clearCI(e);
     const posRow = r => ['jw', 'd1', 'd5', 'd10'].includes(r.key);
@@ -1527,7 +1898,7 @@
       const cls = `num${k === 'nochain' ? ' sep' : ''}`;
       if (k === 'cat' && !posRow(r)) return `<td class="${cls} muted">—</td>`;
       const v = V[k], e = r.get(v);
-      if (!e || !isFinite(e.p)) return `<td class="${cls}">${Object.keys(v).some(m => ['A', 'B', 'C', 'C1', 'Ccat'].includes(m)) ? '–' : '<span class="muted">…</span>'}</td>`;
+      if (!e || !isFinite(e.p)) return `<td class="${cls}">${(r.m3 ? v.M3 !== undefined : Object.keys(v).some(m => ['A', 'B', 'C', 'C1', 'Ccat'].includes(m))) ? '–' : '<span class="muted">…</span>'}</td>`;
       const main = r.get(V.main);
       const flip = k !== 'main' && main && isFinite(main.p) && verdict(r, main) !== verdict(r, e);
       return `<td class="${cls}${verdict(r, e) ? ' r-sig' : ''}">` + (r.joint ? `<b>${wTxt(e).replace(/, (<i>p<\/i>|p)[\s\S]*$/, '').replace(/\u00a0=\u00a0/, ' = ')}</b>` : `<b>${r.fmt(e.est)}</b> <span class="rci">[${fine(r.fmt, e.lo)}, ${fine(r.fmt, e.hi)}]</span>`) +
@@ -1564,6 +1935,8 @@
     };
     $('#a-robust-sum').innerHTML = !finished ? '' :
       `<p><strong>1 · Transition pattern.</strong> ${jointLine('tw', 'Overall test')} ${estLine('fn', 'After a negative answer (probability)')} ${estLine('fp', 'After a positive answer (probability)')} ${estLine('c1', 'Continuous-valence check (per point)')}</p>` +
+      `<p><strong>1b · Three-state transitions.</strong> ${r3n < 4 ? 'Its checks are being fitted.' : `${jointLine('m3w', 'Overall test')} ${estLine('m3np', 'Negative → positive, English − Chinese (probability)')} ${estLine('m3pp', 'Positive → positive, English − Chinese (probability)')}` +
+        (() => { const no = ['all', 'nochain', 'slopes', 'percentile'].filter(k => XR[k] && !XR[k].ok); return no.length ? ` Could not be estimated: ${andList(no.map(k => ALT[k]))}.` : ''; })()}</p>` +
       `<p><strong>2 · Trajectory shape.</strong> ${jointLine('jw', 'Overall test')} ${[1, 5, 10].map(k => estLine('d' + k, `English − Chinese at answer ${k}`)).join(' ')}</p>` +
       `<p><strong>3 · Starting-word decay.</strong> ${estLine('sd', 'Language difference in how much the gap changes from answer 1 to 10 (points)')}</p>` +
       `<p><strong>4 · Initial starting-word difference.</strong> ${estLine('si', 'Language difference in the gap at answer 1 (points)')}</p>`;
@@ -1572,7 +1945,8 @@
       '<b>By-student random slopes</b>: uncorrelated by-student slopes added for the language terms (transitions: language, language × previous state; continuous check: language, language × previous valence; trajectory: language, language × position; starting word: language × seed valence, language × seed valence × position). ' +
       `<b>All students (no exclusions)</b>: the main models on every student (${x.allN}), without the exclusion criteria stated at the top of the page. ` +
       '<b>Percentile equating</b>: each Chinese rating takes the English value at the same percentile of the two whole norm sets, instead of the linear map (the state boundary stays at 5). ' +
-      '<b>Position as a category</b>: the trajectory model with one term per position instead of a curve; its joint test (9 df) asks whether the language difference changes across positions with no assumed shape.';
+      '<b>Position as a category</b>: the trajectory model with one term per position instead of a curve; its joint test (9 df) asks whether the language difference changes across positions with no assumed shape. ' +
+      '<b>Three-state rows</b>: the multinomial model’s omnibus test (χ², 6 df) and the two contrasts named in advance; its random slopes are by-student language slopes, one per logit, with their own 2 × 2 covariance.';
     const M = R.miss;
     if (!M) { $('#a-miss').innerHTML = ''; $('#a-miss-note').textContent = R.done < R.total ? 'Fitting…' : ''; return; }
     if (!M.ok) { $('#a-miss').innerHTML = ''; $('#a-miss-note').textContent = `The model of unscored answers could not be fitted yet. ${whyNot(M)}.`; return; }
@@ -1582,7 +1956,7 @@
       lang ? (clearCI(lang) ? `${lang.est > 0 ? 'English' : 'Chinese'} answers were more likely than ${lang.est > 0 ? 'Chinese' : 'English'} answers to be found in the valence norms (odds ratio ${or(Math.abs(lang.est))}).` : 'Coverage did not clearly differ between the languages.') : '',
       pos ? (clearCI(pos) ? `Coverage ${pos.est < 0 ? 'decreased' : 'increased'} later in the chain.` : 'Coverage did not clearly change along the chain.') : '',
       svc ? (clearCI(svc) ? 'Coverage was related to the starting word’s valence, which needs care in the starting-word analysis.' : 'Coverage was not related to the starting word’s valence, which is reassuring for the starting-word analysis.') : '',
-      lang && clearCI(lang) ? 'The language difference in coverage is a limitation for comparing the languages; the coverage exclusion is one response to it.' : ''
+      lang && clearCI(lang) ? 'The language difference in coverage is a limitation for comparing the languages; the coverage-threshold analysis is one response to it.' : ''
     ].filter(Boolean).join(' ') + ` <span class="muted">Logistic model of whether an answer was scored (${M.n.toLocaleString('en-US')} answers; random intercepts for students and starting words).</span>`;
     $('#a-miss').innerHTML = `<thead><tr><th scope="col">Predictor of an answer being scored</th><th class="num" scope="col">Odds ratio</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col"><i>z</i></th><th class="num" scope="col"><i>p</i></th></tr></thead><tbody>` +
       M.coef.filter(c => c.name !== '(Intercept)').map(c => `<tr><th scope="row">${c.name}</th><td class="num">${or(c.b)}</td><td class="num">${or(c.ci[0])} to ${or(c.ci[1])}</td><td class="num sep">${b2(c.z)}</td>${pCell(c)}</tr>`).join('') + '</tbody>';

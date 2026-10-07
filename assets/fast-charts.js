@@ -103,16 +103,22 @@
   /* ---------- 5. paired dots: each student in both languages, joined ----------
      Chinese swarms to the left of its column, English to the right; the class
      means with 95% CIs sit just outside each swarm. */
+  /* o.log: a log axis (o.ticks its labelled values); every point is drawn at
+     its own value, none clipped. pairs[i].flag = {zh, en}: a flagged value is
+     an open circle. */
   C.paired = function (host, pairs, o) {
     const W = widthOf(host, 560, 300, 680);
     const H = 310, top = 30, bottom = 38, left = 54, right = 16, r = 4.5;
     const vals = pairs.flatMap(p => [p.zh, p.en]).filter(isFinite);
-    const hi = o.max || Math.max(o.minMax || 0, Math.ceil((Math.max(0, ...vals) + 1e-9) / o.step) * o.step);
-    const Y = v => top + (1 - v / hi) * (H - top - bottom);
+    const lmin = o.log ? Math.min(...vals, ...(o.mean ? ['zh', 'en'].map(l => o.mean[l].ci[0]).filter(isFinite) : [])) : 0;
+    const hi = o.log ? Math.max(...vals) * 1.08 : o.max || Math.max(o.minMax || 0, Math.ceil((Math.max(0, ...vals) + 1e-9) / o.step) * o.step);
+    const below = o.log ? (o.ticks || []).filter(v => v <= lmin) : [];
+    const lo = o.log ? Math.min(lmin / 1.08, below.length ? Math.max(...below) : lmin / 1.08) : 0;   // down to the tick below the lowest value
+    const Y = o.log ? v => top + (1 - Math.log(v / lo) / Math.log(hi / lo)) * (H - top - bottom) : v => top + (1 - v / hi) * (H - top - bottom);
     const pw = W - left - right, XZ = left + pw * 0.43, XE = left + pw * 0.57;
     const edgeZ = left + 20, edgeE = W - right - 20;
     const s = root(host, W, H, o.label);
-    const ticks = o.ticks ? o.ticks.filter(v => v <= hi + 1e-9) : Array.from({ length: Math.floor(hi / o.step + 1e-9) + 1 }, (_, i) => i * o.step);
+    const ticks = o.ticks ? o.ticks.filter(v => v <= hi + 1e-9 && v >= lo - 1e-9) : Array.from({ length: Math.floor(hi / o.step + 1e-9) + 1 }, (_, i) => i * o.step);
     ticks.forEach(v => {
       svg('line', { class: 'grid', x1: left, x2: W - right, y1: Y(v), y2: Y(v) }, s);
       text(s, left - 8, Y(v) + 5, o.tick(v), { 'text-anchor': 'end' });
@@ -129,19 +135,22 @@
     pairs.forEach((p, i) => ['zh', 'en'].forEach(l => {
       if (!both[i]) return;
       const g = svg('g', {}, s);
-      title(g, `A student, ${NAME[l]}: ${o.fmt(p[l])}`);
-      svg('circle', { cx: X[l](i), cy: Y(p[l]), r, class: 'dot-lang f-' + l }, g);
+      const flagged = p.flag && p.flag[l];
+      title(g, `A student, ${NAME[l]}: ${o.fmt(p[l])}${flagged ? ` (${o.flagNote || 'flagged'})` : ''}`);
+      svg('circle', { cx: X[l](i), cy: Y(p[l]), r: flagged ? r + 0.5 : r, class: flagged ? 'dot-open s-' + l : 'dot-lang f-' + l }, g);
     }));
     [['zh', MZ, XZ, 'end'], ['en', ME, XE, 'start']].forEach(([l, x, col, anchor]) => {
       text(s, col + (l === 'zh' ? 4 : -4), H - bottom + 24, NAME[l], { 'text-anchor': anchor, class: 'label-strong' });
       const m = o.mean[l];
       if (!isFinite(m.m)) return;
       const g = svg('g', {}, s);
-      title(g, `${NAME[l]} mean: ${o.fmt(m.m)} (95% CI ${o.fmt(m.ci[0])} to ${o.fmt(m.ci[1])})`);
+      title(g, `${NAME[l]} ${o.meanName || 'mean'}: ${o.fmt(m.m)}${isFinite(m.ci[0]) && isFinite(m.ci[1]) ? ` (95% CI ${o.fmt(m.ci[0])} to ${o.fmt(m.ci[1])})` : ''}`);
       const yTop = Y(Math.min(hi, isFinite(m.ci[1]) ? m.ci[1] : m.m));
-      if (isFinite(m.ci[0])) svg('line', { x1: x, x2: x, y1: yTop, y2: Y(Math.max(0, m.ci[0])), class: 'ci-line s-' + l }, g);
+      if (isFinite(m.ci[0])) svg('line', { x1: x, x2: x, y1: yTop, y2: Y(Math.max(lo, m.ci[0])), class: 'ci-line s-' + l }, g);
       svg('line', { x1: x - 9, x2: x + 9, y1: Y(m.m), y2: Y(m.m), class: 'mean-mark s-' + l }, g);
-      text(s, x, yTop - 9, o.fmt(m.m), { 'text-anchor': 'middle', class: 'mean-label halo' });
+      const room = l === 'zh' ? x - 16 - left : W - right - (x + 16), wLab = 8.6 * o.fmt(m.m).length;
+      if (room >= wLab) text(s, l === 'zh' ? x - 16 : x + 16, Y(m.m) + 5, o.fmt(m.m), { 'text-anchor': l === 'zh' ? 'end' : 'start', class: 'mean-label halo' });
+      else text(s, l === 'zh' ? x - 9 : x + 9, yTop - 9, o.fmt(m.m), { 'text-anchor': l === 'zh' ? 'start' : 'end', class: 'mean-label halo' });   // grows inwards, away from the axis labels
     });
     return s;
   };
@@ -378,6 +387,46 @@
     const k = o.clear === false ? '' : ' sig';
     if (isFinite(o.lo)) svg('line', { class: 'forest-ci' + k, x1: X(o.lo), x2: X(o.hi), y1: H / 2, y2: H / 2 }, s);
     svg('circle', { class: 'forest-dot' + k, cx: X(o.est), cy: H / 2, r: 5.5 }, s);
+    return s;
+  };
+
+  /* ---------- 12. three-state transitions: where the next answer goes ----------
+     o.prob[lang][prev][next] = {est, lo, hi}: one panel per previous state
+     (side by side when there is room, else stacked); in each, the three
+     destinations, Chinese just above English, with 95% CIs, on one shared
+     probability scale from 0. */
+  C.dest3 = function (host, o) {
+    const W = widthOf(host, 640, 280, 760), cols = W >= 600 ? 3 : 1;
+    const S3 = ['N', 'U', 'P'], NM = { N: 'negative', U: 'neutral', P: 'positive' };
+    const vals = ['zh', 'en'].flatMap(l => S3.flatMap(a => S3.map(b => o.prob[l][a][b].hi))).filter(isFinite);
+    const hi = Math.min(1, Math.ceil(Math.max(0.2, ...vals) * 5 - 1e-9) / 5);
+    const lab = 120, gap = 40, right = 16, rowH = 40, head = 30, axisH = 30, gapV = 22;
+    const pw = cols === 3 ? (W - lab - right - 2 * gap) / 3 : W - lab - right;
+    const ph = head + 3 * rowH + axisH, H = (cols === 3 ? ph : 3 * ph + 2 * gapV) + 26;
+    const s = root(host, W, H, o.label);
+    S3.forEach((prev, pi) => {
+      const x0 = cols === 3 ? lab + pi * (pw + gap) : lab, y0 = cols === 3 ? 0 : pi * (ph + gapV);
+      const X = v => x0 + v / hi * pw;
+      text(s, x0, y0 + 18, `After a ${NM[prev]} answer`, { class: 'label-strong' });
+      for (let v = 0; v <= hi + 1e-9; v += 0.2) {
+        svg('line', { class: v < 1e-9 ? 'axis-light' : 'grid', x1: X(v), x2: X(v), y1: y0 + head, y2: y0 + head + 3 * rowH }, s);
+        text(s, X(v), y0 + head + 3 * rowH + 19, v < 1e-9 ? '0' : v > 1 - 1e-9 ? '1' : p2(v), { 'text-anchor': 'middle' });
+      }
+      S3.forEach((next, ni) => {
+        const yc = y0 + head + ni * rowH + rowH / 2;
+        if (pi === 0 || cols === 1) text(s, x0 - 14, yc + 5, `Next ${NM[next]}`, { 'text-anchor': 'end', class: 'row-label' });
+        [['zh', -6.5], ['en', 6.5]].forEach(([l, dy]) => {
+          const d = o.prob[l][prev][next];
+          if (!d || !isFinite(d.est)) return;
+          const a = Math.max(0, d.lo), b = Math.min(hi, d.hi), g = svg('g', {}, s);
+          title(g, `${NAME[l]}, after a ${NM[prev]} answer, next ${NM[next]}: ${p2(d.est)} (95% CI ${p2(d.lo)} to ${p2(d.hi)})`);
+          if (isFinite(d.lo)) svg('line', { x1: X(a), x2: X(b), y1: yc + dy, y2: yc + dy, class: 'ci-line s-' + l }, g);
+          svg('circle', { cx: X(d.est), cy: yc + dy, r: 5, class: 'dot-lang f-' + l }, g);
+          svg('rect', { x: X(a) - 6, y: yc + dy - 6, width: X(b) - X(a) + 12, height: 12, class: 'hit' }, g);
+        });
+      });
+    });
+    text(s, cols === 3 ? (lab + W - right) / 2 : W / 2, H - 4, W < 400 ? 'Probability (95% CI)' : 'Model-adjusted probability (95% CI)', { 'text-anchor': 'middle', class: 'axis-title' });
     return s;
   };
 

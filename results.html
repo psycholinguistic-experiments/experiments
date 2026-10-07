@@ -220,7 +220,7 @@
             body:has(#panel-fast:not([hidden])) .page { padding-top: 0 !important; }
             #panel-fast details:not([open]) { display: none; }
             #status, .status-line { display: none !important; }
-            #panel-fast section[aria-labelledby="q-b"] { break-before: page; }
+            #panel-fast section[aria-labelledby="q-b"] { break-before: auto; }
             #panel-fast .sample-note { font-size: 8.5pt; margin-top: 3pt; }
             #panel-fast .sample-note ul, #panel-fast .sample-note li { display: inline; padding: 0; margin: 0; }
             #panel-fast .sample-note li + li::before { content: ' '; }
@@ -239,6 +239,7 @@
             #panel-fast table.data td .ci, #panel-fast table.data th { font-size: 8pt; }
         }
         .narrow-table { max-width: 36rem; margin-top: 0.75rem; }
+        .mid-table { max-width: 46rem; margin-top: 0.75rem; }
         table.data.compact td, table.data.compact th { padding-top: 0.45rem; padding-bottom: 0.45rem; }
         /* secondary results: compact rows, one estimate each */
         #panel-fast .q-explore h2, #panel-fast .q-minor h2 { font-size: 1.22rem; }
@@ -351,6 +352,7 @@
         .chart .halo { paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
         .chart-caption { font-size: 0.86rem; color: var(--text-light); margin-top: 0.5rem; max-width: var(--measure); }
         .chart .pair-line { stroke: var(--text-light); stroke-width: 1; opacity: 0.4; }
+        .chart .dot-open { fill: var(--bg, #fff); stroke-width: 2; }
         .chart .mean-mark { stroke-width: 4; stroke-linecap: round; }
         .chart .forest-ci { stroke: var(--text-light); stroke-width: 1.75; }
         .chart .forest-ci.sig { stroke: var(--text); stroke-width: 2.5; }
@@ -414,7 +416,9 @@
         table.matrix td b { display: block; font-size: 1.45rem; font-weight: 700; color: var(--text); line-height: 1.15; }
         table.matrix td span { display: block; font-size: 0.78rem; color: var(--text-secondary); }
         table.matrix td.undef { background: var(--bg-alt); color: var(--text-light); }
-        @media (max-width: 480px) { table.matrix col.head { width: 5.75rem; } table.matrix td { padding: 0.55rem 0.15rem; } table.matrix td b { font-size: 1.25rem; } }
+        table.matrix td { vertical-align: top; }
+        table.matrix td .cnt-short { display: none; }
+        @media (max-width: 480px) { table.matrix col.head { width: 5.75rem; } table.matrix td { padding: 0.55rem 0.15rem; } table.matrix td b { font-size: 1.25rem; } table.matrix td .cnt-long { display: none; } table.matrix td .cnt-short { display: block; white-space: nowrap; } }
         /* The three seed categories side by side on a projector, two across on a tablet, stacked on a phone. */
         .traj-multiples { grid-template-columns: minmax(0, 1fr); }
         @media (min-width: 900px) { .traj-multiples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem 2rem; max-width: 60rem; } }
@@ -424,6 +428,8 @@
         details.more > summary { cursor: pointer; font-weight: 650; color: var(--text); padding: 0.7rem 0; min-height: 2.75rem; }
         details.more > summary:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
         details.more[open] > summary { margin-bottom: 0.25rem; }
+        details.more details.more { margin-left: 1rem; padding-left: 0.75rem; border-left: 1px solid var(--border); border-bottom: 0; }
+        details.more details.more:last-child { margin-bottom: 0.25rem; }
         table.data td.lead-cell { font-weight: 650; }
         /* The tests table: questions get room before the numbers do. */
         @media (min-width: 900px) { #a-tests tbody th[scope="row"] { min-width: 15rem; max-width: 22rem; white-space: normal; } }
@@ -648,17 +654,50 @@
                             <figure class="figure figure-narrow"><div id="a-c1"></div><figcaption><strong>Model-adjusted</strong> lines, with 95% bands: the valence of the next answer. <strong>Observed</strong> faint dots: mean next valence for previous answers within each whole point of valence (at least 10 answers).</figcaption></figure>
                             <ul class="results" id="a-res-c1"></ul>
                         </details>
+                        <details class="more" id="a-m3-more">
+                            <summary>Three-state transition dynamics<span class="sum-note" id="a-m3-sum">: still being fitted</span></summary>
+                            <p class="column">The two-state analysis asks whether an answer is negative or positive. This additional analysis separates a neutral middle state, allowing us to ask whether Chinese and English differ in movements towards negative, neutral or positive conceptual states. Negative: below 4.2; neutral: 4.2 to below 5.8; positive: 5.8 and above (English scale). It uses the same transitions as the two-state analysis<span id="a-m3-n"></span>, with a multinomial mixed-effects model (see Methods).</p>
+                            <h4 class="panel-h">Observed three-state transition probabilities</h4>
+                            <div class="matrix-pair" id="a-matrices3"></div>
+                            <p class="chart-caption">Raw proportions in the class data, with counts. Rows are the previous answer and sum to 1. The step from the starting word to the first answer is not counted.</p>
+                            <h4 class="panel-h">Model-adjusted three-state transition probabilities</h4>
+                            <figure class="figure"><div id="a-m3"></div><figcaption><strong>Model-adjusted.</strong> For each previous state, the probability that the next answer is negative, neutral or positive (the three sum to 1), averaged over the class’s starting words, positions and blocks, with student, starting-word and chain differences set to zero. Chinese (blue) sits just above English (orange) in each row. Bars: 95% confidence intervals.</figcaption></figure>
+                            <ul class="results" id="a-res-m3"></ul>
+                            <h4 class="panel-h">Check without cut-points: next valence as a curve of previous valence</h4>
+                            <p class="column">The same transitions on the continuous scale: the next answer’s valence modelled as a curve (linear and squared terms) of the previous answer’s valence, in each language. If the languages differ in where answers move from each part of the scale, the two curves differ in shape; this needs no negative, neutral and positive boundaries.</p>
+                            <div class="fig-pair">
+                                <figure class="figure figure-narrow"><div id="a-c1q"></div><figcaption><strong>Model-adjusted</strong> curves, with 95% bands: the next answer’s valence across previous valence 1–9, averaged over the class’s starting words, positions and blocks. <strong>Observed</strong> faint dots: mean next valence for previous answers within each whole point of valence (at least 10 transitions).</figcaption></figure>
+                                <ul class="results" id="a-res-c1q"></ul>
+                            </div>
+                            <details class="more">
+                                <summary>Numbers, and the share of answers in each state</summary>
+                                <div class="table-wrap narrow-table" data-label="Model-adjusted three-state probabilities"><table class="data compact" id="a-m3-table"></table></div>
+                                <p class="small muted column" id="a-m3-table-note"></p>
+                                <div class="table-wrap mid-table" data-label="Share of scored answers in each state"><table class="data compact" id="a-m3-props"></table></div>
+                                <p class="small muted column" id="a-m3-props-note"></p>
+                            </details>
+                            <details class="more" id="a-m3-cuts-more">
+                                <summary>Other cut-points (sensitivity)<span class="sum-note" id="a-m3-cuts-sum"></span></summary>
+                                <p class="column">The 4.2 / 5.8 cut-points are an analytical choice. The same model with two other neutral bands, fixed in advance (not searched for): 4.0 / 6.0, and a narrower band, 4.5 / 5.5.</p>
+                                <div class="table-wrap" data-label="Three-state cut-point sensitivity"><table class="data robust-table" id="a-m3-cuts"></table></div>
+                                <p class="small muted column" id="a-m3-cuts-note"></p>
+                            </details>
+                            <details class="more" id="a-m3-loso-more">
+                                <summary>Leave one starting word out (sensitivity)<span class="sum-note" id="a-m3-loso-sum">: fitted when opened</span></summary>
+                                <p class="column">The three-state model refitted 20 times, each time without one of the 20 starting words (10 per language), to see whether any single word drives the result. Only the range across the refits is reported; the refits are not separate findings. They are fitted when this section is opened and take a few minutes.</p>
+                                <p class="note" id="a-m3-loso-status" role="status"></p>
+                                <div class="table-wrap narrow-table" data-label="Leave-one-starting-word-out sensitivity"><table class="data compact" id="a-m3-loso"></table></div>
+                                <p class="small muted column" id="a-m3-loso-note"></p>
+                            </details>
+                        </details>
                         <details class="more">
                             <summary>Additional transition measure</summary>
                             <p class="column" id="a-carry"></p>
                         </details>
                         <details class="more">
                             <summary>Counts behind the observed probabilities</summary>
-                            <h3 class="sub">Two states: negative, positive</h3>
                             <div class="matrix-pair" id="a-matrices"></div>
-                            <h3 class="sub">Three states: negative, neutral, positive</h3>
-                            <div class="matrix-pair" id="a-matrices3"></div>
-                            <p class="small muted column">Negative below 4.2, neutral 4.2 to 5.8, positive 5.8 and above. Rows are the previous answer and sum to 1. The step from the starting word to the first answer is not counted.</p>
+                            <p class="small muted column">Rows are the previous answer and sum to 1. The step from the starting word to the first answer is not counted. The three-state counts are under “Three-state transition dynamics”.</p>
                         </details>
                     </section>
 
@@ -696,12 +735,21 @@
                         <h3 class="panel-h">Response timing</h3>
                         <div class="est-rows" id="a-timing"></div>
                         <p class="column r-note" id="a-timing-say"></p>
+                        <details class="more" id="a-tsens-more">
+                            <summary>Timing with and without extreme medians</summary>
+                            <div class="table-wrap" data-label="Timing outlier sensitivity"><table class="data robust-table" id="a-tsens"></table></div>
+                            <p class="small muted column" id="a-tsens-note"></p>
+                        </details>
                         <h3 class="panel-h">Repetition</h3>
                         <div class="est-rows" id="a-secondary"></div>
                         <details class="more">
                             <summary>Show individual data</summary>
                             <h3 class="panel-h">Response time</h3>
-                            <figure class="figure figure-narrow"><div id="a-rt"></div><figcaption>Observed. Each student’s median time to submit an answer, in seconds. Grey lines join each student’s two medians; the marks at the edges are the class means of those medians<span class="ci-txt"> with 95% confidence intervals</span>. These are arithmetic means; the timing rows above model log times, so their predicted times are geometric means, which are lower when times are right-skewed.</figcaption></figure>
+                            <div class="fig-pair rt-pair">
+                                <figure class="figure"><h4 class="panel-h">Onset (first keystroke)</h4><div id="a-rto"></div></figure>
+                                <figure class="figure"><h4 class="panel-h">Total (answer submitted)</h4><div id="a-rt"></div></figure>
+                            </div>
+                            <p class="chart-caption">Observed. Each student’s median time per answer, in seconds, on a log scale (the scale the timing models use); every student is shown at their own value. Grey lines join each student’s two medians; the marks at the edges are geometric means<span class="ci-txt"> with 95% confidence intervals</span>, comparable with the models’ predicted times. <span id="a-rt-flag"></span></p>
                             <h3 class="panel-h">Repeated answers</h3>
                             <figure class="figure figure-narrow"><div id="a-repeats"></div><figcaption>Observed. The number of students at each level of repetition: the share of a student’s answers that repeat an earlier word of the same chain (the starting word included).<span id="a-repeats-means"></span></figcaption></figure>
                         </details>
@@ -774,6 +822,13 @@
                             <div class="table-wrap" data-label="Missing valence model"><table class="data" id="a-miss"></table></div>
                             <p class="small muted column">The column “By-student random slopes” adds uncorrelated by-student slopes for the language terms. <code>materials/fast/random-slopes.R</code> fits the transition model with correlated slopes in R, from the Transitions download.</p>
                         </details>
+                        <details class="more" id="a-cov-more">
+                            <summary>Coverage threshold (sensitivity)<span class="sum-note" id="a-cov-sum"></span></summary>
+                            <p class="column">The main analysis keeps every student who passes the repetition and first-language rules, however many of their answers the norms could score. Here the primary models and the three-state model are refitted on only the students with at least 50%, 60%, 70% or 80% of their possible transitions usable in both languages. This shows how much the conclusions depend on including students with low coverage.</p>
+                            <p class="note" id="a-cov-status" role="status"></p>
+                            <div class="table-wrap" data-label="Coverage threshold sensitivity"><table class="data robust-table" id="a-cov"></table></div>
+                            <p class="small muted column" id="a-cov-note"></p>
+                        </details>
                         <details class="more" id="a-qc-more">
                             <summary>Participant-level data checks</summary>
                             <ul class="qc-list column" id="a-qc"></ul>
@@ -814,9 +869,18 @@
                                 <p class="eq">logit P(next answer positive) = [the transition model’s terms] + β<sub>7</sub>·R + β<sub>8</sub>·Language × R + β<sub>9</sub>·Previous state × R + β<sub>10</sub>·Language × Previous state × R + u<sub>student</sub> + u<sub>student,L</sub>·Language + u<sub>student,LP</sub>·(Language × Previous state) + u<sub>seed</sub> + u<sub>chain</sub></p>
                                 <p class="eq">Valence = [the trajectory model’s terms] + β<sub>8</sub>·R + β<sub>9</sub>·Language × R + u<sub>student</sub> + u<sub>student,L</sub>·Language + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
                                 <p>R = the student’s English self-rating (0–10) minus the mean over the students in the model; one pair of models per rating. The rating varies only between students, so the language terms get by-student random slopes (uncorrelated, as lme4’s <code>||</code>); without them the standard errors of these cross-level interactions would be too small. Change in the English − Chinese difference per rating point: staying positive β<sub>8</sub> + ½β<sub>10</sub>, staying negative −β<sub>8</sub> + ½β<sub>10</sub> (log-odds, Wald <i>z</i>); mean valence β<sub>9</sub> (valence points, Satterthwaite <i>t</i>). The plots’ lines are the models’ English − Chinese differences at each rating (average marginal predictions for the transition model). Every student’s transitions count, weighted by how many they have, rather than one proportion per student. The overall rating is primary (three tests, unadjusted); the four skills’ twelve tests are judged on Benjamini–Hochberg adjusted <i>p</i>-values. This is an exploratory moderation analysis: ratings are self-reports, and the class was not sampled to vary in proficiency.</p>
+                                <h3 class="sub">Three-state transition model (multinomial)</h3>
+                                <p class="eq">log [P(next = <i>k</i>) / P(next = negative)] = β<sub>0<i>k</i></sub> + β<sub>1<i>k</i></sub>·Language + β<sub>2<i>k</i></sub>·Prev neutral + β<sub>3<i>k</i></sub>·Prev positive + β<sub>4<i>k</i></sub>·Language × Prev neutral + β<sub>5<i>k</i></sub>·Language × Prev positive + β<sub>6<i>k</i></sub>·Seed valence + β<sub>7<i>k</i></sub>·Position + β<sub>8<i>k</i></sub>·Block + u<sub>student,<i>k</i></sub> + u<sub>seed,<i>k</i></sub> + u<sub>chain,<i>k</i></sub>, &nbsp; <i>k</i> = neutral, positive</p>
+                                <p>States on the English scale: negative below 4.2, neutral 4.2 to below 5.8, positive 5.8 and above (4.2 is neutral; 5.8 is positive). One row per valid transition: the same rows as the two-state model (adjacent answers both scored, 1→2 to 9→10; nothing is bridged across an unscored answer). Outcome: the next answer’s state, a baseline-category (multinomial) logit with negative as the reference destination, so each destination has its own set of coefficients. Previous state: indicators for neutral and positive (negative the reference), so β<sub>1<i>k</i></sub> is the language difference after a negative answer; Language, Block, Seed valence and Position are coded as in the two-state model. Random intercepts for students, starting words and chains, each a pair (one per logit) with an unstructured 2 × 2 covariance, so the fit does not depend on which destination is the reference. Laplace approximation with β estimated jointly with the random effects (as lme4’s <code>nAGQ = 0</code>, like the two-state model); the covariance parameters by Nelder–Mead. Checked in R: an independent implementation reproduces the fit, tests and probabilities; RTMB’s full Laplace fit (β outside the integral, as <code>nAGQ = 1</code>) gives probabilities within .011 and the same verdicts for the omnibus test, the Holm-adjusted tests and the two named contrasts.</p>
+                                <p>Omnibus test: joint Wald χ²(6) that the six language terms (β<sub>1</sub>, β<sub>4</sub>, β<sub>5</sub> for both logits) are zero, i.e. that given the previous state and the covariates the destination probabilities do not differ by language. Follow-ups, after each previous state: a joint χ²(2) of the language difference in both logits at that state (β<sub>1</sub>, β<sub>1</sub> + β<sub>4</sub> or β<sub>1</sub> + β<sub>5</sub>), Holm-adjusted across the three. Model-adjusted probabilities: average marginal predictions as for the two-state model (every observed transition predicted with language and previous state set, random effects at zero, then averaged; each row sums to 1, which the page checks); differences with delta-method CIs. Two contrasts were named in advance, negative → positive and positive → positive; they are read only together with their row’s test. Robustness: all students, no chain intercepts, by-student language slopes (a 2 × 2 covariance, uncorrelated with the intercepts), percentile equating. Cut-point sensitivity: 4.0 / 6.0 and 4.5 / 5.5. Leave-one-starting-word-out: the model refitted without each of the 20 starting words in turn; only the range of the omnibus test and of the two named contrasts is reported, and how many refits keep the main verdicts.</p>
+                                <h3 class="sub">Check without cut-points (linear mixed model)</h3>
+                                <p class="eq">Next valence = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·V + β<sub>3</sub>·V² + β<sub>4</sub>·Language × V + β<sub>5</sub>·Language × V² + β<sub>6</sub>·Seed valence + β<sub>7</sub>·Position + β<sub>8</sub>·Block + u<sub>student</sub> + u<sub>seed</sub> + u<sub>chain</sub> + ε, &nbsp; V = previous valence − 5</p>
+                                <p>The same transitions as the two- and three-state models. Test: the joint <i>F</i>-test (Satterthwaite) of β<sub>4</sub> and β<sub>5</sub>, whether the next answer’s valence depends on the previous answer’s differently in the two languages. It is the three-state model’s robustness check without cut-points: if it is not clear while the three-state verdicts change with the cut-points, the page treats the three-state evidence as threshold-sensitive, descriptive and secondary. Checked against lmerTest.</p>
                                 <h3 class="sub">Response timing</h3>
                                 <p class="eq">log(median time) = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·Block + β<sub>3</sub>·Language × Block + u<sub>student</sub> + ε</p>
                                 <p>Fitted separately for onset (answer shown → first keystroke) and total time (answer shown → answer submitted), on each student’s median per language: two rows per student. Block: second language done = +½, first = −½, from the order the student did the languages in. With two rows per student, the language × block term is a between-student comparison: the two order groups differ by β<sub>3</sub>/2 in mean log time, shown as the ratio exp(β<sub>3</sub>/2), Chinese-first ÷ English-first. The block term is the practice effect averaged over the two languages; language-specific practice effects are not separable from the order groups here. Predicted times are exp(β<sub>0</sub> ± β<sub>1</sub>/2), geometric means over students averaged over blocks; their difference in seconds has a delta-method CI; the other terms are shown as ratios, exp(β). Only these medians are stored with each student’s summary. Every answer’s onset and submit times are also kept in the data sheet (its <code>fast_trials</code> tab), but this page cannot read that tab, so no item-level timing model is fitted. The difference between a student’s median total time and median onset is not a median completion time and is not reported as one.</p>
+                                <h3 class="sub">Timing outlier sensitivity</h3>
+                                <p>Rule, fixed in advance: on each student’s log median time, separately for Chinese onset, English onset, Chinese total and English total, robust <i>z</i> = 0.6745 × (<i>x</i> − median) / MAD (MAD: the median absolute deviation, unscaled), and |robust <i>z</i>| &gt; 3.5 flags the value (where MAD is 0: outside Q1 − 3×IQR to Q3 + 3×IQR). A student is flagged for onset (or total) if either language’s value is. Flagged students are left out only of the matching timing model in the sensitivity analysis, which has the same specification as the primary one. They stay in the primary timing models and in every other analysis; being slow is not an exclusion criterion. <span id="a-tsens-method"></span></p>
                                 <h3 class="sub">Lexical reuse (exploratory)</h3>
                                 <p>Three measures per student and language (defined under “What might produce the trajectory difference?”), each compared English − Chinese with a paired <i>t</i>-test, for all students and without the students with extreme repetition; Benjamini–Hochberg adjustment across the three measures within each sample. Sensitivity: raw, normalised and lemma response keys.</p>
                                 <h3 class="sub">Exploratory models: reuse × starting-word decay, and L1 dynamics</h3>
@@ -826,7 +890,7 @@
                                 <p class="eq">Chinese only: Valence = β<sub>0</sub> + β<sub>1</sub>·P + β<sub>2</sub>·(P² − 8.25) + β<sub>3</sub>·Seed valence + β<sub>4</sub>·Block + X × [β<sub>5</sub> + β<sub>6</sub>·P + β<sub>7</sub>·(P² − 8.25)] + u<sub>student</sub> + u<sub>student,P</sub>·P + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
                                 <p>X: English age of acquisition (years), English use (per 10 percentage points), or English − Chinese overall self-rating, each centred and tested in its own models. Key terms: β<sub>8</sub> (starting-word persistence) and the joint test of β<sub>6</sub> and β<sub>7</sub> (trajectory shape). The third outcome, Chinese cross-chain reuse, is regressed on X by least squares with HC3 errors (one value per student). Benjamini–Hochberg adjustment across the nine tests. In every model with a student-level moderator, the term it moderates gets a by-student random slope (uncorrelated), so that the interaction’s standard error reflects differences between students.</p>
                                 <h3 class="sub">Exclusion criteria</h3>
-                                <p>Applied before every analysis on the page (the CSV downloads keep every student, with columns <code>analysed</code> and <code>excluded_for</code>). A student is excluded when (1) fewer than 70% of their possible transitions (adjacent answers both scored for valence) are usable in either language; (2) more than half of their answers in a language repeat the chain’s starting word or an earlier answer in the same chain (the site’s repetition measure); or (3) their first-language answer here contradicts the same code’s answer to the Judgement task (“Is Chinese your first language?”), where both are loaded on the page. Response times are not trimmed or capped. The robustness column “All students (no exclusions)” refits the main models on everyone. <b>By-student random slopes</b> (robustness): uncorrelated slopes for the language terms named in the robustness notes, added to each primary model.</p>
+                                <p>Applied before every analysis on the page (the CSV downloads keep every student, with columns <code>analysed</code> and <code>excluded_for</code>). Behavioural and data-quality rules only. A student is excluded when (1) more than half of their answers in a language repeat the chain’s starting word or an earlier answer in the same chain (the site’s repetition measure); or (2) their first-language answer here contradicts the same code’s answer to the Judgement task (“Is Chinese your first language?”), where both are loaded on the page. Normative coverage is not an exclusion criterion: it decides which answers can be scored, not whether an otherwise valid student is analysed. Unscored answers drop out as observations, with the transitions on either side of them. Response times are not trimmed or capped. The robustness column “All students (no exclusions)” refits the main models on everyone; “Coverage threshold” refits the primary models and the three-state model on only the students with at least 50%, 60%, 70% or 80% of their possible transitions usable in both languages. <b>By-student random slopes</b> (robustness): uncorrelated slopes for the language terms named in the robustness notes, added to each primary model.</p>
                                 <h3 class="sub">Estimates, tests and intervals</h3>
                                 <p>Linear models: REML; <i>t</i>-tests and 95% CIs use Satterthwaite degrees of freedom (as lmerTest). Logistic model: Wald <i>z</i> and 95% CIs.</p>
                                 <p>Model-adjusted probabilities (logistic model): average marginal predictions. Every observed transition is predicted with language and previous state set as stated, random effects at zero, keeping its own seed valence, position and block; the predictions are averaged. CIs by the delta method. Model-adjusted valence (linear models): the same averaging, which for a linear model equals the prediction at the observed means of the other predictors.</p>
@@ -947,11 +1011,11 @@
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/fast-stimuli.js?v=6"></script>
-    <script src="assets/fast-analysis.js?v=14"></script>
-    <script src="assets/fast-charts.js?v=25"></script>
+    <script src="assets/fast-analysis.js?v=16"></script>
+    <script src="assets/fast-charts.js?v=32"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
     <script src="assets/svt-charts.js?v=2"></script>
-    <script src="assets/dashboard.js?v=96"></script>
+    <script src="assets/dashboard.js?v=107"></script>
 </body>
 </html>
