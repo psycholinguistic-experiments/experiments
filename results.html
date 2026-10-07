@@ -181,6 +181,27 @@
         table.tm td { text-align: center; font-size: 1.15rem; font-weight: 650; color: var(--text); padding: 0.55rem 0.4rem; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) calc(var(--p, 0) * 10%), #fff); }
         /* one result per row: what it is, the answer in words, then the numbers */
         ul.results { list-style: none; margin: 0.9rem 0 0; padding: 0; max-width: var(--measure); display: grid; gap: 0.85rem; }
+        #panel-fast .r-note { margin: 0.75rem 0 0; color: var(--text-secondary); }
+        #panel-fast .qc-list { margin: 0.75rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.45rem; }
+        #panel-fast .sample-note { max-width: var(--measure); margin: 0.85rem 0 0; color: var(--text-secondary); font-size: 0.92rem; }
+        #panel-fast .sample-note:empty { display: none; }
+        #panel-fast .sample-note p { margin: 0; }
+        #panel-fast .sample-note p + p, #panel-fast .sample-note ul + p { margin-top: 0.5rem; }
+        #panel-fast .sample-note ul { margin: 0.35rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.2rem; list-style: disc; max-width: none; border-top: 0; }
+        #panel-fast .sample-note li { padding: 0; border-bottom: 0; font-size: inherit; line-height: inherit; color: inherit; }
+        #panel-fast .sample-note + h2 { margin-top: 2rem; }
+        #panel-fast .sample-note strong { color: var(--text); }
+        /* wide technical tables: labels wrap, intervals under their estimate, so eight checks fit a desktop page */
+        @media (min-width: 600px) {
+            #panel-fast table.robust-table tbody th[scope="row"] { white-space: normal; min-width: 10rem; max-width: 15rem; }
+            #panel-fast table.robust-table { font-size: 0.86rem; }
+            #panel-fast table.robust-table th, #panel-fast table.robust-table td { padding-left: 0.45rem; padding-right: 0.45rem; }
+            #panel-fast table.robust-table td { white-space: normal; }
+            #panel-fast table.robust-table td .rci { white-space: nowrap; }
+            #a-l1-table tbody th[scope="row"], #a-l1-table td:nth-child(2) { white-space: normal; min-width: 9rem; max-width: 15rem; }
+            #a-lex-table tbody th[scope="row"], #a-lex-table td:nth-child(2), #a-lex-table td:nth-child(3) { white-space: normal; }
+        }
+        #panel-fast table.robust-table td .rci { display: block; }
         ul.results li { padding: 0; }
         ul.results .r-kind { display: block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-light); margin-bottom: 0.1rem; }
         ul.results .r-sent { margin: 0; color: var(--text); }
@@ -195,14 +216,23 @@
         @media print {
             body:has(#panel-fast:not([hidden])) .masthead .status-line, body:has(#panel-fast:not([hidden])) .dash-controls, body:has(#panel-fast:not([hidden])) .tabs { display: none !important; }
             #panel-fast .print-title { display: block; font-size: 15pt; font-weight: 700; margin: 0 0 6pt; }
+            body:has(#panel-fast:not([hidden])) .result-head h1 { font-size: 18pt; margin: 0 0 4pt; }
+            body:has(#panel-fast:not([hidden])) .page { padding-top: 0 !important; }
             #panel-fast details:not([open]) { display: none; }
             #status, .status-line { display: none !important; }
-            #panel-fast section[aria-labelledby="q-a"], #panel-fast section[aria-labelledby="q-b"] { break-before: page; }
+            #panel-fast section[aria-labelledby="q-b"] { break-before: page; }
+            #panel-fast .sample-note { font-size: 8.5pt; margin-top: 3pt; }
+            #panel-fast .sample-note ul, #panel-fast .sample-note li { display: inline; padding: 0; margin: 0; }
+            #panel-fast .sample-note li + li::before { content: ' '; }
+            #panel-fast .sample-note p:first-child { display: inline; }
+            #panel-fast .sample-note p:first-child::after { content: ' '; }
+            #panel-fast .sample-note ul + p { margin-top: 2pt; }
+            #panel-fast .sample-note + h2 { margin-top: 10pt; }
             #panel-fast h3, #panel-fast h4 { break-after: avoid; }
             #panel-fast .traj-multiples, #panel-fast .fig-pair { break-inside: avoid; }
             #panel-fast .traj-multiples + .chart-caption { break-before: avoid; }
             #panel-fast h2 { break-inside: avoid; break-after: avoid; }
-            #panel-fast section[aria-labelledby="q-methods"]:not(:has(details[open])) { display: none; }
+            #panel-fast section[aria-labelledby="q-methods"]:not(:has(details[open])), #panel-fast section[aria-labelledby="q-mech"]:not(:has(details[open])) { display: none; }
             #panel-fast .est-row .er-text { font-size: 9pt; }
             #panel-fast h2 + .q-lead, #panel-fast .q-lead { break-after: avoid; }
             #panel-fast .found .findings li, #panel-fast .task-line { font-size: 9.5pt; }
@@ -261,13 +291,23 @@
             #panel-fast .traj-multiples { gap: 4pt 12pt; margin-top: 2pt; }
             #panel-fast .traj-multiples h5 { margin-bottom: 1pt; }
             #panel-fast .stats .stat-test { font-size: 9pt; }
+            #panel-fast #a-lex .chart.fc { max-width: 26rem !important; }
             #panel-fast table.robust-table td .rci, #panel-fast table.robust-table td .rp { font-size: 0.9em; }
             #panel-fast .q-lead, #panel-fast .bridge, #panel-fast .found-other, #panel-fast .found-note { font-size: 9.5pt; margin-top: 3pt; }
             #panel-fast figcaption, #panel-fast .chart-caption, #panel-fast .r-stat, #panel-fast .stat-note { font-size: 8pt; }
             #panel-fast .lang-key { display: none; }
             #panel-fast .stats.headline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
             #panel-fast .stats.headline .stat-value.verdict { font-size: 11.5pt; }
-            #panel-fast .est-row { grid-template-columns: 7rem 13rem minmax(0, 1fr); padding: 3pt 0; }
+            #panel-fast .est-row { grid-template-columns: 7rem 13rem minmax(0, 1fr); padding: 2pt 0; }
+            #panel-fast section[aria-labelledby="q-c"] h3.panel-h { display: none; }
+            body:has(#panel-fast:not([hidden])) .page { padding-bottom: 0; }
+            #panel-fast .task-line { font-size: 8.5pt; margin-bottom: 4pt; }
+            #panel-fast .found .findings { gap: 4pt; margin-top: 4pt; }
+            #panel-fast p.small, #panel-fast .small { font-size: 8pt; }
+            #a-mech-more h3.sub + p.column { break-after: avoid; }
+            #panel-fast ul.results li { break-inside: avoid; }
+            #panel-fast .r-note { font-size: 8pt; margin-top: 3pt; }
+            #panel-fast .q-explore .q-lead, #panel-fast .q-secondary .q-lead, #panel-fast .q-minor p.column { font-size: 8.5pt; }
             #panel-fast details.more { margin: 3pt 0; }
             #panel-fast details.more > summary { padding: 3pt 0; min-height: 0; }
             #panel-fast .figure { margin: 4pt 0; }
@@ -580,6 +620,7 @@
                     <p class="print-title" id="a-print-title"></p>
                     <section class="summary found" aria-labelledby="a-sum-h">
                         <p class="task-line">Each student gave chains of ten associations from twenty starting words, ten in Chinese and ten in English. Two questions: what happens from one answer to the next (<em>transition probabilities</em>: the chance that the next answer is positive or negative, given the one before), and how a chain develops over its ten answers (<em>trajectories</em>: how average valence changes from answer 1 to 10).</p>
+                        <div class="sample-note" id="a-sample"></div>
                         <h2 id="a-sum-h">What we found</h2>
                         <p class="updating" id="a-updating" role="status" hidden>Updating the models with the newest runs…</p>
                         <ol class="findings" id="a-summary"></ol>
@@ -650,13 +691,17 @@
                     </section>
 
                     <section class="q q-secondary" aria-labelledby="q-c">
-                        <h2 id="q-c"><span class="q-letter">C</span>Other differences between Chinese and English</h2>
-                        <p class="q-lead"><strong>Observed.</strong> English − Chinese, one value per student and language (paired <i>t</i>-tests), with 95% confidence intervals; the vertical line is 0, no difference.</p>
+                        <h2 id="q-c"><span class="q-letter">C</span>Other behavioural differences</h2>
+                        <p class="q-lead">English − Chinese, with 95% confidence intervals; the vertical line is 0, no difference.</p>
+                        <h3 class="panel-h">Response timing</h3>
+                        <div class="est-rows" id="a-timing"></div>
+                        <p class="column r-note" id="a-timing-say"></p>
+                        <h3 class="panel-h">Repetition</h3>
                         <div class="est-rows" id="a-secondary"></div>
                         <details class="more">
                             <summary>Show individual data</summary>
                             <h3 class="panel-h">Response time</h3>
-                            <figure class="figure figure-narrow"><div id="a-rt"></div><figcaption>Observed. Each student’s median time to submit an answer, in seconds. Grey lines join each student’s two medians; the marks at the edges are the class means of those medians<span class="ci-txt"> with 95% confidence intervals</span>.</figcaption></figure>
+                            <figure class="figure figure-narrow"><div id="a-rt"></div><figcaption>Observed. Each student’s median time to submit an answer, in seconds. Grey lines join each student’s two medians; the marks at the edges are the class means of those medians<span class="ci-txt"> with 95% confidence intervals</span>. These are arithmetic means; the timing rows above model log times, so their predicted times are geometric means, which are lower when times are right-skewed.</figcaption></figure>
                             <h3 class="panel-h">Repeated answers</h3>
                             <figure class="figure figure-narrow"><div id="a-repeats"></div><figcaption>Observed. The number of students at each level of repetition: the share of a student’s answers that repeat an earlier word of the same chain (the starting word included).<span id="a-repeats-means"></span></figcaption></figure>
                         </details>
@@ -664,7 +709,7 @@
 
                     <section class="q q-explore" aria-labelledby="q-prof">
                         <h2 id="q-prof">Exploratory: Does English proficiency change the language difference?</h2>
-                        <p class="q-lead">An exploratory moderation analysis: does the English − Chinese difference become larger or smaller as English proficiency increases? The transition and valence models are refitted with each student’s English rating (self-rated, 0 = no knowledge to 10 = native-like) and its interactions with language, with by-student random slopes for the language terms. Measures: staying negative (a negative answer followed by another negative one), staying positive (the same for positive answers), and mean answer valence. The overall rating is primary.</p>
+                        <p class="q-lead">An exploratory moderation analysis: does the English − Chinese difference change with English proficiency (self-rated, 0 = no knowledge to 10 = native-like)? The transition and valence models are refitted with each student’s rating and its interactions with language, with by-student random slopes for the language terms. Measures: staying negative, staying positive and mean answer valence; the overall rating is primary.</p>
                         <ul class="results" id="a-prof-line"></ul>
                         <details class="more" id="a-prof-more">
                             <summary>Show the plots</summary>
@@ -687,6 +732,33 @@
                         </details>
                     </section>
 
+                    <section class="q q-explore" aria-labelledby="q-mech">
+                        <h2 id="q-mech">Exploratory: What might produce the trajectory difference?</h2>
+                        <p class="q-lead"><strong>These analyses were motivated by patterns noticed after inspecting the class results and are exploratory. They should be treated as hypotheses for future work rather than confirmatory evidence.</strong></p>
+                        <details class="more" id="a-mech-more">
+                            <summary>Show the exploratory analyses</summary>
+                            <h3 class="sub">1 · Do English chains converge on a smaller response vocabulary?</h3>
+                            <p class="column">For each student and language: how often a response recurs across the student’s own different chains (cross-chain reuse), the share of distinct responses, and how often an answer repeats its chain’s starting word or an earlier answer in the same chain (within-chain repetition). This is reuse within one person’s chains, not a vocabulary shared across students.</p>
+                            <figure class="figure figure-mid"><div id="a-lex"></div><figcaption id="a-lex-cap"></figcaption></figure>
+                            <ul class="results" id="a-res-lex"></ul>
+                            <details class="more">
+                                <summary>Definitions and the full table</summary>
+                                <p class="column" id="a-lex-def"></p>
+                                <div class="table-wrap" data-label="Lexical reuse tests"><table class="data" id="a-lex-table"></table></div>
+                            </details>
+                            <h3 class="sub">2 · Does lexical convergence go with the starting-word decay difference?</h3>
+                            <p class="column">The starting-word model again, with every term also multiplied by each student’s English − Chinese difference in cross-chain reuse (centred), and a by-student random slope for the decay term. The question: do students whose English chains reuse more across chains (relative to their Chinese chains) also show a larger English − Chinese difference in how fast the starting-word gap shrinks?</p>
+                            <ul class="results" id="a-res-mech"></ul>
+                            <h3 class="sub">3 · Are L1 (Chinese) dynamics associated with bilingual experience?</h3>
+                            <p class="column">Chinese chains only, with three measures of bilingual experience: English age of acquisition, current English use, and the English − Chinese overall self-rating. Each is tested separately against three features of the Chinese chains, a family of nine tests judged on Benjamini–Hochberg adjusted <i>p</i>-values. These data cannot distinguish bilingualism-induced L1 change from pre-existing individual differences because there is no monolingual comparison group.</p>
+                            <ul class="results" id="a-res-l1"></ul>
+                            <div class="table-wrap" data-label="L1 dynamics and bilingual experience"><table class="data" id="a-l1-table"></table></div>
+                            <p class="small muted column" id="a-l1-note"></p>
+                            <h3 class="sub">4 · Semantic-space analysis (not done)</h3>
+                            <p class="column">Exact-response reuse is not semantic convergence. Testing whether English chains move away from the starting concept faster, or explore less of the semantic space, needs a validated multilingual embedding model that places Chinese and English words and short phrases in one space, applied with the same preprocessing to both languages and run offline into a fixed table of every response (updated when a class adds new responses). The page has no such model, and running one in the browser would make it slow, so this is left for future work.</p>
+                        </details>
+                    </section>
+
                     <section class="q q-minor" aria-labelledby="q-robust">
                         <h2 id="q-robust">Robustness and data quality</h2>
                         <p class="column" id="a-dq-line"></p>
@@ -700,7 +772,12 @@
                             <h3 class="sub">Which answers could not be scored?</h3>
                             <p class="column" id="a-miss-note"></p>
                             <div class="table-wrap" data-label="Missing valence model"><table class="data" id="a-miss"></table></div>
-                            <p class="small muted column">Random slopes for each student (previous state, language) are not fitted on this page; <code>materials/fast/random-slopes.R</code> fits them in R from the Transitions download.</p>
+                            <p class="small muted column">The column “By-student random slopes” adds uncorrelated by-student slopes for the language terms. <code>materials/fast/random-slopes.R</code> fits the transition model with correlated slopes in R, from the Transitions download.</p>
+                        </details>
+                        <details class="more" id="a-qc-more">
+                            <summary>Participant-level data checks</summary>
+                            <ul class="qc-list column" id="a-qc"></ul>
+                            <p class="small muted column">Counts only. The exclusion criteria are stated at the top of the page; the robustness column “All students (no exclusions)” shows the main models without them.</p>
                         </details>
                         <details class="more">
                             <summary>Data quality</summary>
@@ -737,6 +814,19 @@
                                 <p class="eq">logit P(next answer positive) = [the transition model’s terms] + β<sub>7</sub>·R + β<sub>8</sub>·Language × R + β<sub>9</sub>·Previous state × R + β<sub>10</sub>·Language × Previous state × R + u<sub>student</sub> + u<sub>student,L</sub>·Language + u<sub>student,LP</sub>·(Language × Previous state) + u<sub>seed</sub> + u<sub>chain</sub></p>
                                 <p class="eq">Valence = [the trajectory model’s terms] + β<sub>8</sub>·R + β<sub>9</sub>·Language × R + u<sub>student</sub> + u<sub>student,L</sub>·Language + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
                                 <p>R = the student’s English self-rating (0–10) minus the mean over the students in the model; one pair of models per rating. The rating varies only between students, so the language terms get by-student random slopes (uncorrelated, as lme4’s <code>||</code>); without them the standard errors of these cross-level interactions would be too small. Change in the English − Chinese difference per rating point: staying positive β<sub>8</sub> + ½β<sub>10</sub>, staying negative −β<sub>8</sub> + ½β<sub>10</sub> (log-odds, Wald <i>z</i>); mean valence β<sub>9</sub> (valence points, Satterthwaite <i>t</i>). The plots’ lines are the models’ English − Chinese differences at each rating (average marginal predictions for the transition model). Every student’s transitions count, weighted by how many they have, rather than one proportion per student. The overall rating is primary (three tests, unadjusted); the four skills’ twelve tests are judged on Benjamini–Hochberg adjusted <i>p</i>-values. This is an exploratory moderation analysis: ratings are self-reports, and the class was not sampled to vary in proficiency.</p>
+                                <h3 class="sub">Response timing</h3>
+                                <p class="eq">log(median time) = β<sub>0</sub> + β<sub>1</sub>·Language + β<sub>2</sub>·Block + β<sub>3</sub>·Language × Block + u<sub>student</sub> + ε</p>
+                                <p>Fitted separately for onset (answer shown → first keystroke) and total time (answer shown → answer submitted), on each student’s median per language: two rows per student. Block: second language done = +½, first = −½, from the order the student did the languages in. With two rows per student, the language × block term is a between-student comparison: the two order groups differ by β<sub>3</sub>/2 in mean log time, shown as the ratio exp(β<sub>3</sub>/2), Chinese-first ÷ English-first. The block term is the practice effect averaged over the two languages; language-specific practice effects are not separable from the order groups here. Predicted times are exp(β<sub>0</sub> ± β<sub>1</sub>/2), geometric means over students averaged over blocks; their difference in seconds has a delta-method CI; the other terms are shown as ratios, exp(β). Only these medians are stored with each student’s summary. Every answer’s onset and submit times are also kept in the data sheet (its <code>fast_trials</code> tab), but this page cannot read that tab, so no item-level timing model is fitted. The difference between a student’s median total time and median onset is not a median completion time and is not reported as one.</p>
+                                <h3 class="sub">Lexical reuse (exploratory)</h3>
+                                <p>Three measures per student and language (defined under “What might produce the trajectory difference?”), each compared English − Chinese with a paired <i>t</i>-test, for all students and without the students with extreme repetition; Benjamini–Hochberg adjustment across the three measures within each sample. Sensitivity: raw, normalised and lemma response keys.</p>
+                                <h3 class="sub">Exploratory models: reuse × starting-word decay, and L1 dynamics</h3>
+                                <p class="eq">Valence = [the starting-word model’s terms] + M × [each of them] + u<sub>student</sub> + u<sub>student,LSP</sub>·(Language × Seed valence × log<sub>2</sub>(position)) + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <p>M = the student’s English − Chinese cross-chain reuse (percentage points, normalised responses), centred. Key term: Language × Seed valence × log<sub>2</sub>(position) × M, reported in points of the gap’s change (answer 1 → 10) per percentage point of M.</p>
+                                <p class="eq">Chinese only: Valence = β<sub>0</sub> + β<sub>1</sub>·Seed valence + β<sub>2</sub>·log<sub>2</sub>(position) + β<sub>3</sub>·Seed valence × log<sub>2</sub>(position) + β<sub>4</sub>·Block + X × [β<sub>5</sub> + β<sub>6</sub>·Seed valence + β<sub>7</sub>·log<sub>2</sub>(position) + β<sub>8</sub>·Seed valence × log<sub>2</sub>(position)] + u<sub>student</sub> + u<sub>student,SP</sub>·(Seed valence × log<sub>2</sub>(position)) + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <p class="eq">Chinese only: Valence = β<sub>0</sub> + β<sub>1</sub>·P + β<sub>2</sub>·(P² − 8.25) + β<sub>3</sub>·Seed valence + β<sub>4</sub>·Block + X × [β<sub>5</sub> + β<sub>6</sub>·P + β<sub>7</sub>·(P² − 8.25)] + u<sub>student</sub> + u<sub>student,P</sub>·P + u<sub>seed</sub> + u<sub>chain</sub> + ε</p>
+                                <p>X: English age of acquisition (years), English use (per 10 percentage points), or English − Chinese overall self-rating, each centred and tested in its own models. Key terms: β<sub>8</sub> (starting-word persistence) and the joint test of β<sub>6</sub> and β<sub>7</sub> (trajectory shape). The third outcome, Chinese cross-chain reuse, is regressed on X by least squares with HC3 errors (one value per student). Benjamini–Hochberg adjustment across the nine tests. In every model with a student-level moderator, the term it moderates gets a by-student random slope (uncorrelated), so that the interaction’s standard error reflects differences between students.</p>
+                                <h3 class="sub">Exclusion criteria</h3>
+                                <p>Applied before every analysis on the page (the CSV downloads keep every student, with columns <code>analysed</code> and <code>excluded_for</code>). A student is excluded when (1) fewer than 70% of their possible transitions (adjacent answers both scored for valence) are usable in either language; (2) more than half of their answers in a language repeat the chain’s starting word or an earlier answer in the same chain (the site’s repetition measure); or (3) their first-language answer here contradicts the same code’s answer to the Judgement task (“Is Chinese your first language?”), where both are loaded on the page. Response times are not trimmed or capped. The robustness column “All students (no exclusions)” refits the main models on everyone. <b>By-student random slopes</b> (robustness): uncorrelated slopes for the language terms named in the robustness notes, added to each primary model.</p>
                                 <h3 class="sub">Estimates, tests and intervals</h3>
                                 <p>Linear models: REML; <i>t</i>-tests and 95% CIs use Satterthwaite degrees of freedom (as lmerTest). Logistic model: Wald <i>z</i> and 95% CIs.</p>
                                 <p>Model-adjusted probabilities (logistic model): average marginal predictions. Every observed transition is predicted with language and previous state set as stated, random effects at zero, keeping its own seed valence, position and block; the predictions are averaged. CIs by the delta method. Model-adjusted valence (linear models): the same averaging, which for a linear model equals the prediction at the observed means of the other predictors.</p>
@@ -857,11 +947,11 @@
     <script src="assets/config.js?v=2"></script>
     <script src="assets/lab.js?v=9"></script>
     <script src="assets/fast-stimuli.js?v=6"></script>
-    <script src="assets/fast-analysis.js?v=12"></script>
-    <script src="assets/fast-charts.js?v=23"></script>
+    <script src="assets/fast-analysis.js?v=14"></script>
+    <script src="assets/fast-charts.js?v=25"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
     <script src="assets/svt-charts.js?v=2"></script>
-    <script src="assets/dashboard.js?v=80"></script>
+    <script src="assets/dashboard.js?v=96"></script>
 </body>
 </html>

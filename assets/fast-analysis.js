@@ -453,6 +453,77 @@
     return D;
   };
 
+  /* The same model with uncorrelated by-student random slopes added (each
+     [name, value of a row]); the student factor must come first. For the
+     robustness check: the language terms' effects may differ between
+     students. */
+  A.addSlopes = function (D, slopes) {
+    const g0 = D.groups[0];
+    return Object.assign({}, D, {
+      groups: [g0].concat(slopes.map(() => g0), D.groups.slice(1)),
+      zv: [null].concat(slopes.map(([, f]) => Float64Array.from(D.data, f)), (D.zv || D.groups.map(() => null)).slice(1)),
+      nLevels: [D.nLevels[0]].concat(slopes.map(() => D.nLevels[0]), D.nLevels.slice(1)),
+      groupNames: [D.groupNames[0]].concat(slopes.map(([n]) => n), D.groupNames.slice(1))
+    });
+  };
+  const slopesFor = (model, D) => {
+    const pc = t => t.prev === 'P' ? 0.5 : -0.5, sv = a => a.seedValence - D.svMean;
+    return model === 'A' ? [['Student: language', lc], ['Student: language × previous state', t => lc(t) * pc(t)]]
+      : model === 'C1' ? [['Student: language', lc], ['Student: language × previous valence', t => lc(t) * (t.prevV - 5)]]
+      : model === 'C' ? [['Student: language', lc], ['Student: language × position', a => lc(a) * (a.position - 5.5)]]
+      : [['Student: language × seed valence', a => lc(a) * sv(a)], ['Student: language × seed valence × position', a => lc(a) * sv(a) * Math.log2(a.position)]];
+  };
+
+  /* A student-level moderator (Map of student key → value), centred on the
+     mean over the students in the model; rows without a value are left out. */
+  const withMod = (rows, mod) => {
+    const ok = rows.filter(d => isFinite(d.seedValence) && isFinite(mod.get(d.pid))).map(d => Object.assign({}, d, { mod: mod.get(d.pid) }));
+    const byStudent = new Map(ok.map(d => [d.pid, d.mod]));
+    return { ok, mMean: mean([...byStudent.values()]) };
+  };
+  /* Exploratory: does a student's English − Chinese difference in cross-chain
+     reuse (M) go with their English − Chinese difference in how the starting
+     word's influence changes along the chain? The starting-word model, every
+     term also × M; the key term is Language × seed valence × position × M.
+     M varies only between students, so the term it moderates gets a
+     by-student random slope. */
+  A.modelDataBmod = function (ans, mod) {
+    const { ok, mMean } = withMod(ans.filter(a => a.scored), mod);
+    const svMean = mean(ok.map(a => a.seedValence));
+    const sv = a => a.seedValence - svMean, ps = a => Math.log2(a.position), m = a => a.mod - mMean;
+    const base = [[LANG, lc], ['Seed valence (per point)', sv], ['Position (per doubling, from answer 1)', ps], ['Language × seed valence', a => lc(a) * sv(a)],
+      ['Language × position', a => lc(a) * ps(a)], ['Seed valence × position', a => sv(a) * ps(a)], ['Language × seed valence × position', a => lc(a) * sv(a) * ps(a)]];
+    const D = A.design(ok, [['(Intercept)', () => 1]].concat(base, [['Block (second − first)', bc], ['M (per point)', m]], base.map(([n, f]) => [`${n} × M`, a => f(a) * m(a)])),
+      a => a.valence, [['Student', a => a.pid], ['Student: language × seed valence × position', a => a.pid, a => lc(a) * sv(a) * ps(a)], ['Seed', a => a.seed], ['Chain', a => a.pid + '|' + a.seed]]);
+    D.svMean = svMean; D.mMean = mMean;
+    return D;
+  };
+  /* Exploratory, Chinese (L1) answers only: does a bilingual-experience measure
+     X (English age of acquisition, English use, or English − Chinese overall
+     rating; centred) go with how the starting word's influence changes along
+     the Chinese chain (key term: seed valence × position × X), or with the
+     Chinese trajectory's shape (joint test: position × X, position² × X)? */
+  A.modelDataL1Seed = function (ans, mod) {
+    const { ok, mMean } = withMod(ans.filter(a => a.scored && a.lang === 'zh'), mod);
+    const svMean = mean(ok.map(a => a.seedValence));
+    const sv = a => a.seedValence - svMean, ps = a => Math.log2(a.position), x = a => a.mod - mMean;
+    const D = A.design(ok, [['(Intercept)', () => 1], ['Seed valence (per point)', sv], ['Position (per doubling, from answer 1)', ps], ['Seed valence × position', a => sv(a) * ps(a)],
+      ['Block (second − first)', bc], ['X (per unit)', x], ['Seed valence × X', a => sv(a) * x(a)], ['Position × X', a => ps(a) * x(a)], ['Seed valence × position × X', a => sv(a) * ps(a) * x(a)]],
+      a => a.valence, [['Student', a => a.pid], ['Student: seed valence × position', a => a.pid, a => sv(a) * ps(a)], ['Seed', a => a.seed], ['Chain', a => a.pid + '|' + a.seed]]);
+    D.svMean = svMean; D.mMean = mMean;
+    return D;
+  };
+  A.modelDataL1Traj = function (ans, mod) {
+    const { ok, mMean } = withMod(ans.filter(a => a.scored && a.lang === 'zh'), mod);
+    const svMean = mean(ok.map(a => a.seedValence));
+    const ps = a => a.position - 5.5, p2 = a => ps(a) * ps(a) - 8.25, x = a => a.mod - mMean;
+    const D = A.design(ok, [['(Intercept)', () => 1], ['Position (per step)', ps], ['Position² (curve)', p2], ['Seed valence (per point)', a => a.seedValence - svMean],
+      ['Block (second − first)', bc], ['X (per unit)', x], ['Position × X', a => ps(a) * x(a)], ['Position² × X', a => p2(a) * x(a)]],
+      a => a.valence, [['Student', a => a.pid], ['Student: position', a => a.pid, ps], ['Seed', a => a.seed], ['Chain', a => a.pid + '|' + a.seed]]);
+    D.svMean = svMean; D.mMean = mMean;
+    return D;
+  };
+
   /* Missing valence: is an answer scored by the norms? Logistic, random
      intercepts for students and seeds. */
   A.modelDataMiss = function (ans) {
@@ -952,7 +1023,7 @@
     if (!f || !f.ok) return f ? { ok: false, reason: f.reason, empty: f.empty || null } : null;
     const colMeans = {};
     f.D.names.forEach((name, j) => { let s = 0; f.D.X.forEach(r => { s += r[j]; }); colMeans[name] = s / f.D.X.length; });
-    const keep = ['ok', 'kind', 'n', 'nLevels', 'groupNames', 'theta', 'sd', 'sigma', 'reml', 'deviance', 'dropped', 'evals', 'converged', 'names', 'beta', 'sat', 'carry', 'rMean', 'profCurve'];
+    const keep = ['ok', 'kind', 'n', 'nLevels', 'groupNames', 'theta', 'sd', 'sigma', 'reml', 'deviance', 'dropped', 'evals', 'converged', 'names', 'beta', 'sat', 'carry', 'rMean', 'profCurve', 'mMean'];
     const out = { colMeans, cov: f.cov.map(r => Array.from(r)) };
     keep.forEach(k => { if (f[k] !== undefined) out[k] = f[k]; });
     return out;
@@ -978,6 +1049,14 @@
       case 'Miss': return A.glmm(A.modelDataMiss(j.ans));
       case 'PA': { const D = A.modelDataProfA(j.tr, new Map(j.prof)), f = A.glmm(D, D.data, j.start); if (f.ok) { f.rMean = D.rMean; f.profCurve = A.profCurve(f, j.grid); } return f; }
       case 'PV': { const D = A.modelDataProfV(j.ans, new Map(j.prof)), f = A.lmm(D, j.start); if (f.ok) f.rMean = D.rMean; return f; }
+      case 'AS': { const D0 = A.modelData(j.tr), f = A.glmm(A.addSlopes(D0, slopesFor('A', D0)), j.tr, j.start); if (f.ok) f.carry = A.carryOver(f); return f; }
+      case 'C1S': { const D0 = A.modelDataC1(j.tr); return A.lmm(A.addSlopes(D0, slopesFor('C1', D0)), j.start); }
+      case 'CS': { const D0 = A.modelDataC(j.ans); return A.lmm(A.addSlopes(D0, slopesFor('C', D0)), j.start); }
+      case 'BS': { const D0 = A.modelDataB(j.ans); return A.lmm(A.addSlopes(D0, slopesFor('B', D0)), j.start); }
+      case 'T': return A.lmm(A.modelDataTiming(j.trows, j.measure));
+      case 'BM': { const D = A.modelDataBmod(j.ans, new Map(j.mod)), f = A.lmm(D, j.start); if (f.ok) f.mMean = D.mMean; return f; }
+      case 'L1S': { const D = A.modelDataL1Seed(j.ans, new Map(j.mod)), f = A.lmm(D, j.start); if (f.ok) f.mMean = D.mMean; return f; }
+      case 'L1T': { const D = A.modelDataL1Traj(j.ans, new Map(j.mod)), f = A.lmm(D, j.start); if (f.ok) f.mMean = D.mMean; return f; }
     }
     return { ok: false, reason: 'unknown' };
   };
@@ -1081,6 +1160,102 @@
     let run = 1;
     ix.forEach(([p, i], k) => { run = Math.min(run, p * m / (m - k)); out[i] = run; });
     return out;
+  };
+
+  /* ---------- lexical reuse (exploratory) ----------
+     Exact-response reuse within a student's own chains, in one language.
+     Three response keys, for sensitivity:
+       raw   the answer as typed, trimmed;
+       norm  NFKC; Latin letters lower-cased; curly quotes, dashes and the
+             like made plain; quotation marks and leading/trailing
+             punctuation or symbols removed; internal whitespace collapsed
+             (Chinese: all whitespace, punctuation and symbols removed, as
+             they are not part of a single typed word). Nothing is
+             translated, stemmed, lemmatised or split;
+       lemma the key the site uses for repetitions (the English lemma when
+             the norms know the word, else the normalised form).
+     Empty answers are not responses: they count in no numerator or
+     denominator. */
+  A.lexNorm = (raw, lang) => {
+    let s = String(raw === null || raw === undefined ? '' : raw).normalize('NFKC');
+    s = s.replace(/[‘’‚‛ʼ`´]/g, "'").replace(/[“”„‟«»]/g, '"').replace(/[‐‑‒–—―−]/g, '-');
+    if (lang === 'zh') return s.replace(/[\s\p{P}\p{S}]/gu, '');
+    s = s.toLowerCase().replace(/"/g, '').replace(/\s+/g, ' ').trim();
+    return s.replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '');
+  };
+  A.lexKey = mode => mode === 'raw' ? (t => String(t === null || t === undefined ? '' : t).trim())
+    : mode === 'lemma' ? null : (t, lang) => A.lexNorm(t, lang);
+  /* For one student and language (chains: [{seed, answers: [text]}], with the
+     answers already keyed): within-chain repetition, response diversity and
+     cross-chain reuse.
+       within  share of answers equal to the chain's starting word or to an
+               earlier answer in the same chain;
+       unique  distinct response types / answers (1 − unique is the share of
+               answers that repeat a response given anywhere before);
+       cross   each chain reduced to its distinct types; a type found in k
+               chains adds k − 1; the sum over types / the number of
+               chain-distinct types (0: no type recurs across chains);
+       multi   share of the distinct types found in more than one chain. */
+  A.lexicalMetrics = function (chains) {
+    let n = 0, within = 0, chainTypes = 0;
+    const inChains = new Map();
+    chains.forEach(c => {
+      const seen = new Set(c.seed ? [c.seed] : []), set = new Set();
+      c.answers.forEach(a => {
+        if (!a) return;
+        n++;
+        if (seen.has(a)) within++;
+        seen.add(a); set.add(a);
+      });
+      chainTypes += set.size;
+      set.forEach(t => inChains.set(t, (inChains.get(t) || 0) + 1));
+    });
+    let excess = 0, multi = 0;
+    inChains.forEach(k => { excess += k - 1; if (k > 1) multi++; });
+    const U = inChains.size;
+    return { n, types: U, unique: n ? U / n : NaN, within: n ? within / n : NaN, cross: chainTypes ? excess / chainTypes : NaN, multi: U ? multi / U : NaN, excess, chainTypes };
+  };
+  // Per student: the metrics in each language, under one response key.
+  A.lexicalByStudent = function (parts, mode) {
+    const kf = A.lexKey(mode || 'norm');
+    return parts.map(P => {
+      const out = { key: P.key };
+      ['zh', 'en'].forEach(lang => {
+        const chains = P.chains.filter(c => c.lang === lang).map(c => kf
+          ? { seed: kf(lang === 'zh' ? c.word : c.word, lang), answers: c.answers.map(a => kf(a.text, lang)) }
+          : { seed: c.seedNorm, answers: c.answers.map(a => a.norm || '') });
+        out[lang] = chains.length ? A.lexicalMetrics(chains) : null;
+      });
+      return out;
+    });
+  };
+
+  /* ---------- response timing ----------
+     Only each student's median times per language are stored with the
+     summaries (rt_median_*: answer shown → answer submitted; onset_median_*:
+     answer shown → first keystroke), in ms. Two rows per student: language,
+     and block (first or second language done, from the order field). */
+  A.timingRows = rows => rows.flatMap(r => {
+    const ord = String(r.order || '').split('-');
+    if (ord.length !== 2 || !ord.includes('zh') || !ord.includes('en')) return [];
+    return ['zh', 'en'].map(lang => ({
+      pid: r.pid + '|' + r.session, lang, block: ord.indexOf(lang) + 1, order: r.order,
+      total: Number(r[`rt_median_${lang}`]) / 1000, onset: r[`onset_median_${lang}`] === '' || r[`onset_median_${lang}`] === null || r[`onset_median_${lang}`] === undefined ? NaN : Number(r[`onset_median_${lang}`]) / 1000
+    }));
+  });
+  /* log seconds ~ language × block + (1 | student). Language: English +½;
+     block: second +½. With two rows per student, the language × block term
+     is a between-student comparison: the two order groups differ by half of
+     it in mean log time. */
+  A.modelDataTiming = function (trows, measure) {
+    const ok = trows.filter(t => t[measure] > 0);
+    const both = new Set(), seen = new Map();
+    ok.forEach(t => seen.set(t.pid, (seen.get(t.pid) || 0) + 1));
+    seen.forEach((k, pid) => { if (k === 2) both.add(pid); });
+    const d = ok.filter(t => both.has(t.pid));
+    const L = t => t.lang === 'en' ? 0.5 : -0.5, B = t => t.block === 2 ? 0.5 : -0.5;
+    return A.design(d, [['(Intercept)', () => 1], [LANG, L], ['Block (second − first)', B], ['Language × block', t => L(t) * B(t)]],
+      t => Math.log(t[measure]), [['Student', t => t.pid]]);
   };
 
   /* ---------- exports (CSV rows) ---------- */

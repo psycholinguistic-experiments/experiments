@@ -495,9 +495,15 @@
       .finally(() => { fastState.loading = null; lastKey = ''; render(); });
   }
   $('#a-prof-measure').addEventListener('change', () => { lastKey = ''; render(); });
-  $('#a-csv-answers').addEventListener('click', () => LAB.download(`lt5461-association-answers-${state.session}.csv`, LAB.toCSV(FA.responseRows(fastState.parts))));
-  $('#a-csv-transitions').addEventListener('click', () => LAB.download(`lt5461-association-transitions-${state.session}.csv`, LAB.toCSV(FA.transitionRows(fastState.parts))));
+  // Downloads keep every student, marked with whether they are analysed and, if not, why.
+  const withExclusion = rs => rs.map(r => { const k = r.pid + '|' + r.session, E = fastState.excl;
+    const why = E ? [E.lowCov.has(k) && 'coverage', E.extreme.has(k) && 'repetition', E.l1.has(k) && 'l1'].filter(Boolean) : [];
+    return Object.assign(r, { analysed: why.length ? 0 : 1, excluded_for: why.join(';') || 'NA' }); });
+  $('#a-csv-answers').addEventListener('click', () => LAB.download(`lt5461-association-answers-${state.session}.csv`, LAB.toCSV(withExclusion(FA.responseRows(fastState.allParts || [])))));
+  $('#a-csv-transitions').addEventListener('click', () => LAB.download(`lt5461-association-transitions-${state.session}.csv`, LAB.toCSV(withExclusion(FA.transitionRows(fastState.allParts || [])))));
   $('#a-robust-more').addEventListener('toggle', () => { if ($('#a-robust-more').open) runRobust(); });
+  // the exploratory mechanism models are fitted only once someone opens that section
+  $('#a-mech-more').addEventListener('toggle', () => { if ($('#a-mech-more').open) { renderLex(); runMech(); renderMech(); } });
 
   // Observed transition probabilities: a 2 × 2 table per language.
   function tmTable(m, lang) {
@@ -536,11 +542,16 @@
     // some ids, and its runs would be read half-way.
     const other = rows.filter(r => r.stim_version !== STIM.version).length;
     rows = rows.filter(r => r.stim_version === STIM.version);
-    const parts = FA.participants(rows, STIM, fastState.norms);
-    fastState.parts = parts;
+    const allParts = FA.participants(rows, STIM, fastState.norms);
+    // Exclusion criteria, applied before any analysis (the robustness column "All students" shows the analysis without them).
+    const EX = exclusions(allParts);
+    const parts = allParts.filter(Pp => !EX.any.has(Pp.key));
+    rows = rows.filter(r => !EX.any.has(r.pid + '|' + r.session));
+    fastState.parts = parts; fastState.allParts = allParts; fastState.excl = EX;
     const n = parts.length;
+    renderSample(EX, allParts.length, n);
     if (!n) {
-      $('#a-summary').innerHTML = '<li class="plain"><strong>No runs yet for this class.</strong> Results appear here as students finish.' +
+      $('#a-summary').innerHTML = '<li class="plain"><strong>' + (allParts.length ? 'No student meets the inclusion criteria yet.' : 'No runs yet for this class.') + '</strong> Results appear here as students finish.' +
         (other ? ` (${other} run${other > 1 ? 's' : ''} used an earlier set of starting words and ${other > 1 ? 'are' : 'is'} not shown.)` : '') + '</li>';
       $('#a-other').textContent = ''; $('#a-datanote').textContent = '';
       $('#a-body').hidden = true;
@@ -610,13 +621,12 @@
       label: `Median time per answer per student: Chinese mean ${sec1(rt.zh)}, English mean ${sec1(rt.en)}`
     });
     const second = [
-      ['Response time', ttE(rt.test), rt.test, e => clearCI(e) ? `English answers were ${e.est > 0 ? 'slower' : 'faster'} by <b>${b2(Math.abs(e.est))}\u00a0s</b> [${b2(Math.min(Math.abs(e.lo), Math.abs(e.hi)))}, ${b2(Math.max(Math.abs(e.lo), Math.abs(e.hi)))}]` : `No clear language difference in response time (English − Chinese ${s2(e.est)} s [${s2(e.lo)}, ${s2(e.hi)}])`, `students’ median times average ${sec1(rt.zh)} in Chinese and ${sec1(rt.en)} in English`],
       ['Repeated answers', ttE(repeat.test), repeat.test, e => clearCI(e) ? `Repetition was ${e.est > 0 ? 'more' : 'less'} frequent in English by <b>${ppts(Math.abs(e.est)).replace('+', '')}</b> percentage points [${ppts(Math.min(Math.abs(e.lo), Math.abs(e.hi))).replace('+', '')}, ${ppts(Math.max(Math.abs(e.lo), Math.abs(e.hi))).replace('+', '')}]` : `No clear language difference in repetition (English − Chinese ${ppts(e.est)} percentage points [${ppts(e.lo)}, ${ppts(e.hi)}])`, `${pct1(repeat.zh)} of Chinese and ${pct1(repeat.en)} of English answers repeated an earlier word of the chain`]
     ];
     const sec = $('#a-secondary');
     sec.innerHTML = second.map(([name, e, T, say, extra], i) => `<div class="est-row"><span class="er-name">${name}</span><div class="er-chart" id="a-er-${i}"></div>` +
       `<p class="er-text">${e ? `${say(e)}; ${statTxt(e)}${smallTag(n)}. <span class="muted">Observed: ${extra}.</span>` : `${T.reason === 'novar' ? 'No variation to test' : 'Too few runs to test'}. <span class="muted">Observed: ${extra}.</span>`}</p></div>`).join('');
-    second.forEach(([name, e], i) => { if (e) FC.estimate($('#a-er-' + i), { est: e.est, lo: e.lo, hi: e.hi, label: `${name}, English − Chinese, with 95% CI` }); });
+    second.forEach(([name, e], i) => { if (e) FC.estimate($('#a-er-' + i), { est: e.est, lo: e.lo, hi: e.hi, clear: clearCI(e), label: `${name}, English − Chinese, with 95% CI` }); });
 
     // ---- per student: the starting word's valence, by language (kept in the full tests) ----
     const both = mv.map(x => ({ zh: x.zh.positive - x.zh.negative, en: x.en.positive - x.en.negative })).filter(d => isFinite(d.zh) && isFinite(d.en));
@@ -645,7 +655,7 @@
     $('#a-coverage').innerHTML = ['zh', 'en'].map(l => `<div><div class="meter-lang">${LANG_NAME[l]}</div>` +
       meter(l, 'Answers scored', C[l].scored, range(C[l].sRange)) +
       meter(l, 'Valid transitions', C[l].valid, `${C[l].validN.toLocaleString('en-US')} transitions · ${range(C[l].vRange)}`) + '</div>').join('') +
-      (repOut.length ? `<p class="small column rep-flag">${repOut.map((o, i) => `${i ? 'in' : 'In'} ${LANG_NAME[o.l]}, ${o.n}\u00a0student${o.n > 1 ? 's' : ''} repeated an earlier word in more than half of their answers`).join('; ')}. Their answers are kept in every analysis; see “Show individual data” under C.</p>` : '');
+      (repOut.length ? `<p class="small column rep-flag">${repOut.map((o, i) => `${i ? 'in' : 'In'} ${LANG_NAME[o.l]}, ${o.n}\u00a0student${o.n > 1 ? 's' : ''} repeated an earlier word in more than half of their answers`).join('; ')}. Their answers are kept in the main analysis; the robustness checks and the exploratory analyses also show results without them. See “Show individual data” under C.</p>` : '');
     const lowL = C.zh.valid <= C.en.valid ? 'zh' : 'en', hiL = lowL === 'zh' ? 'en' : 'zh';
     const gapCov = pct0(C.zh.valid) !== pct0(C.en.valid);
     const dqText = `Normative-valence coverage: ${pct0(C.zh.scored)} of Chinese and ${pct0(C.en.scored)} of English answers could be scored, and ${pct0(C.zh.valid)} and ${pct0(C.en.valid)} of possible transitions are usable.` +
@@ -656,8 +666,19 @@
     parts.forEach(Pp => Pp.chains.forEach(c => { if (isFinite(c.seedValence)) seeds.set(c.lang + ':' + c.id, c); }));
     const catMean = cat => LAB.mean([...seeds.values()].filter(c => c.category === cat).map(c => c.seedValence));
     const dSV = catMean('positive') - catMean('negative');
-    fastState.ctx = { other, n, P, C, polarity, repeat, rt, PROF, tr2, ans, parts, nPos, gapCov, lowL, hiL, dSV, dqText };
-    $('#a-print-title').textContent = `Association task · ${$('#session').selectedOptions[0] ? $('#session').selectedOptions[0].textContent.replace(/\s*\(\d+\)$/, '') : state.session} · ${n} student${n === 1 ? '' : 's'}`;
+    // ---- checks on the analysed students (the exclusions are in EX) ----
+    // Nobody left in the sample meets an exclusion rule, so the exploratory "without …" comparisons fall away.
+    const extreme = new Set(), l1Flag = new Set();
+    const qc = {
+      missingBg: parts.filter(Pp => !isFinite(Pp.eng_age) || !isFinite(Pp.en_use) || !isFinite(Pp.prof.en_overall) || !isFinite(Pp.prof.zh_overall)).length,
+      noType: per.filter(q => ['zh', 'en'].some(l => !q.lang[l].nN || !q.lang[l].nP)).length
+    };
+    // lexical reuse, per student and language, under three response keys (exploratory)
+    const lex = { norm: FA.lexicalByStudent(parts, 'norm'), raw: FA.lexicalByStudent(parts, 'raw'), lemma: FA.lexicalByStudent(parts, 'lemma') };
+    fastState.ctx = { other, n, P, C, polarity, repeat, rt, PROF, tr2, ans, parts, nPos, gapCov, lowL, hiL, dSV, dqText, extreme, l1Flag, qc, lex, rows, EX, allN: allParts.length };
+    renderQC();
+    renderLex();
+    $('#a-print-title').textContent = `Association task · ${$('#session').selectedOptions[0] ? $('#session').selectedOptions[0].textContent.replace(/\s*\(\d+\)$/, '') : state.session}`;
     const fitKey = JSON.stringify([state.session, parts.map(x => x.key)]);
     // New runs: the last results stay on screen, marked as updating, until the
     // new fits are all in (a different class starts afresh). Then the
@@ -671,7 +692,9 @@
     $('#a-updating').hidden = !fastState.updating;
     renderFastModels();
     if (!fresh) return;
-    const got = {}, jobs = [{ key: 'A', model: 'A', tr: tr2 }, { key: 'C', model: 'C', ans }, { key: 'B', model: 'B', ans }, { key: 'C1', model: 'C1', tr: tr2 }];
+    const trows = FA.timingRows(rows);
+    const got = {}, jobs = [{ key: 'A', model: 'A', tr: tr2 }, { key: 'C', model: 'C', ans }, { key: 'B', model: 'B', ans }, { key: 'C1', model: 'C1', tr: tr2 },
+      { key: 'TO', model: 'T', trows, measure: 'onset' }, { key: 'TT', model: 'T', trows, measure: 'total' }];
     fitJobs('main', jobs, (key, f) => {
       if (fastState.fitKey !== fitKey) return;
       got[key] = f;
@@ -707,9 +730,10 @@
     return U(fit.contrast(k === 'PP' ? { 'Language × proficiency': 1, 'Language × previous state × proficiency': 0.5 } : { 'Language × proficiency': -1, 'Language × previous state × proficiency': 0.5 }));
   };
   const profFit = (sk, k) => { const P = fastState.prof; return P && P.fits[sk] ? P.fits[sk][k === 'V' ? 'PV' : 'PA'] : undefined; };
+  const profFew = () => { const F = fastState.fits; return fastState.parts.length < MECH_MIN || (F.A && !F.A.ok) || (F.C && !F.C.ok); };
   function runProf() {
     const key = fastState.fitKey, F = fastState.fits;
-    if (!fastState.parts.length || !F.A || !F.A.ok || !F.C || !F.C.ok || fastState.profKey === key) return;
+    if (!fastState.parts.length || profFew() || !F.A || !F.C || fastState.profKey === key) return;
     fastState.profKey = key;
     const P = { fits: {}, done: 0, total: 0 };
     fastState.profNext = P;
@@ -749,12 +773,12 @@
     const adj = all ? FA.bh(follow.map(o => E[o.sk][o.k] ? E[o.sk][o.k].p : NaN)) : follow.map(() => NaN);
     const padj = {}; follow.forEach((o, i) => { padj[o.sk + o.k] = adj[i]; });
     const judgedP = (sk, k) => sk === 'overall' ? (E[sk][k] ? E[sk][k].p : NaN) : padj[sk + k];
-    const pending = !P || !P.fits.overall || !profFit('overall', 'NN');
-    const why = (sk, k) => { const f = profFit(sk, k); return !f ? 'Being estimated' : !f.ok ? whyNot(f) : 'Not estimable yet'; };
+    const few = profFew(), pending = !few && (!P || !P.fits.overall || !profFit('overall', 'NN'));
+    const why = (sk, k) => { const f = profFit(sk, k); return few ? `Needs at least ${MECH_MIN} students` : !f ? 'Being estimated' : !f.ok ? whyNot(f) : 'Not estimable yet'; };
     const unitTxt = k => `${PUNIT[k]} per rating point`;
     // primary: the overall rating
     const prim = Object.keys(MEAS).map(k => ({ k, e: E.overall[k] })), primOk = prim.filter(o => o.e), primClear = primOk.filter(o => clearCI(o.e));
-    $('#a-prof-line').innerHTML = res('Exploratory', pending ? '<span class="muted">Being estimated: whether overall English proficiency changes the English − Chinese difference in staying negative, staying positive or mean valence.</span>'
+    $('#a-prof-line').innerHTML = few ? `<li><p class="r-sent muted">Needs at least ${MECH_MIN} students with both languages scored (${x.n} so far).</p></li>` : res('Exploratory', pending ? '<span class="muted">Being estimated: whether overall English proficiency changes the English − Chinese difference in staying negative, staying positive or mean valence.</span>'
       : !primOk.length ? `${why('overall', 'NN')}.`
       : primClear.length ? `The English − Chinese difference in ${andList(primClear.map(o => MEASW[o.k]))} changes with overall English proficiency${primOk.length > primClear.length ? `; there is no clear evidence for ${orList(primOk.filter(o => !clearCI(o.e)).map(o => MEASW[o.k]))}` : ''}.`
       : `No clear evidence that overall English proficiency changes the English − Chinese difference in ${orList(primOk.map(o => MEASW[o.k]))}.`,
@@ -808,6 +832,221 @@
     syncScrollers();
   }
 
+  /* ---------- exclusion criteria (applied before any analysis) ----------
+     A student is excluded when (1) fewer than 70% of their possible
+     transitions are usable in either language, (2) more than half of their
+     answers in a language repeat the starting word or an earlier answer in the
+     same chain, or (3) their first-language answer here contradicts their
+     answer to the Judgement task under the same code (classes on the page). */
+  function exclusions(all) {
+    const per = FA.perParticipant(all), reps = FA.repetitions(all);
+    const rate = (x, l) => x[l].all[1] ? x[l].all[0] / x[l].all[1] : NaN;
+    const lowCov = new Set(all.filter((Pp, i) => !['zh', 'en'].every(l => per[i].lang[l].possible > 0 && per[i].lang[l].valid / per[i].lang[l].possible >= 0.7)).map(Pp => Pp.key));
+    const extreme = new Set(all.filter((Pp, i) => rate(reps[i], 'zh') > 0.5 || rate(reps[i], 'en') > 0.5).map(Pp => Pp.key));
+    const fleL1 = new Map(); (state.rows.fle || []).forEach(r => { if (r.l1_chinese) fleL1.set(r.pid, String(r.l1_chinese)); });
+    const l1 = new Set(all.filter(Pp => Pp.l1 && fleL1.has(Pp.pid) && ((Pp.l1 !== 'chinese') === (fleL1.get(Pp.pid) === 'yes'))).map(Pp => Pp.key));
+    return { lowCov, extreme, l1, any: new Set([...lowCov, ...extreme, ...l1]), l1Checked: all.filter(Pp => fleL1.has(Pp.pid)).length,
+      l1NotZhUnchecked: all.filter(Pp => Pp.l1 && Pp.l1 !== 'chinese' && !fleL1.has(Pp.pid)).length };
+  }
+  // The statement at the top of the tab: who is analysed, who is excluded and why, and how response times are handled.
+  function renderSample(EX, N, n) {
+    const st = k => `${k} student${k === 1 ? '' : 's'}`;
+    const also = (set, earlier) => { const k = [...set].filter(key => earlier.some(e => e.has(key))).length; return k ? ` (${k} of them also excluded above)` : ''; };
+    $('#a-sample').innerHTML = !N ? '' :
+      `<p><strong>Sample:</strong> ${n} of ${N} students are analysed. A student is excluded when</p><ul>` +
+      `<li>fewer than 70% of their possible transitions (adjacent answers both scored for valence) are usable in either language: ${st(EX.lowCov.size)};</li>` +
+      `<li>more than half of their answers in a language repeat the starting word or an earlier answer in the same chain: ${st(EX.extreme.size)}${also(EX.extreme, [EX.lowCov])};</li>` +
+      `<li>their first-language answer here contradicts their answer to the Judgement task under the same code: ${EX.l1Checked ? st(EX.l1.size) + also(EX.l1, [EX.lowCov, EX.extreme]) : 'not checkable for this class (nobody also did the Judgement task)'}.</li></ul>` +
+      (n ? `<p><strong>Timing:</strong> no response times are trimmed or capped. The timing models use each student’s median per language on a log scale, which damps slow outliers without removing anyone. A student is left out of a timing model only if a median is missing.</p>` : '');
+  }
+
+  /* ---------- participant-level data checks (counts only, never codes) ---------- */
+  function renderQC() {
+    const x = fastState.ctx;
+    if (!x) return;
+    const q = x.qc, E = x.EX, st = n => `${n} student${n === 1 ? '' : 's'}`;
+    $('#a-qc').innerHTML = [
+      `<li><strong>Excluded before the analysis:</strong> ${st(E.any.size)} of ${x.allN} (low coverage ${E.lowCov.size}, extreme repetition ${E.extreme.size}, first-language inconsistency ${E.l1.size}; a student can meet more than one rule). Codes belong to a device, so a first-language inconsistency may not be an error.${E.l1NotZhUnchecked ? ` ${st(E.l1NotZhUnchecked)} gave a first language other than Chinese here but could not be cross-checked, and stay in the analysis.` : ''}</li>`,
+      `<li><strong>Missing language-background values</strong> among the analysed students (English age of acquisition, English use, overall self-ratings): ${st(q.missingBg)}.</li>`,
+      `<li><strong>No usable transition of a required type</strong> among the analysed students (from a negative, or from a positive, answer in a language): ${st(q.noType)}.</li>`
+    ].join('');
+  }
+
+  /* ---------- exploratory: lexical reuse (cheap; computed on the page) ---------- */
+  const LEXM = [['cross', 'Cross-chain reuse'], ['unique', 'Unique-response proportion'], ['within', 'Within-chain repetition']];
+  const LEXKEY = { norm: 'normalised', raw: 'raw (trimmed)', lemma: 'site lemma' };
+  function lexTests(lexRows, keep) {
+    const out = LEXM.map(([k]) => {
+      const d = lexRows.filter((L, i) => keep(i) && L.zh && L.en && isFinite(L.zh[k]) && isFinite(L.en[k])).map(L => (L.en[k] - L.zh[k]) * 100);
+      return Object.assign({ k }, ttE(gate(LAB.ttest(d, 0))) || { est: NaN, p: NaN });
+    });
+    const adj = FA.bh(out.map(o => o.p));
+    out.forEach((o, i) => { o.padj = adj[i]; });
+    return out;
+  }
+  function renderLex() {
+    const x = fastState.ctx;
+    if (!x) return;
+    const parts = x.parts, notExtreme = i => !x.extreme.has(parts[i].key), all = () => true;
+    const T = {};
+    Object.keys(LEXKEY).forEach(key => { T[key] = { all: lexTests(x.lex[key], all), no: lexTests(x.lex[key], notExtreme) }; });
+    const A0 = T.norm.all, N0 = T.norm.no, nE = x.extreme.size;
+    const ppx = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
+    const ci = o => `${ppx(o.est)} percentage points [${ppx(o.lo)}, ${ppx(o.hi)}], adjusted ${LAB.fmtP(o.padj)}`;
+    const ok = o => o && isFinite(o.est), clr = o => ok(o) && o.padj < 0.05;
+    // filled: clear after the Benjamini–Hochberg adjustment (the label the text uses)
+    const g = LEXM.map(([k, label], i) => ({ label, rows: [{ label: 'Analysed students', b: A0[i].est, lo: A0[i].lo, hi: A0[i].hi, p: A0[i].padj }].concat(nE ? [{ label: 'Without extreme repeaters', b: N0[i].est, lo: N0[i].lo, hi: N0[i].hi, p: N0[i].padj }] : []).filter(r => isFinite(r.b)) })).filter(gr => gr.rows.length);
+    if (g.length) FC.forest($('#a-lex'), g, { xLabel: 'English − Chinese, percentage points (95% CI)', xLabelShort: 'English − Chinese, pp (95% CI)', minLim: 2, fmt: ppx, left: 220, narrowAt: 560,
+      label: `English − Chinese differences in lexical reuse, in percentage points, all students${nE ? ' and without extreme repeaters' : ''}: ${LEXM.map(([, l], i) => `${l} ${ppx(A0[i].est)}${nE && ok(N0[i]) ? ` and ${ppx(N0[i].est)}` : ''}`).join('; ')}` });
+    else $('#a-lex').innerHTML = '<p class="r-sent muted">Too few runs to compare yet.</p>';
+    $('#a-lex-cap').innerHTML = `<strong>Observed, one value per student and language.</strong> English − Chinese with 95% CIs (paired <i>t</i>-tests), for the ${x.n} analysed students${nE ? ` and without the ${nE} with extreme within-chain repetition` : ''}; responses normalised (see the definitions). Filled: clear after adjustment. 0 = no language difference.`;
+    const [cA, uA, wA] = A0, [cN, uN, wN] = N0;
+    const say = [];
+    if (ok(cA)) say.push(clr(cA) ? `English responses recur across a student’s different chains ${cA.est > 0 ? 'more' : 'less'} often than Chinese responses (${ci(cA)})${nE ? (clr(cN) ? `, also without the students with extreme repetition (${ci(cN)})` : `, but not clearly without the students with extreme repetition (${ci(cN)})`) : ''}.`
+      : `No clear language difference in cross-chain reuse (${ci(cA)}).`);
+    if (ok(uA)) say.push(clr(uA) ? `English answers contain a ${uA.est < 0 ? 'smaller' : 'larger'} share of distinct responses (${ci(uA)})${nE ? (clr(uN) ? `, also without them (${ci(uN)})` : `, but not clearly without them (${ci(uN)})`) : ''}.`
+      : `No clear language difference in the share of distinct responses (${ci(uA)}).`);
+    if (ok(wA)) say.push(nE && ok(wN) ? (clr(wN) ? `Within-chain repetition is ${wN.est > 0 ? 'higher' : 'lower'} in English without the extreme repeaters (${ci(wN)}).` : `Within-chain repetition shows no clear language difference without the extreme repeaters (${ci(wN)}); with them, ${ci(wA)}.`)
+      : clr(wA) ? `Within-chain repetition is ${wA.est > 0 ? 'higher' : 'lower'} in English (${ci(wA)}).` : `Within-chain repetition shows no clear language difference (${ci(wA)}).`);
+    // no comparison between the measures is claimed: they are not tested against each other
+    const steady = clr(cA) && (!nE || clr(cN));
+    if (steady && !clr(nE ? wN : wA)) say.push('Of the two repetition measures (cross-chain reuse and within-chain repetition), only cross-chain reuse shows a clear language difference that holds without the extreme repeaters; the two are not tested against each other.');
+    if (steady && cA.est > 0) say.push('This is consistent with more constrained L2 associative search. A possible alternative: Chinese and English used different starting words, and a set whose words are semantically closer to one another would also produce more reuse across chains. Exact-response reuse is not the same as semantic convergence.');
+    const keysAgree = A0.every(ok) && Object.keys(LEXKEY).every(key => T[key].all.every((o, i) => clr(o) === clr(A0[i])) && T[key].no.every((o, i) => clr(o) === clr(N0[i])));
+    if (A0.some(ok)) say.push(keysAgree ? 'The same labels hold with raw strings and with the site’s English lemmas.' : 'Some labels change with raw strings or with the site’s English lemmas; see the full table.');
+    const repC = ttE(x.repeat.test);
+    if (A0.some(ok) && repC) say.push(`Section C’s repetition measure uses the site’s lemma form, so it differs slightly (${ppts(repC.est)} percentage points there).`);
+    $('#a-res-lex').innerHTML = A0.some(ok) ? res('Exploratory', say.join(' '), `Benjamini–Hochberg adjustment across the three comparisons${nE ? ', within each sample' : ''}${smallTag(x.n)}.`) : '';
+    $('#a-lex-cap').hidden = !A0.some(ok);
+    $('#a-lex-def').innerHTML = 'Per student and language, over the non-empty answers. <b>Cross-chain reuse</b>: each chain reduced to its distinct responses; a response found in <i>k</i> of the student’s chains adds <i>k</i> − 1; the sum is divided by the number of chain-distinct responses (0 = nothing recurs across chains). <b>Unique-response proportion</b>: distinct responses / answers (one minus it is the share of answers that repeat a response given anywhere before). <b>Within-chain repetition</b>: share of answers equal to the chain’s starting word or to an earlier answer in the same chain. ' +
+      '<b>Normalised</b> responses: Unicode NFKC; curly quotes and dashes made plain; Latin letters lower-cased; quotation marks and leading or trailing punctuation removed; internal spaces collapsed; in Chinese, spaces and punctuation removed. Nothing is translated, stemmed, lemmatised or split. <b>Raw</b>: the answer as typed, trimmed. <b>Site lemma</b>: the form the site uses for repetitions (the English lemma when the norms know the word). Each comparison: paired <i>t</i>-test of the English − Chinese difference.';
+    $('#a-lex-table').innerHTML = `<thead><tr><th scope="col">Measure</th><th scope="col">Responses</th><th scope="col">Sample</th><th class="num sep" scope="col">English − Chinese (pp)</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col"><i>t</i> (df)</th><th class="num" scope="col"><i>p</i></th><th class="num" scope="col"><i>p</i> (BH)</th><th class="result" scope="col">Result</th></tr></thead><tbody>` +
+      LEXM.map(([, label], i) => Object.keys(LEXKEY).map(key => [['all', 'Analysed students'], ['no', 'Without extreme repeaters']].filter(([s]) => s === 'all' || nE).map(([s, sl]) => { const o = T[key][s][i];
+        return `<tr><th scope="row">${label}</th><td>${LEXKEY[key]}</td><td>${sl}</td>` + (ok(o) ? `<td class="num sep"><strong>${ppx(o.est)}</strong></td><td class="num">${ppx(o.lo)} to ${ppx(o.hi)}</td><td class="num sep">${statTxt(o).replace(/, (<i>p<\/i>|p)[\s\S]*$/, '')}</td><td class="num">${LAB.fmtPval(o.p)}</td><td class="num">${LAB.fmtPval(o.padj)}</td>${rTxt(o.padj)}`
+          : '<td class="num sep">–</td><td class="num">–</td><td class="num sep">–</td><td class="num">–</td><td class="num">–</td><td class="result">Too few runs</td>') + '</tr>'; }).join('')).join('')).join('') + '</tbody>';
+    fastState.lexT = T;
+  }
+
+  /* ---------- exploratory: the mechanism and L1 models (fitted when the section is opened) ---------- */
+  const L1X = [['aoa', 'English age of acquisition', 'per year', Pp => Pp.eng_age], ['use', 'English use', 'per 10 percentage points', Pp => Pp.en_use / 10], ['rel', 'English − Chinese overall rating', 'per rating point', Pp => Pp.prof.en_overall - Pp.prof.zh_overall]];
+  const L1O = [['S', 'Chinese starting-word persistence', 'change from answer 1 to 10 in the gap between positive and negative starting words, in points'], ['T', 'Chinese trajectory shape', 'joint test; the estimate is the change in predicted valence from answer 1 to 10, in points'], ['R', 'Chinese cross-chain reuse', 'in percentage points, by least squares with HC3 errors']];
+  const MECH_MIN = 10;   // between-student moderators need a class, not a handful of students
+  function runMech() {
+    const x = fastState.ctx, F = fastState.fits;
+    if (!x || !$('#a-mech-more').open || !F.B || !F.B.ok || fastState.mechKey === fastState.fitKey) return;
+    fastState.mechKey = fastState.fitKey;
+    const parts = x.parts, L = x.lex.norm, ans = x.ans;
+    const conv = parts.map((Pp, i) => [Pp.key, L[i].zh && L[i].en ? (L[i].en.cross - L[i].zh.cross) * 100 : NaN]).filter(([, v]) => isFinite(v));
+    const M = { fits: {}, done: 0, total: 0, few: conv.length < MECH_MIN };
+    fastState.mech = M;
+    if (M.few) { renderMech(); return; }
+    const samples = [['all', () => true], ['no', Pp => !x.extreme.has(Pp.key)]].concat(x.l1Flag.size ? [['l1', Pp => !x.l1Flag.has(Pp.key)]] : []);
+    const th = F.B.theta, jobs = [[], [], []];
+    samples.forEach(([s, keep], si) => {
+      const keys = new Set(parts.filter(keep).map(Pp => Pp.key)), an = ans.filter(a => keys.has(a.pid));
+      if (s !== 'l1') jobs[si].push({ key: `${s}:BM`, model: 'BM', ans: an, mod: conv, start: [th[0], 0.05].concat(th.slice(1)) });
+      L1X.forEach(([k, , , f]) => {
+        const mod = parts.filter(keep).map(Pp => [Pp.key, f(Pp)]);
+        jobs[si].push({ key: `${s}:S:${k}`, model: 'L1S', ans: an, mod, start: [th[0], 0.05].concat(th.slice(1)) }, { key: `${s}:T:${k}`, model: 'L1T', ans: an, mod, start: [th[0], 0.03].concat(th.slice(1)) });
+      });
+    });
+    M.total = jobs.reduce((t, j) => t + j.length, 0);
+    renderMech();
+    jobs.forEach((j, i) => { if (j.length) fitJobs('mech:' + i, j, (k, f) => { if (fastState.mech !== M) return; M.fits[k] = f; M.done++; renderMech(); }); });
+  }
+  // least squares with HC3 standard errors (one value per student)
+  function olsHC3(xs, ys) {
+    const n = xs.length; if (n < 4) return null;
+    const mx = LAB.mean(xs), my = LAB.mean(ys), sxx = xs.reduce((s, v) => s + (v - mx) ** 2, 0);
+    if (!(sxx > 0)) return null;
+    const b = xs.reduce((s, v, i) => s + (v - mx) * (ys[i] - my), 0) / sxx, a = my - b * mx;
+    const vb = xs.reduce((s, v, i) => { const h = 1 / n + (v - mx) ** 2 / sxx, e = ys[i] - a - b * v; return s + (v - mx) ** 2 * e * e / (1 - h) ** 2; }, 0) / sxx ** 2;
+    const se = Math.sqrt(vb), t = b / se, q = FA.qT(n - 2);
+    return { est: b, lo: b - q * se, hi: b + q * se, stat: t, df: n - 2, p: FA.pT(t, n - 2) };
+  }
+  function renderMech() {
+    const x = fastState.ctx, M = fastState.mech;
+    if (!x || !$('#a-mech-more').open) return;
+    if (!M) {
+      const FB = fastState.fits.B, msg = x.n < MECH_MIN ? `Needs at least ${MECH_MIN} students with both languages scored (${x.n} so far).` : FB && !FB.ok ? 'Not estimable yet with these runs.' : '';
+      $('#a-res-mech').innerHTML = msg ? `<li><p class="r-sent muted">${msg}</p></li>` : pending(null); $('#a-res-l1').innerHTML = msg ? `<li><p class="r-sent muted">${msg}</p></li>` : pending(null); $('#a-l1-table').innerHTML = ''; return;
+    }
+    if (M.few) {
+      const msg = `<li><p class="r-sent muted">Needs at least ${MECH_MIN} students with both languages scored (${x.n} so far).</p></li>`;
+      $('#a-res-mech').innerHTML = msg; $('#a-res-l1').innerHTML = msg; $('#a-l1-table').innerHTML = ''; return;
+    }
+    const st = smallTag(x.n), parts = x.parts, L = x.lex.norm, FB = fastState.fits.B;
+    // 2 · convergence × decay
+    const seeds = new Map(); parts.forEach(Pp => Pp.chains.forEach(c => { if (isFinite(c.seedValence)) seeds.set(c.lang + ':' + c.id, c); }));
+    const catM = (cat, lang) => LAB.mean([...seeds.values()].filter(c => c.category === cat && (!lang || c.lang === lang)).map(c => c.seedValence));
+    const sc = (catM('positive') - catM('negative')) * Math.log2(10);
+    const mechE = s => { const f = M.fits[`${s}:BM`]; if (!f) return undefined; if (!f.ok || !f.coefOf('Language × seed valence × position × M')) return null;
+      const e = U(f.coefOf('Language × seed valence × position × M')), d = U(f.coefOf('Language × seed valence × position'));
+      return { est: e.est * sc, lo: e.lo * sc, hi: e.hi * sc, stat: e.stat, df: e.df, p: e.p }; };
+    // the average language difference in the gap's change: the main starting-word model's, as everywhere else on the page
+    const base = FB && FB.ok && FB.coefOf('Language × seed valence × position') ? FB.coefOf('Language × seed valence × position').b * sc : NaN;
+    const mA = mechE('all'), mN = mechE('no'), nE = x.extreme.size;
+    const conv = parts.map((Pp, i) => L[i].zh && L[i].en ? (L[i].en.cross - L[i].zh.cross) * 100 : NaN).filter(isFinite);
+    const sdM = conv.length > 2 ? Math.sqrt(conv.reduce((s, v) => s + (v - LAB.mean(conv)) ** 2, 0) / (conv.length - 1)) : NaN;
+    const f3 = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(3);
+    $('#a-res-mech').innerHTML = mA === undefined ? pending(null) : !mA ? `<li><p class="r-sent muted">Not estimable yet.</p></li>` :
+      res('Exploratory', (clearCI(mA) ? `Students with a larger English − Chinese difference in cross-chain reuse show a ${mA.est * base > 0 ? 'larger' : 'smaller'} English − Chinese difference in how much the starting-word gap changes. This is a cross-sectional association across students, not evidence about cause.`
+        : `No clear evidence that the English − Chinese difference in cross-chain reuse goes with the English − Chinese difference in how much the starting-word gap changes.`) +
+        (isFinite(sdM) && isFinite(base) ? ` Per standard deviation of the reuse difference (${sdM.toFixed(1)} percentage points), the 95% CI runs from ${s2(mA.lo * sdM)} to ${s2(mA.hi * sdM)} points; the average language difference in the gap’s change is ${s2(base)} points, ` +
+          (Math.min(mA.lo * sdM, mA.hi * sdM) <= -Math.abs(base) || Math.max(mA.lo * sdM, mA.hi * sdM) >= Math.abs(base) ? 'and the interval reaches values that large.' : 'so the interval excludes an association as large as that average per standard deviation; associations within the interval remain possible.') : ''),
+        `Language × seed valence × position × reuse difference, in points of the gap’s change (answer 1 → 10) per percentage point: ${f3(mA.est)} [${f3(mA.lo)}, ${f3(mA.hi)}]; ${statTxt(mA)}` +
+        (nE && mN ? `. Without the extreme repeaters: ${f3(mN.est)} [${f3(mN.lo)}, ${f3(mN.hi)}]; ${statTxt(mN)}` : '') + st);
+    // 3 · L1 dynamics and bilingual experience: the whole family of nine
+    const zhSc = (catM('positive', 'zh') - catM('negative', 'zh')) * Math.log2(10);
+    const famFor = (s, keep) => {
+      const ps = parts.map((Pp, i) => [Pp, i]).filter(([Pp]) => keep(Pp));
+      const out = [];
+      L1X.forEach(([k, , , f]) => {
+        const fs = M.fits[`${s}:S:${k}`], ft = M.fits[`${s}:T:${k}`];
+        const es = fs === undefined ? undefined : fs && fs.ok && fs.coefOf('Seed valence × position × X') ? (e => ({ est: e.est * zhSc, lo: e.lo * zhSc, hi: e.hi * zhSc, stat: e.stat, df: e.df, p: e.p }))(U(fs.coefOf('Seed valence × position × X'))) : null;
+        let et = ft === undefined ? undefined : null;
+        if (ft && ft.ok && ft.coefOf('Position × X') && ft.coefOf('Position² × X')) {
+          const w = ft.wald(['Position × X', 'Position² × X']), q1 = -4.5, q10 = 4.5, c = U(ft.contrast({ 'Position × X': q10 - q1, 'Position² × X': (q10 * q10 - 8.25) - (q1 * q1 - 8.25) }));
+          et = w && isFinite(w.p) ? { est: c.est, lo: c.lo, hi: c.hi, w, p: w.p } : null;
+        }
+        const xs = ps.map(([Pp]) => f(Pp)), ys = ps.map(([, i]) => L[i].zh ? L[i].zh.cross * 100 : NaN), okI = xs.map((v, j) => isFinite(v) && isFinite(ys[j]));
+        const er = olsHC3(xs.filter((v, j) => okI[j]), ys.filter((v, j) => okI[j]));
+        out.push({ k, o: 'S', e: es }, { k, o: 'T', e: et }, { k, o: 'R', e: er });
+      });
+      const ready = out.every(o => o.e !== undefined), adj = ready ? FA.bh(out.map(o => o.e ? o.e.p : NaN)) : out.map(() => NaN);
+      out.forEach((o, i) => { o.padj = adj[i]; });
+      return { out, ready };
+    };
+    const fam = famFor('all', () => true), famN = nE ? famFor('no', Pp => !x.extreme.has(Pp.key)) : null, famL = x.l1Flag.size ? famFor('l1', Pp => !x.l1Flag.has(Pp.key)) : null;
+    const lab = o => isFinite(o.padj) && o.padj < 0.05;
+    const aoaAdult = parts.filter(Pp => Pp.eng_age >= 18).length, aoaChild = parts.filter(Pp => Pp.eng_age < 18).length;
+    if (!fam.ready) { $('#a-res-l1').innerHTML = `<li><p class="r-sent muted">Being estimated: the nine tests (${M.done} of ${M.total} models fitted).</p></li>`; $('#a-l1-table').innerHTML = ''; }
+    else if (!fam.out.some(o => o.e)) { $('#a-res-l1').innerHTML = '<li><p class="r-sent muted">Not estimable yet with these runs.</p></li>'; $('#a-l1-table').innerHTML = ''; }
+    else {
+      const ps = fam.out.map(o => o.padj).filter(isFinite), clearOnes = fam.out.filter(lab);
+      const lo = Math.min(...ps), hi = Math.max(...ps), range = LAB.fmtPval(lo) === LAB.fmtPval(hi) ? `adjusted <i>p</i> = ${LAB.fmtPval(lo)}` : `adjusted <i>p</i> from ${LAB.fmtPval(lo)} to ${LAB.fmtPval(hi)}`;
+      const nTested = fam.out.filter(o => o.e).length;
+      const sens = [famN && ['without the extreme repeaters', famN], famL && ['in the L1-consistent sample', famL]].filter(Boolean).map(([w, fm]) => {
+        const ch = fm.ready ? fm.out.filter((o, i) => lab(o) !== lab(fam.out[i])) : null;
+        return !fm.ready ? '' : ch.length ? `${w}, ${ch.length} label${ch.length > 1 ? 's' : ''} change${ch.length > 1 ? '' : 's'} (outlier-sensitive)` : `${w}, no label changes`;
+      }).filter(Boolean);
+      $('#a-res-l1').innerHTML = res('Exploratory', (clearOnes.length ? `${clearOnes.length} of the ${nTested} associations ${clearOnes.length > 1 ? 'are' : 'is'} clear after adjustment: ${clearOnes.map(o => `${L1X.find(z => z[0] === o.k)[1].toLowerCase()} with ${L1O.find(z => z[0] === o.o)[1].toLowerCase()}`).join('; ')}. L1 dynamics vary with this bilingual-experience measure; without a monolingual comparison group, this cannot separate bilingual experience from pre-existing individual differences.`
+        : `None of the ${nTested === 9 ? 'nine' : nTested} associations is clear after adjustment (${range}).`) +
+        (sens.length ? ` ${sens.join('; ').replace(/^./, c => c.toUpperCase())}.` : '') +
+        (aoaAdult >= 3 && aoaChild >= 3 ? ` English age of acquisition is split here (${aoaAdult} students learned English at 18 or later, ${aoaChild} before), so its linear term largely contrasts early and late learners.` : ''),
+        `Benjamini–Hochberg adjustment across the nine tests${st}.`);
+      // grouped by measure of bilingual experience; outcome units in the note below the table
+      $('#a-l1-table').innerHTML = `<thead><tr><th scope="col">Chinese (L1) outcome</th><th class="num sep" scope="col">Estimate</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col">Test</th><th class="num" scope="col"><i>p</i></th><th class="num" scope="col"><i>p</i> (BH)</th><th class="result" scope="col">Result</th></tr></thead>` +
+        L1X.map(([k, name, unit]) => `<tbody><tr class="group"><th scope="rowgroup" colspan="7"><span class="stick">${name}, ${unit}</span></th></tr>` +
+          fam.out.filter(o => o.k === k).map(o => { const O = L1O.find(z => z[0] === o.o), e = o.e;
+            return `<tr><th scope="row">${O[1].replace(/^Chinese /, '').replace(/^./, c => c.toUpperCase())}</th>` + (e ? `<td class="num sep"><strong>${s2(e.est)}</strong></td><td class="num">${fine(s2, e.lo)} to ${fine(s2, e.hi)}</td><td class="num sep">${e.w ? wTxt(e.w).replace(/, (<i>p<\/i>|p)[\s\S]*$/, '') : statTxt(e).replace(/, (<i>p<\/i>|p)[\s\S]*$/, '')}</td><td class="num">${LAB.fmtPval(e.p)}</td><td class="num">${LAB.fmtPval(o.padj)}</td>${rTxt(o.padj)}`
+              : '<td class="num sep">–</td><td class="num">–</td><td class="num sep">–</td><td class="num">–</td><td class="num">–</td><td class="result">Not estimable yet</td>') + '</tr>'; }).join('') + '</tbody>').join('') +
+        '';
+      $('#a-l1-note').innerHTML = `Estimates per unit of the bilingual-experience measure. ${L1O.map(([, n, u]) => `${n.replace(/^Chinese /, '').replace(/^./, c => c.toUpperCase())}: ${u}.`).join(' ')} <i>p</i> (BH): adjusted across all nine tests.`;
+    }
+    syncScrollers();
+  }
+
   /* ---------- what the models say, in words ----------
      Each story returns sentences built only from the current fit. Omnibus
      tests decide the headline answers; follow-ups and single coefficients
@@ -846,7 +1085,7 @@
      10: the predicted values, which English − Chinese differences are clear,
      and, where the gap changes clearly between two of those answers, how each
      language moves there. */
-  function trajectoryStory(fC) {
+  function trajectoryStory(fC, RV) {
     const cv = { '(Intercept)': 1, 'Seed valence (per point)': cm(fC, 'Seed valence (per point)'), 'Block (second − first)': cm(fC, 'Block (second − first)') };
     const pred = (L, k) => { const [q, q2] = qv(k); return U(fC.contrast(Object.assign({ [LANGT]: L, 'Position (per step)': q, 'Position² (curve)': q2, 'Language × position': L * q, 'Language × position²': L * q2 }, cv))); };
     const diff = k => { const [q, q2] = qv(k); return U(fC.contrast({ [LANGT]: 1, 'Language × position': q, 'Language × position²': q2 })); };
@@ -860,10 +1099,13 @@
     const values = `Predicted mean valence at answers 1, 5 and 10 (averaged across starting words): Chinese ${v.zh.map(b2).join(', ')}; English ${v.en.map(b2).join(', ')}.`;
     const ks = f => K.filter((k, i) => f(d[i]));
     const enK = ks(e => clearCI(e) && e.est > 0), zhK = ks(e => clearCI(e) && e.est < 0), unK = ks(e => !clearCI(e));
-    const val = k => s2(d[K.indexOf(k)].est);
+    // a clear contrast that some robustness check overturns says so
+    const val = k => s2(d[K.indexOf(k)].est), cav = k => RV && RV['d' + k] === false ? ', though not in every robustness check' : '';
+    // one caveat for the group: which of these clear differences some robustness check overturns
+    const cavs = ks => { const c = ks.filter(k => cav(k)); return !c.length ? '' : c.length === ks.length ? (ks.length > 1 ? ', though neither holds in every robustness check' : ', though not in every robustness check') : `, though the difference at answer ${c.join(' and ')} does not hold in every robustness check`; };
     const said = [];
-    if (enK.length) said.push(`English answers are more positive at ${answersAt(enK)} (${enK.map(val).join(', ')} points)`);
-    if (zhK.length) said.push(`Chinese answers are more positive at ${answersAt(zhK)} (${zhK.map(k => s2(-d[K.indexOf(k)].est)).join(', ')} points)`);
+    if (enK.length) said.push(`English answers are more positive at ${answersAt(enK)} (${andList(enK.map(val))} points${cavs(enK)})`);
+    if (zhK.length) said.push(`Chinese answers are more positive at ${answersAt(zhK)} (${andList(zhK.map(k => s2(-d[K.indexOf(k)].est)))} points${cavs(zhK)})`);
     if (unK.length) said.push(`${said.length ? 'the' : 'The'} English − Chinese difference${unK.length > 1 ? 's' : ''} at ${unK.length > 1 ? 'answers ' + andList(unK.map(k => `${k} (${val(k)})`)) : `answer ${unK[0]} (${val(unK[0])})`} ${unK.length > 1 ? 'are' : 'is'} not clear`);
     // Without a clear overall test, no single answer's difference is called a difference: the estimates only.
     const diffs = clearW(w) ? said.join('; ').replace(/^./, c => c.toUpperCase()) + '.' : `The English − Chinese differences at answers 1, 5 and 10 are ${d.map(e => s2(e.est)).join(', ')}.`;
@@ -876,6 +1118,23 @@
     const detail = segs.map(s => `From answer ${s.a} to ${s.b} the English − Chinese gap changes by ${eTxt(s.g, s2)}, ${cl(s.g)}; Chinese answers change by ${eTxt(s.zh, s2)}, ${cl(s.zh)}, and English answers by ${eTxt(s.en, s2)}, ${cl(s.en)}.`).join(' ') + ' Changes are computed before rounding.';
     return { w, pred, diff, d1, d5, d10, lead, values, diffs, gapSay, detail, label: `${values} ${diffs}` };
   }
+  /* Response timing from the per-student medians (log seconds ~ language ×
+     block + (1 | student)): each language's predicted time (geometric mean
+     over students, averaged over blocks), their difference in seconds with a
+     delta-method 95% CI, and the language, block and language × block terms
+     as ratios. */
+  function timingStory(f) {
+    if (!f || !f.ok || !f.coefOf(LANGT) || !f.coefOf('Block (second − first)')) return null;
+    const ix = f.names.indexOf('(Intercept)'), il = f.names.indexOf(LANGT), cv = f.cov, b0 = f.beta[ix], bL = f.beta[il];
+    const zh = Math.exp(b0 - bL / 2), en = Math.exp(b0 + bL / 2), d = en - zh, g = [d, (en + zh) / 2];
+    const L = U(f.coefOf(LANGT)), se = Math.sqrt(g[0] * g[0] * cv[ix][ix] + 2 * g[0] * g[1] * cv[ix][il] + g[1] * g[1] * cv[il][il]), q = FA.qT(L.df || 1e7);
+    const ratio = c => { const e = U(f.coefOf(c)); return e && { est: Math.exp(e.est), lo: Math.exp(e.lo), hi: Math.exp(e.hi), stat: e.stat, df: e.df, p: e.p, log: e }; };
+    // Chinese-first ÷ English-first group, overall: with ±½ coding the groups' log difference is β(language × block) / 2
+    const og = U(f.coefOf('Language × block')), order = og && { est: Math.exp(og.est / 2), lo: Math.exp(og.lo / 2), hi: Math.exp(og.hi / 2), stat: og.stat, df: og.df, p: og.p, log: og };
+    return { zh, en, est: d, lo: d - q * se, hi: d + q * se, stat: L.stat, df: L.df, p: L.p, lang: ratio(LANGT), block: ratio('Block (second − first)'), order, n: f.n / 2 };
+  }
+  const xr = v => '×' + v.toFixed(2);
+
   /* The starting word: the separation between chains that began with a positive
      and with a negative starting word, in valence points, at answer 1 and at the
      last answer, and the language differences in it (each with its own test). */
@@ -918,24 +1177,29 @@
   function robustVerdicts() {
     const R = fastState.robust, x = fastState.ctx;
     if (!R || !x || R.done < R.total || !['A', 'B', 'C'].every(k => fastState.fits[k])) return null;
-    const V = { main: fastState.fits, nochain: R.variants.nochain, coverage: R.variants.coverage, percentile: R.variants.percentile, cat: R.variants.cat };
+    const V = Object.assign({ main: fastState.fits }, R.variants);
     const rows = robustRows(x.dSV), get = key => rows.find(r => r.key === key);
     const verdict = (r, e) => r.joint ? clearW(e) : clearCI(e);
     const keeps = (key, alts) => { const r = get(key), m = r.get(V.main); if (!m) return null; const es = alts.map(k => r.get(V[k])).filter(e => e && isFinite(e.p)); return es.length ? es.every(e => verdict(r, e) === verdict(r, m)) : null; };
-    const sameDir = key => { const r = get(key), m = r.get(V.main); if (!m) return null; const es = ['nochain', 'coverage', 'percentile'].map(k => r.get(V[k])).filter(e => e && isFinite(e.p)); return es.length ? es.every(e => Math.sign(e.est) === Math.sign(m.est)) : null; };
-    const alts = ['nochain', 'coverage', 'percentile'];
-    return { trans: keeps('tw', alts), traj: keeps('jw', alts.concat(['cat'])), fade: keeps('sd', alts), fadeDir: sameDir('sd'), si: keeps('si', alts), fp: keeps('fp', alts), fn: keeps('fn', alts) };
+    const sameDir = key => { const r = get(key), m = r.get(V.main); if (!m) return null; const es = ALTS.map(k => r.get(V[k])).filter(e => e && isFinite(e.p)); return es.length ? es.every(e => Math.sign(e.est) === Math.sign(m.est)) : null; };
+    // For a data-quality subset: which primary conclusions (transition pattern, trajectory shape, starting-word decay) change verdict there.
+    const PRIMARY = [['tw', 'the transition conclusion'], ['jw', 'the trajectory conclusion'], ['sd', 'the starting-word decay conclusion']];
+    const changedIn = k => R.variants[k] && R.variants[k].n !== undefined ? PRIMARY.filter(([key]) => keeps(key, [k]) === false).map(([, name]) => name) : null;
+    return { trans: keeps('tw', ALTS), traj: keeps('jw', ALTS.concat(['cat'])), fade: keeps('sd', ALTS), fadeDir: sameDir('sd'), si: keeps('si', ALTS), fp: keeps('fp', ALTS), fn: keeps('fn', ALTS),
+      all: changedIn('all'),
+      d1: keeps('d1', ALTS.concat(['cat'])), d5: keeps('d5', ALTS.concat(['cat'])), d10: keeps('d10', ALTS.concat(['cat'])) };
   }
 
   function renderFastModels() {
     const x = fastState.ctx;
     if (!x) return;
     const F = fastState.fits, fA = F.A, fC1 = F.C1, fB = F.B, fC = F.C;
+    const TO = timingStory(F.TO), TT = timingStory(F.TT);
     const okA = fA && fA.ok, okC1 = fC1 && fC1.ok, okB = fB && fB.ok, okC = fC && fC.ok;
     const { C, polarity, repeat, rt, PROF, n, other, P, tr2, ans, parts, nPos, gapCov, lowL, hiL, dSV } = x;
     const st = smallTag(n);
     const RV = robustVerdicts();
-    const T = okA ? transitionStory(fA) : null, J = okC ? trajectoryStory(fC) : null, S = okB ? seedStory(fB, dSV, nPos, RV) : null;
+    const T = okA ? transitionStory(fA) : null, J = okC ? trajectoryStory(fC, RV) : null, S = okB ? seedStory(fB, dSV, nPos, RV) : null;
     const nA = okA && !T ? { ok: false, reason: 'dropped' } : fA, nC = okC && !J ? { ok: false, reason: 'dropped' } : fC, nB = okB && !S ? { ok: false, reason: 'dropped' } : fB;
     const emptyText = fA && fA.reason === 'separation' ? [...new Set(fA.empty.map(c => c.prev + c.next))].map(k => {
       const langs = fA.empty.filter(c => c.prev + c.next === k).map(c => c.lang);
@@ -951,15 +1215,12 @@
     $('#a-summary').innerHTML =
       `<li><strong>Transitions.</strong> ${T ? `${T.lead} ${T.values}${T.explain ? ' ' + T.explain : ''} ${!RV ? '<span class="muted">Its robustness checks are still being fitted.</span>' : RV.trans === false ? 'This verdict is sensitive to modelling choices.' : RV.trans ? 'This verdict holds in all robustness checks.' : 'Too few runs yet to check its robustness.'}` : waitLine(nA, 'A')}</li>` +
       `<li><strong>Trajectories.</strong> ${J ? `${J.lead} ${J.values} ${J.diffs}${J.gapSay ? ' ' + J.gapSay : ''}${RV && RV.traj === false ? ' This verdict is sensitive to modelling choices.' : ''}` : waitLine(nC, 'C')}</li>` +
-      `<li><strong>Starting word.</strong> ${S ? `${S.lead} ${S.values} ${S.compare}${RV && RV.fadeDir === false ? ' The direction of the difference in how fast the gap changes is sensitive to modelling choices.' : ''}` : waitLine(nB, 'B')}</li>`;
+      `<li><strong>Starting word.</strong> ${S ? `${S.lead} ${S.values} ${S.compare}${RV && RV.fade === false ? (RV.fadeDir === false ? ' The direction of the difference in how fast the gap changes is sensitive to modelling choices.' : ' The decay verdict is sensitive to modelling choices.') : ''}` : waitLine(nB, 'B')}</li>`;
     const rtE = ttE(rt.test), repE = ttE(repeat.test);
-    const prim = Object.keys(MEAS).map(k => ({ k, e: profE(profFit('overall', k), k) })).filter(o => o.e), profClear = prim.filter(o => clearCI(o.e));
-    const profPending = !profFit('overall', 'NN') || !profFit('overall', 'V');
     $('#a-other').innerHTML = '<strong>Other results:</strong> ' + [
-      rtE ? (clearCI(rtE) ? `English answers were ${rtE.est > 0 ? 'slower' : 'faster'}` : 'response times showed no clear language difference') : 'response times could not be compared yet',
-      repE ? (clearCI(repE) ? `repetition was ${repE.est > 0 ? 'more' : 'less'} frequent in English` : 'repetition showed no clear language difference') : 'repetition could not be compared yet',
-      profPending ? 'overall English proficiency’s relation to the language differences in transition behaviour or mean valence: being estimated (exploratory)'
-        : !prim.length ? 'English proficiency could not be examined yet' : profClear.length ? `overall English proficiency was related to the language difference in ${andList(profClear.map(o => MEASW[o.k]))} (exploratory)` : 'overall English proficiency was not clearly related to the language differences in transition behaviour or mean valence (exploratory)'
+      TT ? (clearCI(TT) ? `English answers were ${TT.est > 0 ? 'slower' : 'faster'} (${s2(TT.est)} s)${TO && clearCI(TO) && TO.est > 0 && TT.est > 0 ? `, and already slower before the first keystroke (${s2(TO.est)} s)` : TO && !clearCI(TO) ? ', with no clear difference at the first keystroke' : ''}` : 'response times showed no clear language difference')
+        : F.TT === undefined && rtE ? (clearCI(rtE) ? `English answers were ${rtE.est > 0 ? 'slower' : 'faster'}; timing at the first keystroke is being estimated` : 'response times showed no clear language difference') : 'response times could not be compared yet',
+      repE ? (clearCI(repE) ? `repetition was ${repE.est > 0 ? 'more' : 'less'} frequent in English` : 'repetition showed no clear language difference') : 'repetition could not be compared yet'
     ].join('; ') + '.';
     $('#a-datanote').innerHTML = (n < 10 ? `<strong>Small class:</strong> only ${n} student${n === 1 ? '' : 's'} so far, so treat every result as provisional. ` : '') +
       `<strong>Data note:</strong> ${pct0(C.zh.scored)} of Chinese and ${pct0(C.en.scored)} of English answers have a normative valence score${gapCov ? `, so ${LANG_NAME[lowL]} has fewer usable transitions (${pct0(C[lowL].valid)} vs ${pct0(C[hiL].valid)})` : ''}. The two languages used different, matched starting words, not translations. See Robustness and data quality.`;
@@ -973,7 +1234,26 @@
         J ? `English − Chinese mean valence: ${s2(J.d1.est)} at answer 1, ${s2(J.d5.est)} at answer 5, ${s2(J.d10.est)} at answer 10` : fC ? whyNot(nC) : 'English − Chinese mean valence at answers 1, 5 and 10: being estimated', J ? wTxt(J.w) + st : '') +
       card('Starting-word influence over time', S ? S.card : fB ? '–' : 'Being estimated',
         S ? `Positive − negative starting words, answer 1 → ${nPos}: Chinese ${b2(S.z1)} → ${b2(S.zN)}, English ${b2(S.e1)} → ${b2(S.eN)} points${RV && RV.si === false ? '; the answer-1 difference does not hold in every robustness check' : ''}` : fB ? whyNot(nB) : `Positive − negative starting words, answer 1 → ${nPos}: being estimated`, S ? 'Language difference in the change: ' + statTxt(S.coef) + st : '') +
-      `<div class="stat"><span class="stat-label">Participants</span><span class="stat-value">${n}</span><span class="stat-note">students · ${(P.zh.n + P.en.n).toLocaleString('en-US')} valid transitions</span></div>`;
+      `<div class="stat"><span class="stat-label">Participants</span><span class="stat-value">${n}</span><span class="stat-note">students analysed, of ${x.allN} · ${(P.zh.n + P.en.n).toLocaleString('en-US')} valid transitions</span></div>`;
+
+    // ---- C: response timing, from the models of the per-student medians ----
+    const tRow = (name, id, e, why) => `<div class="est-row"><span class="er-name">${name}</span><div class="er-chart" id="${id}"></div><p class="er-text">` +
+      (e ? `English − Chinese <b>${s2(e.est)}\u00a0s</b> [${s2(e.lo)}, ${s2(e.hi)}]; ${statTxt(e)}${st}. <span class="muted">Model-predicted: ${b2(e.zh)}\u00a0s in Chinese, ${b2(e.en)}\u00a0s in English (${xr(e.lang.est)}).</span>`
+        : `<span class="muted">${why}</span>`) + '</p></div>';
+    const whyT = f => !f ? 'Being estimated: the English − Chinese difference in seconds, with its 95% CI, from a model of each student’s median times.' : whyNot(f) || 'Not estimable yet';
+    $('#a-timing').innerHTML = tRow('Onset (first keystroke)', 'a-er-onset', TO, whyT(F.TO)) + tRow('Total (answer submitted)', 'a-er-total', TT, whyT(F.TT));
+    // one scale for both rows (both in seconds), so their lengths compare
+    const tLim = Math.max(1e-9, ...[TO, TT].filter(Boolean).flatMap(e => [Math.abs(e.lo), Math.abs(e.hi), Math.abs(e.est)])) * 1.15;
+    [[TO, 'a-er-onset', 'Response onset'], [TT, 'a-er-total', 'Total response time']].forEach(([e, id, nm]) => { if (e) FC.estimate($('#' + id), { est: e.est, lo: e.lo, hi: e.hi, lim: tLim, clear: clearCI(e), label: `${nm}, English − Chinese in seconds, with 95% CI (same scale as the other timing row)` }); });
+    $('#a-timing-say').innerHTML = !TO || !TT ? '' : [
+      clearCI(TO) && clearCI(TT) && TO.est > 0 && TT.est > 0
+        ? `English answers were already slower to begin: ${s2(TO.est)} s at the first keystroke against ${s2(TT.est)} s by submission, so the onset difference is ${Math.round(100 * TO.est / TT.est)}% of the total (point estimates). This suggests that the English cost is not simply slower typing or response completion.`
+        : clearCI(TT) && !clearCI(TO) ? `English answers took longer to submit, with no clear language difference at the first keystroke.` : '',
+      TO.block && TT.block ? (clearCI(TO.block.log) || clearCI(TT.block.log)
+        ? `On average over the two languages, answers were ${TT.block.est < 1 ? 'faster' : 'slower'} in the second block (onset ${xr(TO.block.est)} [${TO.block.lo.toFixed(2)}, ${TO.block.hi.toFixed(2)}], total ${xr(TT.block.est)} [${TT.block.lo.toFixed(2)}, ${TT.block.hi.toFixed(2)}]); the language differences are estimated with the block in the model.`
+        : 'On average over the two languages, there is no clear difference between the first and the second block.') : '',
+      TO.order && TT.order ? `${clearCI(TO.order.log) || clearCI(TT.order.log) ? 'The two order groups differ' : 'The two order groups did not clearly differ'} in overall speed (students who did Chinese first, relative to those who did English first: onset ${xr(TO.order.est)} [${TO.order.lo.toFixed(2)}, ${TO.order.hi.toFixed(2)}], total ${xr(TT.order.est)} [${TT.order.lo.toFixed(2)}, ${TT.order.hi.toFixed(2)}]).` : ''
+    ].filter(Boolean).join(' ');
 
     // ---- A: the model-adjusted plot and its four results ----
     const box = (id, html) => { $(id).innerHTML = `<p class="empty">${html}</p>`; };
@@ -1070,18 +1350,21 @@
     } else { box('#a-sep', dot(whyNot(nB))); $('#a-res-seed').innerHTML = pending(nB); }
 
     // ---- robustness and data quality: one visible line ----
-    const rob = !RV ? 'Robustness: the three conclusions are being re-tested under alternative modelling choices.' : (() => {
+    const rob = !RV ? 'Robustness: the primary conclusions are being re-tested under alternative modelling choices.' : (() => {
       const holds = [], sens = [], none = [];
       const put = (v, name) => (v === null ? none : v ? holds : sens).push(name);
       put(RV.traj, 'the trajectory conclusion');
-      if (RV.fade === false && RV.fadeDir) sens.push('the precision of the language difference in how the starting-word gap changes'); else put(RV.fade, 'the language difference in how the starting-word gap changes');
-      put(RV.si, 'the language difference in the starting-word gap at answer 1');
+      put(RV.fade, 'the starting-word decay conclusion');
+      put(RV.si, 'the conclusion about the starting-word gap at answer 1');
       put(RV.trans, 'the transition conclusion');
-      const list = a => a.join(' and ').replace(/ and (?=[^,]* and )/, ', ');
+      const list = andList;
       const parts = [holds.length ? `${list(holds)} ${holds.length > 1 ? 'hold' : 'holds'} in all checks` : '',
         sens.length ? `${list(sens)} ${sens.length > 1 ? 'are' : 'is'} sensitive to modelling choices` : '',
         none.length ? `${list(none)} cannot be checked yet (too few runs)` : ''].filter(Boolean);
-      return `Robustness: ${parts.join('; ')}.`;
+      // first: what the exclusions change (all students against the analysed sample)
+      const dq = x.EX.any.size && RV.all ? (RV.all.length ? `With all ${x.allN} students (no exclusions), ${andList(RV.all)} ${RV.all.length > 1 ? 'change' : 'changes'} verdict. `
+        : `With all ${x.allN} students (no exclusions), the primary conclusions are the same. `) : '';
+      return `Robustness: ${dq}${parts.join('; ').replace(/^./, c => c.toUpperCase())}.`;
     })();
     $('#a-dq-line').innerHTML = `${rob} ${x.dqText}`;
 
@@ -1122,30 +1405,38 @@
       trow('Follow-up: language difference in the gap at answer 1', S && S.init, s2, 'points', whyNot(nB)) +
       trow(`Follow-up: language difference in the gap at answer ${nPos}`, S && S.endD, s2, 'points', whyNot(nB)) +
       trow('Per-student check: English − Chinese difference in each student’s positive − negative starting-word gap, averaged over all answers (paired <i>t</i>-test)', ttE(polarity.test), s2, 'points', '') +
-      grp('C · Other differences (paired t-tests, one value per student and language)') +
-      trow('Response time (median per answer)', rtE, s2, 's', rt.test.reason === 'novar' ? 'No variation to test' : '') +
-      trow('Repeated answers', repE, ppts, 'percentage points', repeat.test.reason === 'novar' ? 'No variation to test' : '') +
+      grp('C · Other behavioural differences') +
+      trow('Response onset, English − Chinese (model of students’ medians)', TO, s2, 's', whyT(F.TO)) +
+      trow('Total response time, English − Chinese (model of students’ medians)', TT, s2, 's', whyT(F.TT)) +
+      trow('Second − first block, onset', TO && TO.block, xr, 'ratio', whyT(F.TO)) +
+      trow('Second − first block, total', TT && TT.block, xr, 'ratio', whyT(F.TT)) +
+      trow('Order groups (Chinese first ÷ English first), onset', TO && TO.order, xr, 'ratio', whyT(F.TO)) +
+      trow('Order groups (Chinese first ÷ English first), total', TT && TT.order, xr, 'ratio', whyT(F.TT)) +
+      trow('Repeated answers (paired t-test)', repE, ppts, 'percentage points', repeat.test.reason === 'novar' ? 'No variation to test' : '') +
       grp('Exploratory · English proficiency, overall rating (mixed models with by-student language slopes)') +
       Object.keys(MEAS).map(k => trow(`${MEAS[k]}: change in the English − Chinese difference per rating point`, profE(profFit('overall', k), k), s2, PUNIT[k], profFit('overall', k) ? whyNot(profFit('overall', k)) || 'Not estimable yet' : 'Being estimated')).join('') +
       '</tbody>';
     $('#a-tests-note').innerHTML = 'Joint rows have no single estimate: they test several coefficients at once (χ² for the logistic model; <i>F</i> with Satterthwaite denominator degrees of freedom for the linear models). ' +
-      'Starting-word rows are in valence points between chains that began with a positive and a negative starting word. Two-tailed, α = .05.' +
+      'Starting-word rows are in valence points between chains that began with a positive and a negative starting word. Timing rows: English − Chinese in seconds from the models of the students’ median times; ratios below 1 mean faster. The exploratory lexical, mechanism and L1 tests are in their own section’s tables. Two-tailed, α = .05.' +
       (fA && fA.reason === 'separation' ? ` <strong>The transition model cannot be estimated yet:</strong> ${emptyText}.` : '') +
       (okA && fA.dropped.length ? ` Not estimable with the runs so far, so left out: ${fA.dropped.map(d => d.toLowerCase()).join('; ')}.` : '');
     renderProf();
+    runMech(); renderMech();
     const MODELS = [
       ['Transition model (logistic)', fA, 'logit P(next positive) ~ language * previous_state + seed_valence + position + block'],
       ['Continuous-valence check (linear)', fC1, 'next_valence ~ language * (previous_valence − 5) + seed_valence + position + block'],
       ['Trajectory model (linear)', fC, 'valence ~ language * (P + (P^2 − 8.25)) + seed_valence + block,  P = position − 5.5'],
-      ['Starting-word model (linear)', fB, 'valence ~ language * seed_valence * log2(position) + block']
+      ['Starting-word model (linear)', fB, 'valence ~ language * seed_valence * log2(position) + block'],
+      ['Response onset (linear, log seconds)', F.TO, 'log(median onset) ~ language * block', ' + (1 | student)'],
+      ['Total response time (linear, log seconds)', F.TT, 'log(median total) ~ language * block', ' + (1 | student)']
     ];
-    $('#a-models').innerHTML = MODELS.map(([ttl, f, formula]) => `<h4 class="model-h">${ttl}</h4><p class="small muted"><code>${formula} + (1 | student) + (1 | seed) + (1 | chain)</code></p>` +
+    $('#a-models').innerHTML = MODELS.map(([ttl, f, formula, re]) => `<h4 class="model-h">${ttl}</h4><p class="small muted"><code>${formula}${re || ' + (1 | student) + (1 | seed) + (1 | chain)'}</code></p>` +
       (!f || !f.ok ? `<p class="small">${whyNot(f)}.</p>` :
         `<div class="table-wrap" data-label="${ttl}"><table class="data"><thead><tr><th scope="col">Fixed effect</th><th class="num" scope="col"><i>b</i></th><th class="num" scope="col">SE</th><th class="num" scope="col">95% CI</th>` +
         `<th class="num sep" scope="col">${f.kind === 'lmm' ? '<i>t</i> (df)' : '<i>z</i>'}</th><th class="num" scope="col"><i>p</i></th></tr></thead><tbody>` +
         f.coef.map(c => `<tr><th scope="row">${c.name}</th><td class="num">${b3(c.b)}</td><td class="num">${c.se.toFixed(3)}</td><td class="num">${b3(c.ci[0])} to ${b3(c.ci[1])}</td>` +
           `<td class="num sep">${b2(c.stat)}${c.df ? ` (${dfShow(c.df)})` : ''}</td>${pCell(c)}</tr>`).join('') +
-        `<tr class="group"><th scope="rowgroup" colspan="6"><span class="stick">Random intercepts (SD) · ${f.n.toLocaleString('en-US')} ${f === fA || f === fC1 ? 'transitions' : 'answers'}${f.kind === 'lmm' ? ` · residual SD ${f.sigma.toFixed(2)}` : ''}</span></th></tr>` +
+        `<tr class="group"><th scope="rowgroup" colspan="6"><span class="stick">Random intercepts (SD) · ${f.n.toLocaleString('en-US')} ${f === fA || f === fC1 ? 'transitions' : f === F.TO || f === F.TT ? 'student medians' : 'answers'}${f.kind === 'lmm' ? ` · residual SD ${f.sigma.toFixed(2)}` : ''}</span></th></tr>` +
         f.groupNames.map((g, i) => `<tr><th scope="row">${g}s (${f.nLevels[i]})</th><td class="num">${f.sd[i].toFixed(3)}</td><td colspan="4"></td></tr>`).join('') + '</tbody></table></div>')).join('');
     if ($('#a-robust-more').open) renderRobust();
     syncScrollers();
@@ -1159,7 +1450,11 @@
      (4) position as a category, assuming no curve shape. Plus a model of which
      answers go unscored. Judged by direction, size and precision, not by
      counting p-values on either side of .05. */
-  const RCOLS = [['main', 'Main analysis'], ['nochain', 'No chain intercepts'], ['coverage', 'Good coverage only'], ['percentile', 'Percentile equating'], ['cat', 'Position as a category']];
+  // The checks: random effects, then subsets of students, then measurement and model form.
+  // The checks: the sample without exclusions, then random effects, measurement and model form.
+  const RALL = [['main', 'Main analysis'], ['all', 'All students (no exclusions)'], ['nochain', 'No chain intercepts'], ['slopes', 'By-student random slopes'], ['percentile', 'Percentile equating'], ['cat', 'Position as a category']];
+  const ALTS = ['all', 'nochain', 'slopes', 'percentile'];
+  const rcols = () => RALL;
   function robustRows(dSV) {
     const seedE = (v, name, k) => v.B && v.B.ok ? scaleE(U(v.B.coefOf(name)), dSV * k) : null;
     return [
@@ -1167,8 +1462,14 @@
       { name: 'Overall test (joint, 2 df)', key: 'tw', get: v => v.A && v.A.ok ? v.A.wald([LANGT, PREV]) : null, joint: true },
       { name: 'Follow-up: after a negative answer', unit: 'probability', key: 'fn', get: v => v.A && v.A.ok ? U(v.A.carry.diff.N) : null, fmt: pr2 },
       { name: 'Follow-up: after a positive answer', unit: 'probability', key: 'fp', get: v => v.A && v.A.ok ? U(v.A.carry.diff.P) : null, fmt: pr2 },
+      { name: 'Continuous-valence check: language × previous valence', unit: 'per point', key: 'c1', get: v => v.C1 && v.C1.ok ? U(v.C1.coefOf('Language × previous valence')) : null, fmt: s2 },
       { group: '2 · Trajectory shape' },
       { name: 'Overall test (joint)', key: 'jw', get: v => v.C && v.C.ok ? v.C.wald(['Language × position', 'Language × position²']) : v.Ccat && v.Ccat.ok ? v.Ccat.wald([2, 3, 4, 5, 6, 7, 8, 9, 10].map(k => `Language × position ${k}`)) : null, joint: true },
+      ...[1, 5, 10].map(k => ({ name: `Follow-up: English − Chinese at answer ${k}`, unit: 'valence', key: 'd' + k, fmt: s2,
+        get: v => { const [q, q2] = qv(k);
+          if (v.C && v.C.ok) return U(v.C.contrast({ [LANGT]: 1, 'Language × position': q, 'Language × position²': q2 }));
+          if (v.Ccat && v.Ccat.ok) return U(v.Ccat.contrast(k === 1 ? { [LANGT]: 1 } : { [LANGT]: 1, [`Language × position ${k}`]: 1 }));
+          return null; } })),
       { group: '3 · Starting word' },
       { name: 'Language difference in the gap’s change, 1 → 10', unit: 'points', key: 'sd', get: v => seedE(v, 'Language × seed valence × position', Math.log2(10)), fmt: s2 },
       { name: 'Language difference in the gap at answer 1', unit: 'points', key: 'si', get: v => seedE(v, 'Language × seed valence', 1), fmt: s2 }
@@ -1181,29 +1482,33 @@
     if (Object.keys(fastState.fits).length < 4 || fastState.updating) return;   // after the main models; runs again when they finish
     fastState.robustKey = key;
     // The last finished checks stay on screen until these are all in.
-    const R = { variants: { nochain: {}, coverage: {}, percentile: {}, cat: {} }, miss: null, done: 0, total: 0 };
+    const R = { variants: { all: {}, nochain: {}, slopes: {}, percentile: {}, cat: {} }, miss: null, done: 0, total: 0 };
     fastState.robustNext = R;
     if (!fastState.robust) fastState.robust = R;
-    const parts = fastState.parts, per = FA.perParticipant(parts);
-    const good = parts.filter((P, i) => ['zh', 'en'].every(l => per[i].lang[l].possible > 0 && per[i].lang[l].valid / per[i].lang[l].possible >= 0.7));
+    const parts = fastState.parts, per = FA.perParticipant(parts), x = fastState.ctx, F = fastState.fits;
     const pct = FA.relink(parts, FA.percentileLink(fastState.norms));
-    const jobs = [];
-    [['nochain', parts, false], ['coverage', good, true], ['percentile', pct, true]].forEach(([k, ps, chain]) => {
+    const four = (k, ps, chain) => {
       R.variants[k].n = ps.length;
       const tr = FA.transitions(ps, FA.state2), an = FA.answers(ps);
-      jobs.push({ key: k + ':A', model: 'A', tr, chain }, { key: k + ':C', model: 'C', ans: an, chain }, { key: k + ':B', model: 'B', ans: an, chain });
-    });
-    const an0 = FA.answers(parts);
-    jobs.push({ key: 'cat:Ccat', model: 'Ccat', ans: an0 }, { key: 'miss', model: 'Miss', ans: an0 });
-    R.total = jobs.length;
+      return [{ key: k + ':A', model: 'A', tr, chain }, { key: k + ':C', model: 'C', ans: an, chain }, { key: k + ':B', model: 'B', ans: an, chain }, { key: k + ':C1', model: 'C1', tr, chain }];
+    };
+    const tr0 = FA.transitions(parts, FA.state2), an0 = FA.answers(parts), th = (f, mid) => f && f.ok ? [f.theta[0]].concat(mid, f.theta.slice(1)) : null;
+    R.variants.slopes.n = parts.length;
+    const lanes = [
+      four('all', fastState.allParts || parts, true).concat([{ key: 'cat:Ccat', model: 'Ccat', ans: an0 }]),
+      four('nochain', parts, false).concat([{ key: 'slopes:A', model: 'AS', tr: tr0, start: th(F.A, [0.3, 0.3]) }, { key: 'slopes:C1', model: 'C1S', tr: tr0, start: th(F.C1, [0.1, 0.05]) }]),
+      four('percentile', pct, true).concat([{ key: 'slopes:C', model: 'CS', ans: an0, start: th(F.C, [0.15, 0.03]) }, { key: 'slopes:B', model: 'BS', ans: an0, start: th(F.B, [0.05, 0.05]) }, { key: 'miss', model: 'Miss', ans: an0 }])
+    ];
+    R.total = lanes.reduce((s, l) => s + l.length, 0);
     renderRobust();
-    fitJobs('robust', jobs, (k, f) => {
+    const got = (k, f) => {
       if (fastState.robustNext !== R) return;
       if (k === 'miss') R.miss = f; else { const [v, m] = k.split(':'); R.variants[v][m] = f; }
       R.done++;
       if (R.done >= R.total) fastState.robust = R;
       if (fastState.robust === R) { renderRobust(); if (R.done >= R.total) renderFastModels(); }
-    });
+    };
+    lanes.forEach((jobs, i) => fitJobs('robust:' + i, jobs, got));
   }
   function renderRobust() {
     const R = fastState.robust, x = fastState.ctx;
@@ -1214,68 +1519,58 @@
     st.textContent = R.done < R.total ? `Fitting the checks… ${R.done} of ${R.total}` : mainDone ? 'All robustness checks done.' : 'Waiting for the main models…';
     st.classList.toggle('done', finished);
     st.classList.toggle('visually-hidden', finished);
-    const V = { main: fastState.fits, nochain: R.variants.nochain, coverage: R.variants.coverage, percentile: R.variants.percentile, cat: R.variants.cat };
-    const rows = robustRows(x.dSV), total = fastState.parts.length, nGood = R.variants.coverage.n;
+    const V = Object.assign({ main: fastState.fits }, R.variants);
+    const COLS = rcols(), rows = robustRows(x.dSV);
     const verdict = (r, e) => r.joint ? clearW(e) : clearCI(e);
+    const posRow = r => ['jw', 'd1', 'd5', 'd10'].includes(r.key);
     const cell = (r, k) => {
       const cls = `num${k === 'nochain' ? ' sep' : ''}`;
-      if (k === 'cat' && r.key !== 'jw') return `<td class="${cls} muted">—</td>`;
+      if (k === 'cat' && !posRow(r)) return `<td class="${cls} muted">—</td>`;
       const v = V[k], e = r.get(v);
-      if (!e || !isFinite(e.p)) return `<td class="${cls}">${Object.keys(v).some(m => ['A', 'B', 'C', 'Ccat'].includes(m)) ? '–' : '<span class="muted">…</span>'}</td>`;
+      if (!e || !isFinite(e.p)) return `<td class="${cls}">${Object.keys(v).some(m => ['A', 'B', 'C', 'C1', 'Ccat'].includes(m)) ? '–' : '<span class="muted">…</span>'}</td>`;
       const main = r.get(V.main);
       const flip = k !== 'main' && main && isFinite(main.p) && verdict(r, main) !== verdict(r, e);
-      return `<td class="${cls}${verdict(r, e) ? ' r-sig' : ''}">` + (r.joint ? `<b>${wTxt(e).replace(/, (<i>p<\/i>|p)[\s\S]*$/, '')}</b>` : `<b>${r.fmt(e.est)}</b> <span class="rci">[${fine(r.fmt, e.lo)}, ${fine(r.fmt, e.hi)}]</span>`) +
+      return `<td class="${cls}${verdict(r, e) ? ' r-sig' : ''}">` + (r.joint ? `<b>${wTxt(e).replace(/, (<i>p<\/i>|p)[\s\S]*$/, '').replace(/\u00a0=\u00a0/, ' = ')}</b>` : `<b>${r.fmt(e.est)}</b> <span class="rci">[${fine(r.fmt, e.lo)}, ${fine(r.fmt, e.hi)}]</span>`) +
         `<span class="rp">${LAB.fmtP(e.p)}</span>${flip ? `<span class="flip">${verdict(r, e) ? 'clear here' : 'not clear here'}</span>` : ''}</td>`;
     };
-    $('#a-robust').innerHTML = `<thead><tr><th scope="col">Conclusion</th>${RCOLS.map(([k, t]) => `<th class="num${k === 'nochain' ? ' sep' : ''}" scope="col">${t}${k === 'coverage' && isFinite(nGood) ? `<span class="th-sub">${nGood} of ${total} students</span>` : ''}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map(r => r.group ? `<tr class="group"><th scope="rowgroup" colspan="${RCOLS.length + 1}"><span class="stick">${r.group}</span></th></tr>`
-        : `<tr><th scope="row">${r.name}${r.unit ? ` <small class="muted unit">(${r.unit})</small>` : ''}</th>${RCOLS.map(([k]) => cell(r, k)).join('')}</tr>`).join('') + '</tbody>';
-    // plain-language verdicts, one per conclusion
-    const ALT = { nochain: 'without chain intercepts', coverage: 'in the good-coverage subset', percentile: 'with percentile equating', cat: 'with position as a category' };
+    const sub = { all: R.variants.all.n };
+    $('#a-robust').innerHTML = `<thead><tr><th scope="col">Conclusion</th>${COLS.map(([k, t]) => `<th class="num${k === 'nochain' ? ' sep' : ''}" scope="col">${t}${sub[k] !== undefined && isFinite(sub[k]) ? `<span class="th-sub">${sub[k]} students</span>` : ''}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map(r => r.group ? `<tr class="group"><th scope="rowgroup" colspan="${COLS.length + 1}"><span class="stick">${r.group}</span></th></tr>`
+        : `<tr><th scope="row">${r.name}${r.unit ? ` <small class="muted unit">(${r.unit})</small>` : ''}</th>${COLS.map(([k]) => cell(r, k)).join('')}</tr>`).join('') + '</tbody>';
+    // ---- the four conclusions, each across every check: direction, range, evidence ----
+    const ALT = { all: 'with all students (no exclusions)', nochain: 'without chain intercepts', slopes: 'with by-student random slopes', percentile: 'with percentile equating', cat: 'with position as a category' };
+    const altsFor = r => COLS.map(([k]) => k).filter(k => k !== 'main' && (k !== 'cat' || posRow(r)));
     const get = key => rows.find(r => r.key === key);
-    const sumJoint = (key, label, alts) => {
+    const jointLine = (key, label) => {
       const r = get(key), m = r.get(V.main);
-      if (!m) return '';
-      const done = alts.filter(k => { const e = r.get(V[k]); return e && isFinite(e.p); });
+      if (!m || !isFinite(m.p)) return '';
+      const done = altsFor(r).filter(k => { const e = r.get(V[k]); return e && isFinite(e.p); });
       const differ = done.filter(k => verdict(r, r.get(V[k])) !== verdict(r, m));
-      return `<p><strong>${label}:</strong> ` + (!done.length ? 'no check can be estimated yet (too few runs).' : !differ.length ? `conclusion unchanged in all ${done.length} checks (${verdict(r, m) ? 'a clear' : 'no clear'} language difference throughout).`
-        : `conclusion unchanged ${done.filter(k => !differ.includes(k)).map(k => ALT[k]).join(', ') || 'in no check'}; ${differ.map(k => `${ALT[k]} the joint test is ${verdict(r, r.get(V[k])) ? 'clear' : 'not clear'} (${LAB.fmtP(r.get(V[k]).p)})`).join('; ')}.`);
+      return `${label}: ${verdict(r, m) ? 'a clear' : 'no clear'} language difference in the main analysis (${wTxt(m)})` +
+        (!done.length ? '; no check can be estimated yet.' : !differ.length ? `, and the same in all ${done.length} checks.`
+          : `; the same in ${done.length - differ.length} of ${done.length} checks, but ${andList(differ.map(k => `${verdict(r, r.get(V[k])) ? 'clear' : 'not clear'} ${ALT[k]} (${LAB.fmtP(r.get(V[k]).p)})`))}.`);
     };
-    // a joint verdict that changes between checks: say so, with the size of the differences involved
-    const sensitive = key => {
+    const estLine = (key, label) => {
       const r = get(key), m = r.get(V.main);
-      if (!m) return '';
-      const differ = ['nochain', 'coverage', 'percentile'].filter(k => { const e = r.get(V[k]); return e && isFinite(e.p) && verdict(r, e) !== verdict(r, m); });
-      if (!differ.length) return '';
-      const co = V.main.A && V.main.A.ok ? V.main.A.carry : null;
-      return ` So the transition conclusion is sensitive to these modelling choices${co ? ` (in the main analysis, the model-adjusted English − Chinese differences are ${pr2(co.diff.N.est)} after a negative answer and ${pr2(co.diff.P.est)} after a positive answer)` : ''}.`;
-    };
-    const sumFollow = (key, label) => {
-      const r = get(key), m = r.get(V.main);
-      if (!m) return '';
-      const alts = ['nochain', 'coverage', 'percentile'].filter(k => r.get(V[k]));
-      const lost = alts.filter(k => verdict(r, m) && !verdict(r, r.get(V[k]))), gained = alts.filter(k => !verdict(r, m) && verdict(r, r.get(V[k])));
-      return lost.length ? ` The follow-up ${label} is not robust: its CI includes zero ${lost.map(k => ALT[k]).join(' and ')}.`
-        : gained.length ? ` The follow-up ${label} becomes clear ${gained.map(k => ALT[k]).join(' and ')}, but the overall test decides the conclusion.` : '';
-    };
-    const sumEst = (key, label) => {
-      const r = get(key), m = r.get(V.main);
-      if (!m) return '';
-      const alts = ['nochain', 'coverage', 'percentile'].map(k => [k, r.get(V[k])]).filter(([, e]) => e && isFinite(e.p));
-      if (!alts.length) return `${label}: no check can be estimated yet (too few runs).`;
-      const sameDir = alts.every(([, e]) => Math.sign(e.est) === Math.sign(m.est));
-      const ests = alts.map(([, e]) => e.est), vague = alts.filter(([, e]) => verdict(r, m) && !verdict(r, e)).map(([k]) => ALT[k]);
-      return `${label} ${sameDir ? 'keeps the same direction in all checks' : `changes direction ${alts.filter(([, e]) => Math.sign(e.est) !== Math.sign(m.est)).map(([k]) => ALT[k]).join(' and ')}`} (${r.fmt(m.est)} in the main analysis, ${r.fmt(Math.min(...ests))} to ${r.fmt(Math.max(...ests))} in the checks)` +
-        (vague.length ? `; its CI includes zero ${vague.join(' and ')}` : verdict(r, m) ? '; its CI excludes zero in every check' : '') + '.';
+      if (!m || !isFinite(m.p)) return '';
+      const alts = altsFor(r).map(k => [k, r.get(V[k])]).filter(([, e]) => e && isFinite(e.p));
+      if (!alts.length) return `${label}: ${r.fmt(m.est)} in the main analysis; no check can be estimated yet.`;
+      const ests = alts.map(([, e]) => e.est), flipDir = alts.filter(([, e]) => Math.sign(e.est) !== Math.sign(m.est)).map(([k]) => ALT[k]);
+      const lost = alts.filter(([, e]) => verdict(r, m) && !verdict(r, e)).map(([k]) => ALT[k]), gained = alts.filter(([, e]) => !verdict(r, m) && verdict(r, e));
+      return `${label}: ${r.fmt(m.est)} in the main analysis, ${r.fmt(Math.min(...ests))} to ${r.fmt(Math.max(...ests))} across the ${alts.length} checks` +
+        (flipDir.length ? `; the direction changes ${andList(flipDir)}` : '; the same direction in every check') +
+        (verdict(r, m) ? (lost.length ? `; clear in the main analysis, but its CI includes zero ${andList(lost)}` : '; its CI excludes zero in every analysis')
+          : (gained.length ? `; not clear in the main analysis, but clear ${andList(gained.map(([k, e]) => `${ALT[k]} (${r.fmt(e.est)} [${fine(r.fmt, e.lo)}, ${fine(r.fmt, e.hi)}])`))}` : '; not clear in any analysis')) + '.';
     };
     $('#a-robust-sum').innerHTML = !finished ? '' :
-      sumJoint('tw', 'Transition pattern', ['nochain', 'coverage', 'percentile']).replace(/<\/p>$/, '') + sensitive('tw') + sumFollow('fp', 'after a positive answer') + sumFollow('fn', 'after a negative answer') + '</p>' +
-      sumJoint('jw', 'Trajectory shape', ['nochain', 'coverage', 'percentile', 'cat']) +
-      `<p><strong>Starting word:</strong> ${sumEst('sd', 'the language difference in how much the gap changes')} ${sumEst('si', 'The language difference at answer 1')}</p>` +
-      (isFinite(nGood) ? `<p class="muted">The good-coverage subset keeps only ${nGood} of ${total} students, so its tests have less power: a less clear result there is not evidence against the main finding.</p>` : '');
+      `<p><strong>1 · Transition pattern.</strong> ${jointLine('tw', 'Overall test')} ${estLine('fn', 'After a negative answer (probability)')} ${estLine('fp', 'After a positive answer (probability)')} ${estLine('c1', 'Continuous-valence check (per point)')}</p>` +
+      `<p><strong>2 · Trajectory shape.</strong> ${jointLine('jw', 'Overall test')} ${[1, 5, 10].map(k => estLine('d' + k, `English − Chinese at answer ${k}`)).join(' ')}</p>` +
+      `<p><strong>3 · Starting-word decay.</strong> ${estLine('sd', 'Language difference in how much the gap changes from answer 1 to 10 (points)')}</p>` +
+      `<p><strong>4 · Initial starting-word difference.</strong> ${estLine('si', 'Language difference in the gap at answer 1 (points)')}</p>`;
     $('#a-robust-note').innerHTML = 'Each cell: the estimate with its 95% CI (or the joint test) and its <i>p</i>; bold: clear evidence (CI excludes zero, or joint <i>p</i> &lt; .05). “Clear here” / “not clear here”: the verdict differs from the main analysis. ' +
       '<b>No chain intercepts</b>: random intercepts for students and starting words only. ' +
-      `<b>Good coverage only</b>: students with at least 70% of their possible transitions valid in both languages (${isFinite(nGood) ? nGood + ' of ' + total : '–'}); the cut-off was fixed before looking at results. ` +
+      '<b>By-student random slopes</b>: uncorrelated by-student slopes added for the language terms (transitions: language, language × previous state; continuous check: language, language × previous valence; trajectory: language, language × position; starting word: language × seed valence, language × seed valence × position). ' +
+      `<b>All students (no exclusions)</b>: the main models on every student (${x.allN}), without the exclusion criteria stated at the top of the page. ` +
       '<b>Percentile equating</b>: each Chinese rating takes the English value at the same percentile of the two whole norm sets, instead of the linear map (the state boundary stays at 5). ' +
       '<b>Position as a category</b>: the trajectory model with one term per position instead of a curve; its joint test (9 df) asks whether the language difference changes across positions with no assumed shape.';
     const M = R.miss;
@@ -1287,7 +1582,7 @@
       lang ? (clearCI(lang) ? `${lang.est > 0 ? 'English' : 'Chinese'} answers were more likely than ${lang.est > 0 ? 'Chinese' : 'English'} answers to be found in the valence norms (odds ratio ${or(Math.abs(lang.est))}).` : 'Coverage did not clearly differ between the languages.') : '',
       pos ? (clearCI(pos) ? `Coverage ${pos.est < 0 ? 'decreased' : 'increased'} later in the chain.` : 'Coverage did not clearly change along the chain.') : '',
       svc ? (clearCI(svc) ? 'Coverage was related to the starting word’s valence, which needs care in the starting-word analysis.' : 'Coverage was not related to the starting word’s valence, which is reassuring for the starting-word analysis.') : '',
-      lang && clearCI(lang) ? 'The language difference in coverage is a limitation for comparing the languages; the good-coverage subset above is one check on it.' : ''
+      lang && clearCI(lang) ? 'The language difference in coverage is a limitation for comparing the languages; the coverage exclusion is one response to it.' : ''
     ].filter(Boolean).join(' ') + ` <span class="muted">Logistic model of whether an answer was scored (${M.n.toLocaleString('en-US')} answers; random intercepts for students and starting words).</span>`;
     $('#a-miss').innerHTML = `<thead><tr><th scope="col">Predictor of an answer being scored</th><th class="num" scope="col">Odds ratio</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col"><i>z</i></th><th class="num" scope="col"><i>p</i></th></tr></thead><tbody>` +
       M.coef.filter(c => c.name !== '(Intercept)').map(c => `<tr><th scope="row">${c.name}</th><td class="num">${or(c.b)}</td><td class="num">${or(c.ci[0])} to ${or(c.ci[1])}</td><td class="num sep">${b2(c.z)}</td>${pCell(c)}</tr>`).join('') + '</tbody>';

@@ -200,7 +200,9 @@
       svg('line', { class: Math.abs(v) < 1e-9 ? 'zero' : 'grid', x1: X(v), x2: X(v), y1: top + headH(groups[0]) - 6, y2: H - bottom + 6 }, s);
       if (Math.round(v / step) % every === 0) text(s, X(v), H - bottom + 24, tick(v), { 'text-anchor': 'middle' });
     }
-    text(s, X(0), H - 5, o.xLabel, { 'text-anchor': 'middle', class: 'label-strong' });
+    // the axis title: centred on the plot, and the short form when the long one would not fit
+    const xl = narrow && o.xLabelShort ? o.xLabelShort : o.xLabel;
+    text(s, narrow ? (left + W - right) / 2 : X(0), H - 5, xl, { 'text-anchor': 'middle', class: 'label-strong' });
     let y0 = top;
     groups.forEach((grp, gi) => {
       if (gi) { svg('line', { class: 'divider', x1: 0, x2: W, y1: y0 + gap / 2, y2: y0 + gap / 2 }, s); y0 += gap; }
@@ -362,16 +364,20 @@
 
   /* ---------- 11. one estimate with its 95% CI, on its own scale around 0 ----------
      For the compact secondary results: o: {est, lo, hi, fmt, label}. */
+  /* o.lim: a half-range shared by rows in the same units, so their lengths
+     compare; o.clear: a filled dot when the CI excludes 0 (open otherwise),
+     as in the other interval charts. */
   C.estimate = function (host, o) {
     const W = widthOf(host, 260, 180, 320), H = 34, pad = 12;
-    const m = Math.max(Math.abs(o.lo), Math.abs(o.hi), Math.abs(o.est), 1e-9) * 1.15;
+    const m = o.lim || Math.max(Math.abs(o.lo), Math.abs(o.hi), Math.abs(o.est), 1e-9) * 1.15;
     const X = v => pad + (v + m) / (2 * m) * (W - 2 * pad);
     const s = root(host, W, H, o.label);
     svg('line', { class: 'axis-light', x1: pad, x2: W - pad, y1: H / 2, y2: H / 2 }, s);
     svg('line', { class: 'zero', x1: X(0), x2: X(0), y1: 5, y2: H - 5 }, s);
     text(s, X(0) - 4, H - 3, '0', { 'text-anchor': 'end', class: 'scale-note' });
-    if (isFinite(o.lo)) svg('line', { class: 'forest-ci sig', x1: X(o.lo), x2: X(o.hi), y1: H / 2, y2: H / 2 }, s);
-    svg('circle', { class: 'forest-dot sig', cx: X(o.est), cy: H / 2, r: 5.5 }, s);
+    const k = o.clear === false ? '' : ' sig';
+    if (isFinite(o.lo)) svg('line', { class: 'forest-ci' + k, x1: X(o.lo), x2: X(o.hi), y1: H / 2, y2: H / 2 }, s);
+    svg('circle', { class: 'forest-dot' + k, cx: X(o.est), cy: H / 2, r: 5.5 }, s);
     return s;
   };
 

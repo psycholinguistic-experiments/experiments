@@ -72,6 +72,22 @@ English − Chinese:
 | B. Does the starting word's influence fade differently? | linear: valence ~ language × seed valence × log2(position) + block | Language × seed valence × log2(position); English − Chinese gap at answers 1 and 10 |
 | Exploratory: English proficiency | the transition and trajectory models + rating × language terms, with by-student random slopes for the language terms (uncorrelated, lme4's `\|\|`) | change in the English − Chinese difference per rating point (staying negative, staying positive, mean valence); overall rating primary, four skills BH-adjusted |
 
+Analysed sample: every analysis uses only the students who meet three
+criteria, stated at the top of the tab with the counts. A student is
+excluded when
+- fewer than 70% of their possible transitions (adjacent answers both
+  scored for valence) are usable in either language;
+- more than half of their answers in a language repeat the starting word or
+  an earlier answer in the same chain;
+- their first-language answer here contradicts their Judgement-task answer
+  under the same code (the code is never shown).
+
+Response times are not trimmed or capped: the timing models use each
+student's median per language on a log scale, and a student is left out of
+a timing model only if a median is missing. The answers and transitions
+downloads keep every student, with `analysed` and `excluded_for`
+(coverage; repetition; l1) columns.
+
 Every model has random intercepts for students, seeds and chains (a
 student's ten answers to one seed). The logistic model uses the Laplace
 approximation (as lme4's `nAGQ = 0`). The linear models use REML, with
@@ -103,16 +119,43 @@ Every model and joint test, the proficiency models included, was checked
 against lme4 and lmerTest in R on the class data.
 
 The robustness checks are fitted in the background once the main models
-are done. They rerun the three conclusions in four ways:
+are done, in three workers. They rerun the primary conclusions (and the
+continuous-valence check and the trajectory contrasts at answers 1, 5, 10):
 - without chain intercepts;
-- with only the students who have at least 70% of their transitions valid
-  in both languages;
+- with uncorrelated by-student random slopes for the language terms;
+- with all students (no exclusions);
 - with percentile instead of linear equating of Chinese valence;
 - for the trajectory, with position as a category (a 9-df joint test).
 
-They also model which answers go unscored. `random-slopes.R` refits the
-transition model, in both its logistic and continuous forms, with
-per-student slopes from the Transitions download.
+They also model which answers go unscored, and a collapsed panel counts
+the exclusions and other participant-level checks (never codes). `random-slopes.R` refits the
+transition model with per-student slopes from the Transitions download.
+
+Response timing: only each student's median onset (first keystroke) and
+total (submit) time per language are stored with the summaries; every
+answer's times are kept in the sheet's `fast_trials` tab, which the page
+cannot read. Section C models log(median) ~ language × block + (1 | student)
+for each measure and reports predicted seconds (geometric means) and ratios.
+
+Exploratory section "What might produce the trajectory difference?"
+(collapsed; its models are fitted only when it is opened):
+- lexical reuse within each student's chains: cross-chain reuse, the
+  unique-response proportion and within-chain repetition, English −
+  Chinese by paired t-tests (BH across the three) on the analysed sample,
+  with raw, normalised and lemma response keys;
+- whether each student's English − Chinese cross-chain reuse moderates the
+  language difference in starting-word decay (the starting-word model × M,
+  with a by-student slope for the decay term);
+- Chinese (L1) dynamics against English age of acquisition, English use and
+  the English − Chinese overall rating: starting-word persistence and
+  trajectory shape (mixed models with by-student slopes) and Chinese
+  cross-chain reuse (least squares, HC3), BH across the nine tests;
+- no semantic-space analysis (no multilingual embedding model is available
+  offline).
+
+`dev/test_lexical.js` checks the lexical metrics, normalisation and timing
+rows on synthetic data; the timing, mechanism, L1 and slope models were
+checked against lme4/lmerTest on the class data.
 
 ## Sources
 
