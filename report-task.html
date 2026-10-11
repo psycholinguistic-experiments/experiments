@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Report task · LT5461</title>
+    <meta name="description" content="An in-class reading task for LT5461 at City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=9">
+    <style>
+        /* Chinese pages: quotation marks and CJK punctuation come from the system's Chinese font (full width), the rest from Open Sans. */
+        @font-face { font-family: 'CJK Punct'; src: local('PingFang SC'), local('PingFangSC-Regular'), local('Noto Sans CJK SC'), local('Source Han Sans SC'), local('Microsoft YaHei'); unicode-range: U+2018-2019, U+201C-201D, U+2026, U+3000-303F, U+FF01-FF1F; }
+        html:lang(zh-Hans) body { font-family: 'CJK Punct', 'Open Sans', var(--font-hans), sans-serif; }
+        .report-text, legend, .lead { text-wrap: pretty; }
+        fieldset.missing legend { color: var(--danger); }
+        fieldset.missing .choice > span, .prof-row.missing .choice > span { border-color: var(--danger); }
+        .prof-row.missing .prof-skill { color: var(--danger); }
+        .report-lead { font-weight: 650; color: var(--text); margin: 0; }
+        .report-text { margin: 0.9rem 0 0; padding: 1.1rem 1.25rem; border-left: 3px solid var(--text); background: var(--bg-alt); font-size: 1.08rem; line-height: 1.7; color: var(--text); }
+        .report-text strong { font-weight: 750; }
+        :lang(zh) .report-text { line-height: 1.85; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="./">LT5461</a>
+            <span class="masthead-meta"></span>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="screen page" id="s-intro"></section>
+        <section class="screen page" id="s-report" hidden></section>
+        <section class="screen page" id="s-final" hidden></section>
+        <section class="screen page" id="s-done" hidden></section>
+    </main>
+
+    <footer class="footer">
+        <div class="page">LT5461</div>
+    </footer>
+
+    <script src="assets/config.js?v=2"></script>
+    <script src="assets/lab.js?v=9"></script>
+    <script src="assets/report.js?v=3"></script>
+</body>
+</html>

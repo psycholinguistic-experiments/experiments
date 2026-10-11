@@ -18,6 +18,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `association-task.html` | students | Association task (FAST): chained associations in Chinese and in English |
 | `sentence-task.html` | students | Sentence verification: the typicality effect (true/false statements) |
 | `bird-task.html` | students | Bird task: how typical 12 pictures are as birds (1–5), mapped as a semantic space |
+| `report-task.html` | students | Report task: crime framed as a beast or a virus (Thibodeau & Boroditsky, 2011), in Chinese or English |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -47,7 +48,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`; the report task sends no trials, so it has only `report_people`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -110,6 +111,34 @@ stays the same. Copy the changes back into `apps-script/Code.gs`.
 - **After any edit**, bump the `?v=` number on the changed file's `<link>` or
   `<script>` tag so browsers fetch the new version. Then commit and push. The
   site updates within a minute.
+
+## Report task (metaphor framing × language)
+
+2 × 2 between subjects, after Thibodeau & Boroditsky (2011). Each time a
+student opens the task, one coin flip assigns the **frame** (crime as a
+*beast* or a *virus*) and another the **language** (Chinese or English).
+Reloading keeps the same version; `?frame=beast|virus` and `?lang=zh|en` in
+the address force one (e.g. for four separate links).
+
+- Screens: the first-language question; the report paragraph (the instructor's
+  Canvas wording, with the metaphor word in bold) and one choice, Punishment
+  or Reform (always in that order); then language difficulty (1–7), language
+  aid, and the five English self-ratings.
+- Stored per student: `frame`, `lang`, `choice`, `punish` (1 = Punishment),
+  `read_ms` (report shown → answer confirmed), the checks and self-ratings,
+  `include` (0 if Chinese is not a first language or a language aid was used).
+- Results tab: each student counts once (their first run). Shares choosing
+  Punishment with Wilson 95% CIs; the metaphor effect (Beast − Virus) across
+  both languages and within each; the language difference in that effect
+  (English effect − Chinese effect); the language main effect. Differences use
+  the adjusted Wald interval (2/c successes and 4/c trials added to each of the
+  c groups in the contrast; Agresti & Caffo, 2000; Price & Bonett, 2004) and
+  the z test from the same estimate, so the CI and p agree. Exploratory: the
+  metaphor effect in the English version above vs at or below the median
+  English self-rating.
+- Tests: `dev/test_report.py <port>` (assignment, forced versions, full runs
+  in both languages); `dev/seed_report.py <session> <seed> <port>` seeds a
+  synthetic class on a mock server.
 
 ## Judgement task (foreign-language effect)
 
@@ -386,6 +415,7 @@ task).
 | Shape task | Paired t-tests on each student's own percentages: u o vs i e, m n l vs p t k, m n l vs b d g, b d g vs p t k; one-sample t-tests of each sound class against 50% |
 | Judgement task | Welch's t-test, English vs Chinese, for every measure (d = difference ÷ pooled SD); proficiency slopes against 0; interaction = English slope − Chinese slope, Welch–Satterthwaite t |
 | Sentence task | One-sample t-test of each person's typicality effect (low − high median RT) against 0, with d<sub>z</sub>; proficiency: the slope of the effect on each English rating against 0 |
+| Report task | Differences in the share choosing Punishment (Beast − Virus; English − Chinese; difference of differences): adjusted Wald z test and 95% CI; checks: Welch's t |
 
 ## How the priming data are analysed
 

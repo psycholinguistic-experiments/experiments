@@ -4,12 +4,12 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report'];
   // Sentence task: the English self-ratings, in the order the results page shows them.
   const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [] },
     timer: null,
     loadedOnce: false
   };
@@ -20,7 +20,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -137,6 +137,8 @@
       if (w && w !== state.fastW) { state.fastW = w; lastKey = ''; render(); }
       const ws = $('#panel-svt').hidden ? 0 : $('#panel-svt').clientWidth;
       if (ws && ws !== state.svtW) { state.svtW = ws; lastKey = ''; render(); }
+      const wr = $('#panel-report').hidden ? 0 : $('#panel-report').clientWidth;
+      if (wr && wr !== state.reportW) { state.reportW = wr; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
       // A new width means new pixel positions: redraw in place, no glide.
       if (wb && wb !== birdState.w) { birdState.geom = null; birdState.still = true; lastKey = ''; render(); }
@@ -151,7 +153,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -167,9 +169,11 @@
     $('#veil-svt').textContent = sv.length;
     $('#n-birds').textContent = bd.length;
     $('#veil-birds').textContent = bd.length;
+    $('#n-report').textContent = rp.length;
+    $('#veil-report').textContent = rp.length;   // one total: the hidden view never names the frames
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
@@ -178,6 +182,7 @@
     if (!$('#panel-fast').hidden) renderFast(a);
     if (!$('#panel-svt').hidden) renderSvt(sv);
     if (!$('#panel-birds').hidden) renderBirds(bd);
+    if (!$('#panel-report').hidden) renderReport(rp);
     syncScrollers();
   }
 
@@ -2242,6 +2247,179 @@
       `<tr class="group"><th scope="rowgroup" colspan="6">Round-shape choices against chance (50%)</th></tr>` +
       chance.map(c => `<tr><th scope="row">${names[c.k]} words</th><td class="num"><strong>${isFinite(c.r.m) ? Math.round(c.r.m) + '%' : '–'}</strong></td><td class="num">${isFinite(c.r.ci[0]) ? Math.round(c.r.ci[0]) + '%\u00a0to\u00a0' + Math.round(c.r.ci[1]) + '%' : '–'}</td>${tCell(c.r)}${pCell(c.r)}${resultCell(c.r, want[c.k])}</tr>`).join('') +
       '</tbody>';
+  }
+
+  /* ---------- report task: crime as a beast or a virus, in Chinese or English ----------
+     2 × 2 between subjects (Thibodeau & Boroditsky, 2011); one binary choice
+     per student (Punishment = 1). Each student counts once: their first run.
+     Shares get Wilson 95% CIs. A difference between shares, or a difference
+     between two such differences, gets the adjusted Wald interval (add 2/c
+     successes and 4/c trials to each of the c groups in the contrast:
+     Agresti & Caffo, 2000; Price & Bonett, 2004) and the z test from the same
+     estimate and SE, so the CI excludes 0 exactly when p < .05. */
+  const Z95 = 1.959964;
+  const wilson = (x, n) => {
+    if (!n) return [NaN, NaN];
+    const p = x / n, d = 1 + Z95 * Z95 / n, c = (p + Z95 * Z95 / (2 * n)) / d, h = Z95 * Math.sqrt(p * (1 - p) / n + Z95 * Z95 / (4 * n * n)) / d;
+    return [Math.max(0, c - h), Math.min(1, c + h)];
+  };
+  // groups: [{x, n, w}] (x = Punishment choices, w = contrast weight). diff: the raw contrast of shares.
+  const propContrast = groups => {
+    const c = groups.length;
+    if (groups.some(g => g.n < 2)) return { diff: NaN, p: NaN, ci: [NaN, NaN], reason: 'few' };
+    let raw = 0, est = 0, v = 0;
+    groups.forEach(g => {
+      const pt = (g.x + 2 / c) / (g.n + 4 / c);
+      raw += g.w * g.x / g.n; est += g.w * pt; v += g.w * g.w * pt * (1 - pt) / (g.n + 4 / c);
+    });
+    // the interval is kept within the contrast's possible range (±1 for a difference of two shares, ±2 for a difference of two differences)
+    const se = Math.sqrt(v), z = est / se, lim = groups.reduce((s0, g0) => s0 + Math.abs(g0.w), 0) / 2;
+    return { diff: raw, est, se, z, p: FA.pNorm(z), ci: [Math.max(-lim, est - Z95 * se), Math.min(lim, est + Z95 * se)], n: groups.reduce((s0, g) => s0 + g.n, 0) };
+  };
+  const pts1 = v => isFinite(v) ? (v >= 0.0005 ? '+' : v <= -0.0005 ? '−' : '±') + Math.abs(v * 100).toFixed(0) + ' pts' : '–';
+  const ciPts1 = c => isFinite(c[0]) ? `${pts1(c[0]).replace(' pts', '')} to ${pts1(c[1]).replace(' pts', '')} pts` : '–';
+  const zTxt = r => r && isFinite(r.z) ? `<i>z</i> = ${r.z < 0 ? '−' : ''}${Math.abs(r.z).toFixed(2)}, ${LAB.fmtP(r.p)}` : '';
+  const zLine = (r, want) => `${badge(r, want)}${r && isFinite(r.z) ? `<span>${pts1(r.diff)}, 95% CI ${ciPts1(r.ci)} · ${zTxt(r)}</span>` : ''}`;
+
+  /* The proportions plot: for each language and for both together, Beast
+     (filled) beside Virus (open), joined by a thin line, with 95% CIs. Laid
+     out at its box's width, so its text stays at the site's chart size on a
+     projector and on a phone. */
+  function reportPlot(host, cats, label) {
+    host.textContent = '';
+    const W = Math.max(300, Math.min(1000, Math.round(host.getBoundingClientRect().width) || 760)), narrow = W < 520;
+    // On a phone there is room for two languages only; the pooled pair stays in the table below.
+    if (narrow) cats = cats.slice(0, 2);
+    const H = 340, left = narrow ? 44 : 64, right = narrow ? 14 : 52, top = 26, bottom = 84;
+    const svg = LAB.svg('svg', { class: 'chart fc', viewBox: `0 0 ${W} ${H}`, style: `max-width:${W}px`, role: 'img', 'aria-label': label }, host);
+    const y = v => top + (1 - v) * (H - top - bottom), cw = (W - left - right) / cats.length, x = i => left + (i + 0.5) * cw;
+    [0, 0.25, 0.5, 0.75, 1].forEach(v => {
+      LAB.svg('line', { class: 'grid', x1: left, x2: W - right, y1: y(v), y2: y(v) }, svg);
+      LAB.text(svg, left - 8, y(v) + 5, Math.round(v * 100) + '%', { 'text-anchor': 'end' });
+    });
+    if (!narrow) LAB.text(svg, 16, (top + H - bottom) / 2, 'Chose Punishment (%)', { 'text-anchor': 'middle', class: 'axis-title', transform: `rotate(-90 16 ${(top + H - bottom) / 2})` });
+    cats.forEach((c, i) => {
+      const off = narrow ? cw * 0.25 : Math.min(44, cw * 0.22), pb = c.b.n ? c.b.x / c.b.n : NaN, pv = c.v.n ? c.v.x / c.v.n : NaN;
+      // Labels go beside the dots only when two of them ("100%" each) fit between neighbouring groups; otherwise above or below.
+      const side = !narrow && cw - 2 * off >= 120;
+      if (isFinite(pb) && isFinite(pv)) LAB.svg('line', { class: 'line-a', x1: x(i) - off, x2: x(i) + off, y1: y(pb), y2: y(pv), 'stroke-width': 1.25 }, svg);
+      [[c.b, pb, -off, 'a', 'Beast', pv], [c.v, pv, off, 'b', 'Virus', pb]].forEach(([g, p, o, k, nm, other]) => {
+        LAB.text(svg, x(i) + o, H - bottom + 21, nm, { 'text-anchor': 'middle' });
+        LAB.text(svg, x(i) + o, H - bottom + 39, `n = ${g.n}`, { 'text-anchor': 'middle', class: 'scale-note' });
+        if (!isFinite(p)) return;
+        const ci = wilson(g.x, g.n), gr = LAB.svg('g', {}, svg);
+        const tt = LAB.svg('title', {}, gr); tt.textContent = `${c.label}, ${nm.toLowerCase()}: ${Math.round(p * 100)}% chose Punishment (${g.x} of ${g.n}; 95% CI ${Math.round(ci[0] * 100)}% to ${Math.round(ci[1] * 100)}%)`;
+        LAB.svg('line', { class: 'whisker series-' + k, x1: x(i) + o, x2: x(i) + o, y1: y(ci[1]), y2: y(ci[0]) }, gr);
+        LAB.svg('circle', { class: 'series-' + k, cx: x(i) + o, cy: y(p), r: 6.5, 'stroke-width': 2 }, gr);
+        const txt = Math.round(p * 100) + '%';
+        if (!side) {
+          // above or below the dot, on the side away from the line to the other dot, and inside the plot
+          let up = !isFinite(other) || p >= other;
+          if (up && y(p) - 14 < top - 4) up = false;
+          if (!up && y(p) + 24 > y(0) - 2) up = true;
+          LAB.text(svg, x(i) + o, up ? y(p) - 13 : y(p) + 23, txt, { 'text-anchor': 'middle', class: 'value-label halo' });
+        } else {
+          // beside the dot, outside the pair, and never below the axis line
+          LAB.text(svg, x(i) + o + (o < 0 ? -12 : 12), Math.min(y(p) + 5, y(0) - 6), txt, { 'text-anchor': o < 0 ? 'end' : 'start', class: 'value-label halo' });
+        }
+      });
+      LAB.text(svg, x(i), H - bottom + 66, c.label, { 'text-anchor': 'middle', class: 'label-strong' });
+    });
+    return svg;
+  }
+
+  function renderReport(rows) {
+    // each student's first run
+    const first = new Map();
+    rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(r.pid)) first.set(r.pid, r); });
+    const firstRuns = [...first.values()], inc = included(firstRuns).filter(r => (r.frame === 'beast' || r.frame === 'virus') && (r.lang === 'zh' || r.lang === 'en') && (String(r.punish) === '1' || String(r.punish) === '0'));
+    const cell = (fr, lg) => { const rs = inc.filter(r => (!fr || r.frame === fr) && (!lg || r.lang === lg)); return { x: rs.filter(r => String(r.punish) === '1').length, n: rs.length }; };
+    const C = {};
+    [['beast'], ['virus'], [null]].forEach(([fr]) => [['zh'], ['en'], [null]].forEach(([lg]) => { C[(fr || 'all') + ':' + (lg || 'all')] = cell(fr, lg); }));
+    const g = (k, w) => Object.assign({ w }, C[k]);
+    const eff = lg => propContrast([g('beast:' + lg, 1), g('virus:' + lg, -1)]);
+    const E = { all: eff('all'), zh: eff('zh'), en: eff('en') };
+    const inter = propContrast([g('beast:en', 1), g('virus:en', -1), g('beast:zh', -1), g('virus:zh', 1)]);   // English effect − Chinese effect
+    const langE = propContrast([g('all:en', 1), g('all:zh', -1)]);                                            // English − Chinese, both frames
+    const pc = k => C[k].n ? Math.round(100 * C[k].x / C[k].n) + '%' : '–';
+    const nOf = k => C[k].n;
+
+    // tiles
+    const tile = (label, r, note, want) => `<div class="stat${kind(r, want) === 'yes' ? ' key' : ''}"><span class="stat-label">${label}</span>` +
+      `<span class="stat-value">${isFinite(r.diff) ? pts1(r.diff).replace(' pts', '') + '<small>pts</small>' : '–'}</span>` +
+      `<span class="stat-note">${note} · 95% CI ${ciPts1(r.ci)}${small(r.n || 0)}</span><span class="stat-test">${zLine(r, want).replace(/<span>[\s\S]*<\/span>$/, r && isFinite(r.z) ? `<span>${zTxt(r)}</span>` : '')}</span></div>`;
+    $('#r-stats').innerHTML =
+      tile('Metaphor effect', E.all, `Beast − Virus, both languages (${pc('beast:all')} vs ${pc('virus:all')} chose Punishment)`, 1) +
+      tile('In Chinese', E.zh, `Beast − Virus (${pc('beast:zh')} vs ${pc('virus:zh')})`, 1) +
+      tile('In English', E.en, `Beast − Virus (${pc('beast:en')} vs ${pc('virus:en')})`, 1) +
+      `<div class="stat"><span class="stat-label">Took part</span><span class="stat-value">${nOf('all:zh')} · ${nOf('all:en')}</span><span class="stat-note">Chinese · English (included)</span></div>`;
+    const excl = rows.length - inc.length;
+    $('#r-excluded').textContent = excl ? `${excl} run${excl > 1 ? 's' : ''} not counted (Chinese not a first language, used a language aid, or a repeat run by the same student).` : '';
+
+    // the test lines and the plot
+    $('#r-frame-test').innerHTML = rows.length ? zLine(E.all, 1).replace('<span>', '<span>Beast − Virus, both languages: ') : '';
+    $('#r-inter-test').innerHTML = rows.length ? `${badge(inter, 0)}${isFinite(inter.z) ? `<span>Metaphor effect in English − in Chinese: ${pts1(inter.diff)}, 95% CI ${ciPts1(inter.ci)} · ${zTxt(inter)}</span>` : ''}` : '';
+    if (!rows.length) { $('#r-plot').innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#r-cells').innerHTML = ''; }
+    else {
+      const cats = [['zh', 'Chinese'], ['en', 'English'], ['all', 'Both languages']].map(([lg, label]) => ({ label, b: C['beast:' + lg], v: C['virus:' + lg] }));
+      reportPlot($('#r-plot'), cats, `Share choosing Punishment. Chinese: beast ${pc('beast:zh')}, virus ${pc('virus:zh')}. English: beast ${pc('beast:en')}, virus ${pc('virus:en')}. Both languages: beast ${pc('beast:all')}, virus ${pc('virus:all')}.`);
+      const td = k => `<td class="num">${pc(k)}<span class="k">${C[k].x} of ${C[k].n}</span></td>`;
+      $('#r-cells').innerHTML = `<caption class="tbl-cap">Chose Punishment</caption><thead><tr><th scope="col">Crime as a…</th><th class="num" scope="col">Chinese</th><th class="num" scope="col">English</th><th class="num sep" scope="col">Both</th></tr></thead><tbody>` +
+        [['beast', 'Beast'], ['virus', 'Virus'], ['all', 'Both']].map(([fr, l]) => `<tr><th scope="row">${l}</th>${td(fr + ':zh')}${td(fr + ':en')}${td(fr + ':all').replace('class="num"', 'class="num sep"')}</tr>`).join('') + '</tbody>';
+    }
+
+    // all tests
+    const zh = inc.filter(r => r.lang === 'zh'), en = inc.filter(r => r.lang === 'en');
+    const vals = (rs, k) => rs.map(r => num(r[k])).filter(isFinite);
+    const dif = LAB.welch(vals(zh, 'difficulty'), vals(en, 'difficulty'));
+    const engF = LAB.welch(vals(inc.filter(r => r.frame === 'virus'), 'eng_mean'), vals(inc.filter(r => r.frame === 'beast'), 'eng_mean'));
+    const zRow = (name, r, pred, want) => `<tr><th scope="row">${name}</th><td class="num"><strong>${pts1(r.diff)}</strong></td><td class="num">${ciPts1(r.ci)}</td>` +
+      `<td class="num sep">${isFinite(r.z) ? `<i>z</i> = ${r.z < 0 ? '−' : ''}${Math.abs(r.z).toFixed(2)}` : '–'}</td>${pCell(r)}<td>${pred}</td>${resultCell(r, want)}</tr>`;
+    const tRow = (name, r, pred, want) => `<tr><th scope="row">${name}</th><td class="num"><strong>${isFinite(r.diff) ? (r.diff < 0 ? '−' : r.diff > 0 ? '+' : '') + Math.abs(r.diff).toFixed(2) : '–'}</strong></td>` +
+      `<td class="num">${isFinite(r.ci[0]) ? `${r.ci[0] < 0 ? '−' : '+'}${Math.abs(r.ci[0]).toFixed(2)} to ${r.ci[1] < 0 ? '−' : '+'}${Math.abs(r.ci[1]).toFixed(2)}` : '–'}</td>` +
+      `<td class="num sep">${isFinite(r.t) ? `<i>t</i>(${dfTxt(r.df)}) = ${r.t < 0 ? '−' : ''}${Math.abs(r.t).toFixed(2)}` : '–'}</td>${pCell(r)}<td>${pred}</td>${resultCell(r, want)}</tr>`;
+    $('#r-tests').innerHTML = `<thead><tr><th scope="col">Test</th><th class="num" scope="col">Estimate</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col">Statistic</th><th class="num" scope="col"><i>p</i></th><th scope="col">Predicted</th><th class="result" scope="col">Result</th></tr></thead><tbody>` +
+      `<tr class="group"><th scope="rowgroup" colspan="7"><span class="stick">Share choosing Punishment, in percentage points (z)</span></th></tr>` +
+      zRow('Metaphor effect: Beast − Virus, both languages', E.all, 'Beast higher', 1) +
+      zRow('Metaphor effect in Chinese', E.zh, 'Beast higher', 1) +
+      zRow('Metaphor effect in English', E.en, 'Beast higher', 1) +
+      zRow('Language difference in the metaphor effect (English − Chinese)', inter, '–', 0) +
+      zRow('Language: English − Chinese, both frames', langE, '–', 0) +
+      `<tr class="group"><th scope="rowgroup" colspan="7"><span class="stick">Checks (Welch's t)</span></th></tr>` +
+      tRow('Language difficulty (1–7): English − Chinese', dif, 'English higher', 1) +
+      tRow('English self-rating (1–7): Beast − Virus', engF, 'Similar', 'same') + '</tbody>';
+    $('#r-tests-note').innerHTML = 'Each student counts once (their first run), and only students with Chinese as a first language who used no language aid. Differences between shares use the adjusted Wald interval and its <i>z</i> test (2/c successes and 4/c trials added to each of the c groups in the contrast), so a CI that excludes 0 goes with <i>p</i> &lt; .05. Two-tailed, α = .05.';
+
+    // English proficiency (exploratory): the metaphor effect in the English version, above vs at or below the median self-rating
+    const ratings = en.map(r => num(r.eng_mean)).filter(isFinite).sort((a, b) => a - b);
+    const med = ratings.length ? (ratings.length % 2 ? ratings[(ratings.length - 1) / 2] : (ratings[ratings.length / 2 - 1] + ratings[ratings.length / 2]) / 2) : NaN;
+    const part = (hi, fr) => { const rs = en.filter(r => isFinite(num(r.eng_mean)) && (hi ? num(r.eng_mean) > med : num(r.eng_mean) <= med) && (!fr || r.frame === fr)); return { x: rs.filter(r => String(r.punish) === '1').length, n: rs.length }; };
+    const effHi = propContrast([Object.assign({ w: 1 }, part(true, 'beast')), Object.assign({ w: -1 }, part(true, 'virus'))]);
+    const effLo = propContrast([Object.assign({ w: 1 }, part(false, 'beast')), Object.assign({ w: -1 }, part(false, 'virus'))]);
+    const profInter = propContrast([Object.assign({ w: 1 }, part(true, 'beast')), Object.assign({ w: -1 }, part(true, 'virus')), Object.assign({ w: -1 }, part(false, 'beast')), Object.assign({ w: 1 }, part(false, 'virus'))]);
+    const sh = (hi, fr) => { const c = part(hi, fr); return c.n ? `${Math.round(100 * c.x / c.n)}% <span class="muted">(${c.x}/${c.n})</span>` : '–'; };
+    $('#r-prof').innerHTML = `<thead><tr><th scope="col">English version</th><th class="num" scope="col">Beast</th><th class="num" scope="col">Virus</th><th class="num sep" scope="col">Beast − Virus</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col"><i>z</i></th><th class="num" scope="col"><i>p</i></th><th class="result" scope="col">Result</th></tr></thead><tbody>` +
+      [[`Self-rating above ${isFinite(med) ? med.toFixed(1) : 'the median'}`, true, effHi], [`At or below ${isFinite(med) ? med.toFixed(1) : 'the median'}`, false, effLo]].map(([l, hi, r]) =>
+        `<tr><th scope="row">${l}</th><td class="num">${sh(hi, 'beast')}</td><td class="num">${sh(hi, 'virus')}</td><td class="num sep"><strong>${pts1(r.diff)}</strong></td><td class="num">${ciPts1(r.ci)}</td><td class="num sep">${isFinite(r.z) ? (r.z < 0 ? '−' : '') + Math.abs(r.z).toFixed(2) : '–'}</td>${pCell(r)}${resultCell(r, 1)}</tr>`).join('') +
+      `<tr><th scope="row">Difference (above − at or below)</th><td class="num">–</td><td class="num">–</td><td class="num sep"><strong>${pts1(profInter.diff)}</strong></td><td class="num">${ciPts1(profInter.ci)}</td><td class="num sep">${isFinite(profInter.z) ? (profInter.z < 0 ? '−' : '') + Math.abs(profInter.z).toFixed(2) : '–'}</td>${pCell(profInter)}${resultCell(profInter, 0)}</tr></tbody>`;
+    $('#r-prof-note').textContent = `Students in the English version only, split at the median of their mean English self-rating (1–7). Exploratory: the groups are small, and a median split loses information.`;
+
+    // summary
+    const items = [];
+    const sayEff = (r, a, b) => `${pc(a)} chose Punishment after “beast” and ${pc(b)} after “virus”`;
+    if (!isFinite(E.all.p)) items.push(item(null, `<strong>Metaphor effect: not enough runs yet.</strong> ${nOf('beast:all')} beast and ${nOf('virus:all')} virus run${nOf('all:all') === 1 ? '' : 's'} so far; the test needs at least 2 in each.`));
+    else items.push(item(E.all, `${lead('Metaphor effect', E.all, 1)} Across both languages, ${sayEff(E.all, 'beast:all', 'virus:all')} ${inline(`Beast − Virus ${pts1(E.all.diff)}, 95% CI ${ciPts1(E.all.ci)}, ${zTxt(E.all)}${smallTag(Math.min(nOf('beast:all'), nOf('virus:all')))}`)}. Predicted: more Punishment after “beast”.`));
+    const byLang = [['zh', 'Chinese'], ['en', 'English']].map(([lg, nm]) => isFinite(E[lg].p)
+      ? `in ${nm}, ${sayEff(E[lg], 'beast:' + lg, 'virus:' + lg)} ${inline(`${pts1(E[lg].diff)}, 95% CI ${ciPts1(E[lg].ci)}, ${zTxt(E[lg])}`)}${LAB.isSig(E[lg]) ? (E[lg].diff > 0 ? ', a significant effect in the predicted direction' : ', a significant effect opposite to the prediction') : ', not significant on its own'}`
+      : `in ${nm}, not enough runs yet`);
+    items.push(`<li><strong>By language.</strong> ${cap(byLang.join('; '))}.</li>`);
+    if (isFinite(inter.p)) items.push(item(inter, `${lead('Language difference in the metaphor effect', inter, 0)} The effect in English minus the effect in Chinese is ${pts1(inter.diff)} ${inline(`95% CI ${ciPts1(inter.ci)}, ${zTxt(inter)}`)}${LAB.isSig(inter) ? '' : ', so the data do not show the frame working differently in the two languages'}.`));
+    const checks = [];
+    if (isFinite(langE.p)) checks.push(`${pc('all:zh')} chose Punishment in Chinese and ${pc('all:en')} in English ${inline(`${pts1(langE.diff)}, ${LAB.fmtP(langE.p)}`)}`);
+    if (isFinite(dif.p)) checks.push(LAB.isSig(dif) && dif.diff > 0 ? `the English version was rated harder to understand ${inline(LAB.fmtP(dif.p))}` : LAB.isSig(dif) ? `the Chinese version was rated harder to understand ${inline(LAB.fmtP(dif.p))}` : `the English version was not rated significantly harder to understand ${inline(LAB.fmtP(dif.p))}`);
+    if (isFinite(engF.p)) checks.push(LAB.isSig(engF) ? `the two frames' groups differed in English self-rating ${inline(LAB.fmtP(engF.p))}` : `the two frames' groups rated their English similarly ${inline(LAB.fmtP(engF.p))}`);
+    if (checks.length) items.push(`<li><strong>Other results and checks.</strong> ${cap(checks.join('; '))}.</li>`);
+    $('#r-summary').innerHTML = items.join('');
   }
 
   /* ---------- bird task: typicality ratings → semantic map ----------

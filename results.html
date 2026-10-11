@@ -37,6 +37,13 @@
         .hidden-results .veil { display: block; }
         .veil .big { font-size: clamp(4rem, 12vw, 8rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
         .veil-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 2rem; }
+        .r-pair { display: grid; gap: 1rem; align-items: start; }
+        .r-pair .table-wrap { max-width: 32rem; }
+        #r-cells td .k { display: block; font-size: 0.8rem; color: var(--text-secondary); }
+        /* Phones: the report tables' label column gets room to read; the numbers scroll beside it. */
+        @media (max-width: 900px) {
+            #panel-report .table-wrap.scrolls table.data tbody th[scope="row"], #panel-report .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
+        }
         .empty { padding: 2rem 0; color: var(--text-light); }
         .fle-multiples { grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); }
         .dash-controls label { flex-wrap: wrap; max-width: 100%; }
@@ -493,6 +500,7 @@
                 <button class="tab" role="tab" id="tab-fast" aria-controls="panel-fast" aria-selected="false" tabindex="-1">Association task<span class="n" id="n-fast"></span></button>
                 <button class="tab" role="tab" id="tab-svt" aria-controls="panel-svt" aria-selected="false" tabindex="-1">Sentence task<span class="n" id="n-svt"></span></button>
                 <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird task<span class="n" id="n-birds"></span></button>
+                <button class="tab" role="tab" id="tab-report" aria-controls="panel-report" aria-selected="false" tabindex="-1">Report task<span class="n" id="n-report"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -993,6 +1001,36 @@
                     <p class="small muted column" style="margin-top:0.75rem">One row per student, with the columns of the Google Forms export, so Bird plot.Rmd runs on it unchanged (read it into <code>responses1</code>).</p>
                 </div>
             </section>
+
+            <!-- Report task (metaphor framing × language) -->
+            <section id="panel-report" role="tabpanel" aria-labelledby="tab-report" hidden>
+                <div class="veil">
+                    <span class="stat-label">Report task</span><div class="big" id="veil-report">0</div>
+                </div>
+                <div class="results-body">
+                    <section class="summary" aria-labelledby="r-sum-h"><h2 id="r-sum-h">Summary</h2><ul id="r-summary"></ul></section>
+                    <div class="stats" id="r-stats"></div>
+                    <p class="small muted" id="r-excluded"></p>
+
+                    <h2>Punishment or reform?</h2>
+                    <p class="test-line" id="r-frame-test"></p>
+                    <div class="r-pair">
+                        <figure class="figure"><div id="r-plot"></div><figcaption class="small muted">Share of students who chose Punishment, with 95% confidence intervals: crime described as a beast (filled) or as a virus (open). The table gives both languages together too.</figcaption></figure>
+                        <div class="table-wrap" data-label="Choices by frame and language"><table class="data compact" id="r-cells"></table></div>
+                    </div>
+
+                    <h2>Does the frame work the same in both languages?</h2>
+                    <p class="test-line" id="r-inter-test"></p>
+
+                    <h2>All tests</h2>
+                    <div class="table-wrap" data-label="All tests"><table class="data" id="r-tests"></table></div>
+                    <p class="small muted column" id="r-tests-note"></p>
+
+                    <h2>English proficiency (exploratory)</h2>
+                    <div class="table-wrap" data-label="Frame effect by English self-rating"><table class="data" id="r-prof"></table></div>
+                    <p class="small muted column" id="r-prof-note"></p>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -1016,6 +1054,6 @@
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
     <script src="assets/svt-charts.js?v=2"></script>
-    <script src="assets/dashboard.js?v=107"></script>
+    <script src="assets/dashboard.js?v=114"></script>
 </body>
 </html>
