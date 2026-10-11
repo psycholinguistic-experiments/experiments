@@ -121,6 +121,8 @@
 
   /* ---------- participants: parse the stored chains and score them ---------- */
   // Every student gets the same seeds: one set per language.
+  // The ten self-ratings (0–10), per language.
+  A.PROF_SKILLS = ['overall', 'listening', 'speaking', 'reading', 'writing'];
   A.seedIndex = stim => {
     const m = new Map();
     ['zh', 'en'].forEach(L => stim.sets[L].forEach(s => m.set(s.id, Object.assign({ lang: L }, s))));
@@ -136,8 +138,9 @@
         l1: r.l1, variety: r.variety, script: r.script, input_method: r.input_method,
         eng_age: Number(r.eng_age), en_use: Number(r.en_use), prof: {}, chains: []
       };
-      ['zh', 'en'].forEach(lang => ['overall', 'listening', 'speaking', 'reading', 'writing'].forEach(s => {
-        P.prof[`${lang}_${s}`] = Number(r[`prof_${lang}_${s}`]);
+      ['zh', 'en'].forEach(lang => A.PROF_SKILLS.forEach(s => {
+        const v = r[`prof_${lang}_${s}`];
+        P.prof[`${lang}_${s}`] = v === '' || v === null || v === undefined ? NaN : Number(v);   // a missing rating is missing, not 0
       }));
       seeds.forEach((seed, id) => {
         const a = r[`c_${id}_a`];
@@ -1677,11 +1680,18 @@
   };
 
   /* ---------- exports (CSV rows) ---------- */
+  // The student's ten self-ratings, under the names the data sheet uses; NA where missing.
+  const profCols = P => {
+    const o = {};
+    ['zh', 'en'].forEach(lang => A.PROF_SKILLS.forEach(s => { const v = P.prof[`${lang}_${s}`]; o[`prof_${lang}_${s}`] = isFinite(v) ? v : 'NA'; }));
+    return o;
+  };
   A.responseRows = parts => parts.flatMap(P => P.chains.flatMap(c => c.answers.map((a, k) => ({
     pid: P.pid, session: P.session, language: c.lang, block: c.block, seed: c.word, seed_category: c.category,
     seed_valence: isFinite(c.seedValence) ? c.seedValence : 'NA', position: k + 1, response: a.text, norm_entry: a.key || 'NA',
     valence: a.valence === null ? 'NA' : a.valence, valence_norm_raw: a.raw === null ? 'NA' : a.raw, state2: A.state2(a.valence) || 'NA', state3: A.state3(a.valence) || 'NA',
-    repeat: a.norm && (a.norm === c.seedNorm || c.answers.slice(0, k).some(b => b.norm === a.norm)) ? 1 : 0
+    repeat: a.norm && (a.norm === c.seedNorm || c.answers.slice(0, k).some(b => b.norm === a.norm)) ? 1 : 0,
+    ...profCols(P)
   }))));
   // Valid transitions are the same in both models (both need two scored
   // answers), so one file carries both classifications.
@@ -1691,7 +1701,8 @@
       pid: pidOf.get(t.pid).pid, session: pidOf.get(t.pid).session, language: t.lang, seed: t.seed, seed_category: t.category,
       seed_valence: t.seedValence, block: t.block, transition: `${t.position}-${t.position + 1}`,
       previous_valence: t.prevV, next_valence: t.nextV,
-      previous_state2: t.prev, next_state2: t.next, previous_state3: A.state3(t.prevV), next_state3: A.state3(t.nextV)
+      previous_state2: t.prev, next_state2: t.next, previous_state3: A.state3(t.prevV), next_state3: A.state3(t.nextV),
+      ...profCols(pidOf.get(t.pid))
     }));
   };
 
