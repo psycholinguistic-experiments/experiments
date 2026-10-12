@@ -19,6 +19,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `sentence-task.html` | students | Sentence verification: the typicality effect (true/false statements) |
 | `bird-task.html` | students | Bird task: how typical 12 pictures are as birds (1–5), mapped as a semantic space |
 | `report-task.html` | students | Report task: crime framed as a beast or a virus (Thibodeau & Boroditsky, 2011), in Chinese or English |
+| `animal-task.html` | students | Animal task: arrange 20 mammals by similarity, then 30 similarity-based inferences (after Douven et al., 2023) |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -48,7 +49,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`; the report task sends no trials, so it has only `report_people`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`; the report task sends no trials, so it has only `report_people`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -111,6 +112,40 @@ stays the same. Copy the changes back into `apps-script/Code.gs`.
 - **After any edit**, bump the `?v=` number on the changed file's `<link>` or
   `<script>` tag so browsers fetch the new version. Then commit and push. The
   site updates within a minute.
+
+## Animal task (spatial arrangement and inference)
+
+After Douven et al. (2023), in English. Part 1: the names of 20 mammals
+(`assets/animal-items.js`; never reorder it, the data store inferences by
+index) start in two random columns of ten; students drag them (or tap a name,
+then a spot; or use the arrow keys) so that more similar animals are closer,
+and must move every name and confirm. The box fills the screen below one line
+of reminder, on phones too. Part 2: the paper's practice question (elephants →
+bears, Q2), then 30 ordered pairs drawn at random from the 380 (never the
+practice pair), each with its own letter–digit property, answered on a 0–100%
+slider that starts at 50% and must be moved. Then the five English
+self-ratings.
+
+- `animals_people`, one row per student: `x_<animal>`, `y_<animal>` (shares of
+  the box), `arena_w`, `arena_h` (pixels), `inf_a`, `inf_b` (fifteen
+  `premise>conclusion:response` each, by item index), times, practice answer.
+  `animals_trials`: the 30 inferences with names and properties.
+- Results tab: distances as each student left them (pixels), divided by that
+  student's mean distance; the class map is classical MDS of the mean
+  distances, scaled to fit −1 to 1 and drawn on a square grid (as the paper's
+  Figure 7). Per student, the correlation between the 30 answers and the
+  distance in their own arrangement, and in the class's arrangement without
+  them; Fisher-z one-sample t-tests against 0 and a paired t-test of own vs
+  class (`assets/animal-map.js`). Decay curves, strength = a·e^(−b·distance)
+  by least squares: each question's mean answer against its distance on the
+  class map (as the paper's Figure 9), and every answer against the distance
+  in the student's own arrangement. English (exploratory): the slope of each
+  student's own-arrangement correlation on each self-rating, a median split,
+  and the ratings themselves. "Inferences with distances (CSV)" gives every
+  answer with the three distances (own, class without the student, class
+  map) and the student's English self-ratings.
+- Tests: `dev/test_animals.py <port>` (phone and desktop runs);
+  `dev/seed_animals.py <session> <seed> <port>`.
 
 ## Report task (metaphor framing × language)
 
@@ -415,6 +450,7 @@ task).
 | Shape task | Paired t-tests on each student's own percentages: u o vs i e, m n l vs p t k, m n l vs b d g, b d g vs p t k; one-sample t-tests of each sound class against 50% |
 | Judgement task | Welch's t-test, English vs Chinese, for every measure (d = difference ÷ pooled SD); proficiency slopes against 0; interaction = English slope − Chinese slope, Welch–Satterthwaite t |
 | Sentence task | One-sample t-test of each person's typicality effect (low − high median RT) against 0, with d<sub>z</sub>; proficiency: the slope of the effect on each English rating against 0 |
+| Animal task | Per-student Pearson r between inference strength and distance (own arrangement; class arrangement without the student): one-sample t on Fisher z against 0; own vs class: paired t on Fisher z; English: OLS slope of the own-arrangement r on each self-rating (exploratory) |
 | Report task | Differences in the share choosing Punishment (Beast − Virus; English − Chinese; difference of differences): adjusted Wald z test and 95% CI; checks: Welch's t |
 
 ## How the priming data are analysed

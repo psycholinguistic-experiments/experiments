@@ -4,12 +4,12 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals'];
   // Sentence task: the English self-ratings, in the order the results page shows them.
   const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [] },
     timer: null,
     loadedOnce: false
   };
@@ -20,7 +20,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -29,6 +29,7 @@
       $('#' + x.getAttribute('aria-controls')).hidden = !on;
     });
     LAB.store.set('dash-tab', t.id);
+    if (t.parentElement.scrollWidth > t.parentElement.clientWidth) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // phones: the tab row scrolls sideways
     render();
   }
   tabs.forEach((t, i) => {
@@ -137,6 +138,8 @@
       if (w && w !== state.fastW) { state.fastW = w; lastKey = ''; render(); }
       const ws = $('#panel-svt').hidden ? 0 : $('#panel-svt').clientWidth;
       if (ws && ws !== state.svtW) { state.svtW = ws; lastKey = ''; render(); }
+      const wa = $('#panel-animals').hidden ? 0 : $('#panel-animals').clientWidth;
+      if (wa && wa !== state.animalsW) { state.animalsW = wa; lastKey = ''; render(); }
       const wr = $('#panel-report').hidden ? 0 : $('#panel-report').clientWidth;
       if (wr && wr !== state.reportW) { state.reportW = wr; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
@@ -153,7 +156,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -171,9 +174,11 @@
     $('#veil-birds').textContent = bd.length;
     $('#n-report').textContent = rp.length;
     $('#veil-report').textContent = rp.length;   // one total: the hidden view never names the frames
+    $('#n-animals').textContent = an.length;
+    $('#veil-animals').textContent = an.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
@@ -183,6 +188,7 @@
     if (!$('#panel-svt').hidden) renderSvt(sv);
     if (!$('#panel-birds').hidden) renderBirds(bd);
     if (!$('#panel-report').hidden) renderReport(rp);
+    if (!$('#panel-animals').hidden) renderAnimals(an);
     syncScrollers();
   }
 
@@ -2420,6 +2426,151 @@
     if (isFinite(engF.p)) checks.push(LAB.isSig(engF) ? `the two frames' groups differed in English self-rating ${inline(LAB.fmtP(engF.p))}` : `the two frames' groups rated their English similarly ${inline(LAB.fmtP(engF.p))}`);
     if (checks.length) items.push(`<li><strong>Other results and checks.</strong> ${cap(checks.join('; '))}.</li>`);
     $('#r-summary').innerHTML = items.join('');
+  }
+
+  /* ---------- animal task: spatial arrangement and similarity-based inference ----------
+     Analysis in animal-map.js. Each student counts once: their first run.
+     Prediction: the closer two animals are in a student's arrangement, the
+     stronger the inference from one to the other (a negative correlation). */
+  const AM = window.ANIMAL_MAP;
+  const rTxt2 = v => isFinite(v) ? (v <= -0.005 ? '−' : '') + Math.abs(v).toFixed(2).replace(/^0/, '') : '–';
+  // r axes: −1, −.5, 0, +.5, +1 (every .5 on a phone, every .2 otherwise)
+  const rAxis = w => ({ step: w < 520 ? 0.5 : 0.2, tickFmt: v => v === 0 ? '0' : (v > 0 ? '+' : '−') + String(Math.abs(v)).replace(/^0/, '') });
+  $('#an-csv').addEventListener('click', () => {
+    const res = animalState.res;
+    if (!res || !res.students.length) return;
+    const loo = s => res.n >= 2 ? (i, j) => (res.mean[i][j] * res.n - s.D[i][j]) / (res.n - 1) : () => NaN;
+    const xy = res.map ? res.map.xy : null, mapD = (i, j) => xy ? Math.hypot(xy[i][0] - xy[j][0], xy[i][1] - xy[j][1]) : NaN;
+    const eng = s => Object.fromEntries(SVT_SKILLS.map(([k]) => [k, isFinite(num(s.row[k])) ? num(s.row[k]) : 'NA']));
+    const rows = res.students.flatMap(s => { const L = loo(s), e = eng(s); return s.inf.map((t, k) => Object.assign({ pid: s.pid, question: k + 1, premise: window.ANIMAL_ITEMS[t.i].key, conclusion: window.ANIMAL_ITEMS[t.j].key, response: t.v,
+      own_distance: LAB.round(s.D[t.i][t.j], 4), class_distance: LAB.round(L(t.i, t.j), 4), map_distance: isFinite(mapD(t.i, t.j)) ? LAB.round(mapD(t.i, t.j), 4) : 'NA' }, e)); });
+    LAB.download(`lt5461-animal-inferences-${state.session}.csv`, LAB.toCSV(rows));
+  });
+  $('#an-prof-skill').addEventListener('change', () => { lastKey = ''; render(); });
+  const animalState = { res: null };
+  function renderAnimals(rows) {
+    const first = new Map();
+    rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(r.pid)) first.set(r.pid, r); });
+    const res = animalState.res = AM.analyse([...first.values()]);
+    const O = res.testOwn, Cl = res.testCls, Df = res.testDiff, FC = res.fitClass, FO = res.fitOwn;
+    const NAME = i => window.ANIMAL_ITEMS[i].name;
+    const r2u = v => isFinite(v) ? v.toFixed(2).replace(/^0/, '') : '–';
+    const rLine = T => T && isFinite(T.r) ? `mean <i>r</i> = ${rTxt2(T.r)}, 95% CI ${rTxt2(T.rci[0])} to ${rTxt2(T.rci[1])}` : '';
+    const tile = (label, T, note, want) => `<div class="stat${kind(T, want) === 'yes' ? ' key' : ''}"><span class="stat-label">${label}</span>` +
+      `<span class="stat-value">${T && isFinite(T.r) ? rTxt2(T.r) : '–'}</span><span class="stat-note">${note}${T && isFinite(T.r) ? ` · 95% CI ${rTxt2(T.rci[0])} to ${rTxt2(T.rci[1])}` : ''}${small(T ? T.n : 0)}</span>` +
+      `<span class="stat-test">${testLine(T, want)}</span></div>`;
+    $('#an-stats').innerHTML = tile('Own arrangement', O, 'Mean correlation, distance × inference strength', -1) +
+      tile('Class arrangement', Cl, 'The same with the class’s distances (without the student)', -1) +
+      `<div class="stat"><span class="stat-label">Decay curve on the class map</span><span class="stat-value">${FC ? r2u(FC.r2) : '–'}</span><span class="stat-note">${FC ? `<i>R</i>², exponential fit to the mean answer for each of ${FC.n} questions` : 'Needs at least two arrangements'}</span></div>` +
+      `<div class="stat"><span class="stat-label">Took part</span><span class="stat-value">${res.n}</span><span class="stat-note">students${res.skipped ? ` · ${res.skipped} gave every question the same answer` : ''}</span></div>`;
+
+    // the map (as the paper's Figure 7)
+    if (!res.map) { $('#an-map').innerHTML = `<p class="empty">${res.n ? 'The map needs at least two arrangements.' : 'No runs yet for this class.'}</p>`; $('#an-map-cap').textContent = ''; }
+    else {
+      AM.draw($('#an-map'), res);
+      $('#an-map-cap').textContent = `The class’s average arrangement, from ${res.n} student${res.n === 1 ? '' : 's'}: each student’s distances are scaled to their own average, averaged over the class, and placed in two dimensions by classical multidimensional scaling (which keeps ${Math.round(res.map.share * 100)}% of the structure). Coordinates are scaled to fit between −1 and 1; only the distances matter, not the directions.`;
+    }
+
+    // inference strength against distance (as the paper's Figure 9), then student by student
+    $('#an-own-test').innerHTML = res.n ? `${badge(O, -1)}${O && isFinite(O.t) ? `<span>Own arrangement: ${rLine(O)} · ${LAB.fmtTest(O)}</span>` : ''}` : '';
+    const fitTxt = (f, what) => f ? `Fitted: strength = <strong>${f.a.toFixed(1)} · e<sup>−${f.b.toFixed(2)} × distance</sup></strong> · <i>R</i>² = ${r2u(f.r2)} (straight line ${r2u(f.r2Lin)}) · ${f.n.toLocaleString('en')} ${what}` : '';
+    const half = v => Math.ceil(v * 2 - 1e-9) / 2;
+    if (!res.pairs.length) { $('#an-decay-class').innerHTML = `<p class="empty">${res.n ? 'Needs at least two arrangements.' : 'No runs yet for this class.'}</p>`; $('#an-fit-class').innerHTML = ''; }
+    else {
+      AM.decay($('#an-decay-class'), { points: res.pairs, fit: FC, xMax: Math.max(1, half(Math.max(...res.pairs.map(p => p.x)))), xLabel: 'Distance on the class map', r: 3.2,
+        dotTitle: p => `${NAME(p.i)} → ${NAME(p.j)}: mean ${Math.round(p.y)}% from ${p.n} answer${p.n === 1 ? '' : 's'}, distance ${p.x.toFixed(2)}`,
+        label: `Mean inference strength for ${res.pairs.length} pairs of animals against their distance on the class map` + (FC ? `, exponential fit R² ${r2u(FC.r2)}` : '') });
+      $('#an-fit-class').innerHTML = fitTxt(FC, 'pairs');
+    }
+    if (!res.points.length) { $('#an-decay-own').innerHTML = `<p class="empty">No runs yet for this class.</p>`; $('#an-fit-own').innerHTML = ''; }
+    else {
+      AM.decay($('#an-decay-own'), { points: res.points, fit: FO, xMax: Math.max(2, half(Math.max(...res.points.map(p => p.x)))), xLabel: 'Distance (1 = the student’s average)', r: 2.4,
+        label: `${res.points.length} answers: inference strength against the distance in the student’s own arrangement` + (FO ? `, exponential fit R² ${r2u(FO.r2)}` : '') });
+      $('#an-fit-own').innerHTML = fitTxt(FO, 'answers');
+    }
+    $('#an-decay-cap').innerHTML = res.n ? '<em>Class map:</em> each dot is one question (premise → conclusion), the mean answer of the students who got it, against the distance between the two animals on the map above, as in Douven et al.’s Figure 9. ' +
+      '<em>Own arrangement:</em> every answer against the distance in the arrangement of the student who gave it. Curves: least-squares exponential fits; <i>R</i>² is the share of the variation they explain. These describe the class; the tests use each student’s own correlation, below.' : '';
+    if (!res.own.length) $('#an-r').innerHTML = '<p class="empty">No correlations yet.</p>';
+    else { const w = Math.max(300, Math.min(1000, Math.round($('#an-r').getBoundingClientRect().width) || 1000)); LAB.stripPlot($('#an-r'), [
+      { label: 'Own arrangement', sub: `n = ${res.own.length}`, values: res.own.map(v => ({ v })), mean: O && O.r, ci: O && O.rci },
+      { label: 'Class arrangement', sub: `n = ${res.cls.length}`, values: res.cls.map(v => ({ v })), mean: Cl && Cl.r, ci: Cl && Cl.rci }
+    ], Object.assign({ width: w, r: w < 520 ? 5 : 6, domain: [-1, 1], fixed: true, signed: true, unit: '', fmt: v => rTxt2(v), xLabel: w < 520 ? 'Correlation (r)' : 'Correlation between distance and inference strength (r)', ariaLabel: `Per-student correlations: own arrangement mean ${rTxt2(O && O.r)}, class arrangement mean ${rTxt2(Cl && Cl.r)}` }, rAxis(w))); }
+
+    /* English proficiency (exploratory): least-squares slope of each student's
+       own-arrangement correlation on each self-rating. */
+    const studs = res.students.filter(s => isFinite(s.rOwn));
+    const P = SVT_SKILLS.map(([k, name]) => {
+      const pts = studs.map(s => ({ x: num(s.row[k]), y: s.rOwn })).filter(q => isFinite(q.x));
+      const xs = pts.map(q => q.x), f = LAB.ols(xs, pts.map(q => q.y));
+      return { k, name, pts, xs, fit: f, test: f && isFinite(f.p) ? { diff: f.b, t: f.t, df: f.df, p: f.p, ci: f.ciB } : null };
+    });
+    const sel = (document.querySelector('#an-prof-skill input:checked') || {}).value || 'eng_mean';
+    const cur = P.find(o => o.k === sel) || P[0], lname = cur.name.toLowerCase();
+    const spreadOf = o => o.xs.length ? Math.max(...o.xs) - Math.min(...o.xs) : 0;
+    const none = '<p class="empty">No students with English self-ratings yet.</p>';
+    if (cur.pts.length && !spreadOf(cur)) {
+      const msg = `<p class="empty">Everyone so far gave the same ${cur.k === 'eng_mean' ? 'mean rating' : lname + ' rating'}, so there is nothing to compare yet.</p>`;
+      $('#an-prof-split').innerHTML = msg; $('#an-prof-eff').innerHTML = msg;
+    } else if (cur.pts.length) {
+      // lower and upper half on the chosen rating (ties at the median go to the lower half, unless that empties the upper half)
+      const med = LAB.median(cur.xs);
+      let low = cur.pts.filter(q => q.x <= med);
+      if (low.length === cur.pts.length) low = cur.pts.filter(q => q.x < med);
+      const up = cur.pts.filter(q => !low.includes(q));
+      const fz = r => Math.atanh(Math.max(-0.9999, Math.min(0.9999, r)));
+      const range = g => { const v = g.map(q => q.x), a = +Math.min(...v).toFixed(1), b = +Math.max(...v).toFixed(1); return a === b ? `rated ${a}` : `rated ${a}–${b}`; };
+      const grp = (label, g) => { const T = LAB.ttest(g.map(q => fz(q.y)), 0), ok = T && isFinite(T.ci[0]);
+        return { label, sub: g.length ? `${range(g)} · n = ${g.length}` : 'n = 0', values: g.map(q => ({ v: q.y })), mean: g.length ? Math.tanh(T.m) : NaN, ci: ok ? T.ci.map(Math.tanh) : null }; };
+      const w = h => Math.max(300, Math.min(620, Math.round(h.getBoundingClientRect().width) || 620));
+      const ws = w($('#an-prof-split'));
+      LAB.stripPlot($('#an-prof-split'), [grp('Higher English', up), grp('Lower English', low)], Object.assign({ width: ws, r: 5, domain: [-1, 1], fixed: true, signed: true, unit: '', fmt: v => rTxt2(v),
+        xLabel: 'Student’s correlation (r)', ariaLabel: `Own-arrangement correlations of students in the upper (n = ${up.length}) and lower (n = ${low.length}) half of English self-ratings (${lname})` }, rAxis(ws)));
+      AM.profScatter($('#an-prof-eff'), { points: cur.pts, fit: cur.fit, xLabel: `English self-rating: ${lname} (1–7)`,
+        label: `Own-arrangement correlation by English self-rating (${lname}), n = ${cur.pts.length}` + (cur.fit ? `, slope ${rTxt2(cur.fit.b)} per point` : '') });
+    } else { $('#an-prof-split').innerHTML = none; $('#an-prof-eff').innerHTML = none; }
+    $('#an-prof-cap').innerHTML = '<em>Lower vs higher English:</em> students split at the median of the chosen rating; each dot is a student’s correlation (own arrangement), the mark and band the group’s mean (in Fisher <i>z</i>) with its 95% CI. ' +
+      '<em>Correlation by English rating:</em> each student’s correlation against their rating, with the least-squares line and its 95% band; its slope is tested without splitting the class.' +
+      (cur.test ? ` Here: ${(cur.test.diff > 0 ? '+' : '') + rTxt2(cur.test.diff)} per rating point (${LAB.fmtTest(cur.test)}, <i>n</i> = ${cur.pts.length}).` : '');
+    if (P.some(o => o.fit)) AM.slopes($('#an-prof-all'), P.map(o => ({ label: o.name, b: o.fit ? o.fit.b : NaN, lo: o.fit ? o.fit.ciB[0] : NaN, hi: o.fit ? o.fit.ciB[1] : NaN, p: o.test ? o.test.p : NaN,
+      note: o.pts.length < 3 ? 'fewer than 3 students' : 'the ratings do not vary' })), 'For each English rating, the change in the own-arrangement correlation per rating point, with 95% confidence intervals');
+    else $('#an-prof-all').innerHTML = P.some(o => o.pts.length >= 3) ? '<p class="empty">The ratings do not vary yet, so there is nothing to compare.</p>' : '<p class="empty">Needs at least 3 students with English self-ratings.</p>';
+    const sl = v => isFinite(v) ? (v >= 0.005 ? '+' : '') + rTxt2(v) : '–';
+    $('#an-prof-table').innerHTML =
+      `<thead><tr><th scope="col">English rating</th><th class="num" scope="col">n</th><th class="num" scope="col">Mean (range)</th>` +
+      `<th class="num sep" scope="col">Change in <i>r</i> per point</th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
+      P.map(o => `<tr><th scope="row">${o.name}</th><td class="num">${o.pts.length}</td>` +
+        `<td class="num">${o.xs.length ? LAB.mean(o.xs).toFixed(1) + ` (${+Math.min(...o.xs).toFixed(1)}–${+Math.max(...o.xs).toFixed(1)})` : '–'}</td>` +
+        `<td class="num sep"><strong>${o.fit ? sl(o.fit.b) : '–'}</strong></td><td class="num">${o.fit ? `${sl(o.fit.ciB[0])} to ${sl(o.fit.ciB[1])}` : '–'}</td>` +
+        `${tCell(o.test)}${pCell(o.test)}${resultCell(o.test, 0)}</tr>`).join('') + '</tbody>';
+    // the ratings themselves, every student who took part
+    const ENG = SVT_SKILLS.slice(1).concat([SVT_SKILLS[0]]);
+    $('#an-eng').innerHTML = !res.n ? '' :
+      `<thead><tr><th scope="col">Skill</th><th class="num" scope="col">n</th><th class="num" scope="col">Mean</th><th class="num" scope="col">SD</th><th class="num" scope="col">Range</th></tr></thead><tbody>` +
+      ENG.map(([k, name]) => { const v = res.students.map(s => num(s.row[k])).filter(isFinite);
+        return `<tr><th scope="row">${name}</th><td class="num">${v.length}</td><td class="num"><strong>${v.length ? LAB.mean(v).toFixed(2) : '–'}</strong></td><td class="num">${v.length > 1 ? LAB.sd(v).toFixed(2) : '–'}</td>` +
+          `<td class="num">${v.length ? `${+Math.min(...v).toFixed(1)}–${+Math.max(...v).toFixed(1)}` : '–'}</td></tr>`; }).join('') + '</tbody>';
+
+    // tests
+    const rowT = (name, T, est, pred, want) => `<tr><th scope="row">${name}</th><td class="num"><strong>${est}</strong></td><td class="num">${T && isFinite(T.ci[0]) ? (T.rci ? `${rTxt2(T.rci[0])} to ${rTxt2(T.rci[1])}` : `${T.ci[0] < 0 ? '−' : '+'}${Math.abs(T.ci[0]).toFixed(2)} to ${T.ci[1] < 0 ? '−' : '+'}${Math.abs(T.ci[1]).toFixed(2)}`) : '–'}</td>${tCell(T)}${pCell(T)}<td>${pred}</td>${resultCell(T, want)}</tr>`;
+    $('#an-tests').innerHTML = `<thead><tr><th scope="col">Test</th><th class="num" scope="col">Estimate</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col"><i>t</i> (df)</th><th class="num" scope="col"><i>p</i></th><th scope="col">Predicted</th><th class="result" scope="col">Result</th></tr></thead><tbody>` +
+      rowT('Own arrangement: mean correlation, distance × inference strength', O, rTxt2(O && O.r), 'Negative', -1) +
+      rowT('Class arrangement (without the student): mean correlation', Cl, rTxt2(Cl && Cl.r), 'Negative', -1) +
+      rowT('Own − class, in Fisher <i>z</i> (below 0: the own arrangement fits more closely)', Df, Df && isFinite(Df.m) ? (Df.m < 0 ? '−' : '+') + Math.abs(Df.m).toFixed(2) : '–', '–', 0) +
+      rowT('English (mean of five): change in <i>r</i> per rating point, exploratory', P[0].test, P[0].fit ? sl(P[0].fit.b) : '–', '–', 0) + '</tbody>';
+    $('#an-tests-note').innerHTML = 'Per student, the Pearson correlation between their 30 answers and the distance between the two animals (their own arrangement; or the class’s mean arrangement computed without them). One-sample <i>t</i>-tests of the Fisher-<i>z</i> correlations against 0, and a paired <i>t</i>-test of own vs class; means and CIs transformed back to <i>r</i>. English: least-squares slope of each student’s correlation on their rating. Each student counts once (their first run). Two-tailed, α = .05.' +
+      (res.skipped ? ` ${res.skipped} student${res.skipped > 1 ? 's' : ''} gave every question the same answer, so no correlation can be computed for them.` : '');
+
+    // summary
+    const items = [];
+    if (!O || !isFinite(O.p)) items.push(`<li><strong>Distance and inference: not enough runs yet.</strong> ${res.own.length} student${res.own.length === 1 ? '' : 's'} with a correlation so far; the test needs at least 2.</li>`);
+    else items.push(item(O, `${lead('Distance and inference (own arrangement)', O, -1)} ${LAB.isSig(O) ? (O.r < 0 ? 'The closer two animals were in a student’s own arrangement, the stronger the inference from one to the other' : 'The closer two animals were in a student’s own arrangement, the weaker the inference from one to the other') : 'Inference strength was not significantly related to the distance between the animals in a student’s own arrangement'} ${inline(`${rLine(O)}, ${LAB.fmtTest(O)}${smallTag(O.n)}`)}. Predicted: stronger inferences between closer animals.`));
+    if (Cl && isFinite(Cl.p)) items.push(item(Cl, `${lead('Distance and inference (class arrangement)', Cl, -1)} With the class’s average arrangement (without the student) instead: ${rLine(Cl)} ${inline(LAB.fmtTest(Cl))}.`));
+    if (Df && isFinite(Df.p)) items.push(item(Df, `${lead('Own vs class arrangement', Df, 0)} ${LAB.isSig(Df) ? (Df.m < 0 ? 'Students’ own arrangements matched their inferences more closely than the class’s arrangement did' : 'The class’s arrangement matched students’ inferences more closely than their own arrangements did') : 'The own and the class arrangement did not differ significantly in how closely they matched the inferences'} ${inline(`own − class ${Df.m < 0 ? '−' : '+'}${Math.abs(Df.m).toFixed(2)} in Fisher <i>z</i>, ${LAB.fmtTest(Df)}, <i>n</i> = ${res.nPairs}`)}.`));
+    if (FC && isFinite(FC.r2)) items.push(`<li><strong>The decay curve.</strong> On the class map, the mean inference for a pair ${FC.b > 0 ? 'fell off' : 'did not fall off'} with the distance between the two animals: an exponential curve explains ${Math.round(FC.r2 * 100)}% of the variation across ${FC.n} pairs ${inline(`strength = ${FC.a.toFixed(1)} · e<sup>−${FC.b.toFixed(2)} × distance</sup>; a straight line: ${Math.round(FC.r2Lin * 100)}%`)}.</li>`);
+    const M = P[0];
+    if (M.test) items.push(item(M.test, `${lead('English proficiency', M.test)} The own-arrangement correlation changed by ${sl(M.test.diff)} per point of self-rated English, mean of five ${inline(`${LAB.fmtTest(M.test)}, <i>n</i> = ${M.pts.length}${smallTag(M.pts.length)}`)}; exploratory.`));
+    else if (res.n) items.push(`<li><strong>English proficiency: not enough rated runs yet.</strong> ${M.pts.length} so far; the test needs at least 3 with different ratings.</li>`);
+    $('#an-summary').innerHTML = items.join('');
   }
 
   /* ---------- bird task: typicality ratings → semantic map ----------

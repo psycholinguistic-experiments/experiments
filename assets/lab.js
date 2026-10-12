@@ -364,7 +364,7 @@
     if (opts.domain) { lo = Math.min(lo, opts.domain[0]); hi = Math.max(hi, opts.domain[1]); }
     if (opts.fixed) { lo = opts.domain[0]; hi = opts.domain[1]; }
     if (!isFinite(lo) || !isFinite(hi)) { lo = 0; hi = 1; }
-    const step = niceStep(hi - lo || 100, 6);
+    const step = opts.step || niceStep(hi - lo || 100, 6);
     if (!opts.fixed) { lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step; }
     const labelW = groups.length > 1 || groups[0].label ? 128 : 0;
     const W = opts.width, left = labelW + 12, right = 18;
@@ -416,12 +416,14 @@
         if (row.g.sub) LAB.text(svg, 0, cy + 13, row.g.sub, {});
       }
       const vals = row.g.values.filter(p => isFinite(p.v) && !p.excluded).map(p => p.v);
-      if (vals.length >= 2) {
-        const [a, b] = LAB.ci95(vals);
+      // a group may bring its own mean and CI (e.g. correlations averaged in Fisher z)
+      const gci = row.g.ci && isFinite(row.g.ci[0]) ? row.g.ci : null;
+      if (gci || vals.length >= 2) {
+        const [a, b] = gci || LAB.ci95(vals);
         LAB.svg('rect', { class: 'ci', x: x(a), y: cy - row.half + 6, width: Math.max(2, x(b) - x(a)), height: row.half * 2 - 12 }, svg);
       }
       if (vals.length) {
-        const m = LAB.mean(vals);
+        const m = isFinite(row.g.mean) ? row.g.mean : LAB.mean(vals);
         LAB.svg('line', { class: 'mean', x1: x(m), x2: x(m), y1: cy - row.half + 4, y2: cy + row.half - 4 }, svg);
         const lx = x(m), anchor = lx > W - 120 ? 'end' : 'start';
         LAB.text(svg, lx + (anchor === 'end' ? -7 : 7), cy - row.half + 15, 'mean ' + fmt(m) + (opts.unit ? ' ' + opts.unit : ''), { class: 'mean-label', 'text-anchor': anchor });

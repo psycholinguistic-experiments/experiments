@@ -22,7 +22,12 @@
         .tab .n { font-weight: 500; color: var(--text-light); margin-left: 0.35rem; font-variant-numeric: tabular-nums; display: inline-block; min-width: 2ch; text-align: left; }
         /* Six tabs do not fit a tablet or phone: they wrap onto a second row. */
         .tab { white-space: nowrap; }
+        /* Eight tabs: one row on a 1440 projector; they wrap rather than overflow on anything narrower. */
+        .tabs { flex-wrap: wrap; row-gap: 0; }
+        @media (min-width: 1041px) { .tab { padding-left: 0.72rem; padding-right: 0.72rem; font-size: 0.96rem; } .tab .n { margin-left: 0.25rem; } }
         @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
+        /* Phones: one row of tabs that scrolls sideways (after the rule above, which it overrides). */
+        @media (max-width: 600px) { .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .tab { flex: 0 0 auto; } }
         .panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 3rem; }
         @media (min-width: 1100px) { .panel-grid.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
         .bars { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
@@ -42,8 +47,11 @@
         #r-cells td .k { display: block; font-size: 0.8rem; color: var(--text-secondary); }
         /* Phones: the report tables' label column gets room to read; the numbers scroll beside it. */
         @media (max-width: 900px) {
-            #panel-report .table-wrap.scrolls table.data tbody th[scope="row"], #panel-report .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
+            #panel-report .table-wrap.scrolls table.data tbody th[scope="row"], #panel-report .table-wrap.scrolls table.data thead tr:first-child th:first-child,
+            #panel-animals .table-wrap.scrolls table.data tbody th[scope="row"], #panel-animals .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
         }
+        /* the strip plots' mean labels stay readable where a grid or zero line crosses them */
+        #panel-animals .chart .mean-label { paint-order: stroke; stroke: var(--bg); stroke-width: 9px; stroke-linejoin: round; }
         .empty { padding: 2rem 0; color: var(--text-light); }
         .fle-multiples { grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); }
         .dash-controls label { flex-wrap: wrap; max-width: 100%; }
@@ -377,9 +385,13 @@
         .prof-legend .k-fit { width: 1.4rem; height: 0.7rem; border-radius: 2px; background: linear-gradient(var(--text), var(--text)) center / 100% 2.5px no-repeat, var(--highlight); }
         .chart .svt-whisker.svt-hi { stroke: var(--text); }
         .chart .svt-whisker.svt-lo { stroke: var(--mint-deep); }
-        .v-prof-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
-        @media (min-width: 900px) { .v-prof-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        .v-prof-pair h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
+        .v-prof-pair, .an-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
+        @media (min-width: 900px) { .v-prof-pair, .an-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .an-pair .figure { max-width: none; }
+        @media (min-width: 1000px) { .an-map-fig { display: grid; grid-template-columns: minmax(0, 620px) minmax(14rem, 22rem); gap: 2.5rem; align-items: end; } .an-map-fig figcaption { margin: 0 0 2.5rem; } }
+        .an-fit { font-size: 0.92rem; color: var(--text-secondary); margin-top: 0.4rem; font-variant-numeric: tabular-nums; }
+        .an-fit strong { color: var(--text); }
+        .v-prof-pair h4, .an-pair h4 { font-size: 1rem; font-weight: 650; color: var(--text); margin: 0 0 0.5rem; }
         .lang-key { display: flex; gap: 1.5rem; margin: 1.75rem 0 0; font-size: 0.92rem; font-weight: 600; color: var(--text); }
         .lang-key i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: -0.05rem; }
         .lang-key .k-zh { background: var(--lang-zh); } .lang-key .k-en { background: var(--lang-en); }
@@ -501,6 +513,7 @@
                 <button class="tab" role="tab" id="tab-svt" aria-controls="panel-svt" aria-selected="false" tabindex="-1">Sentence task<span class="n" id="n-svt"></span></button>
                 <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird task<span class="n" id="n-birds"></span></button>
                 <button class="tab" role="tab" id="tab-report" aria-controls="panel-report" aria-selected="false" tabindex="-1">Report task<span class="n" id="n-report"></span></button>
+                <button class="tab" role="tab" id="tab-animals" aria-controls="panel-animals" aria-selected="false" tabindex="-1">Animal task<span class="n" id="n-animals"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -1031,6 +1044,65 @@
                     <p class="small muted column" id="r-prof-note"></p>
                 </div>
             </section>
+
+            <!-- Animal task (spatial arrangement + similarity-based inference) -->
+            <section id="panel-animals" role="tabpanel" aria-labelledby="tab-animals" hidden>
+                <div class="veil">
+                    <span class="stat-label">Animal task</span><div class="big" id="veil-animals">0</div>
+                </div>
+                <div class="results-body">
+                    <section class="summary" aria-labelledby="an-sum-h"><h2 id="an-sum-h">Summary</h2><ul id="an-summary"></ul></section>
+                    <div class="stats" id="an-stats"></div>
+
+                    <h2>The class’s mammal space</h2>
+                    <figure class="figure an-map-fig"><div id="an-map"></div><figcaption class="small muted" id="an-map-cap"></figcaption></figure>
+
+                    <h2>Do closer animals get stronger inferences?</h2>
+                    <p class="test-line" id="an-own-test"></p>
+                    <div class="multiples an-pair">
+                        <figure class="figure"><h4>Class map: each question’s mean answer</h4><div id="an-decay-class"></div><figcaption class="an-fit" id="an-fit-class"></figcaption></figure>
+                        <figure class="figure"><h4>Own arrangements: every answer</h4><div id="an-decay-own"></div><figcaption class="an-fit" id="an-fit-own"></figcaption></figure>
+                    </div>
+                    <p class="chart-caption" id="an-decay-cap"></p>
+                    <h3 class="sub">Student by student</h3>
+                    <figure class="figure"><div id="an-r"></div><figcaption class="small muted">Each dot is one student: the correlation between their 30 answers and the distance between the two animals, in their own arrangement and in the class’s arrangement without them. Below 0: animals placed closer together got stronger inferences. The mark and band: the class’s average correlation (averaged in Fisher <i>z</i>) with its 95% CI.</figcaption></figure>
+
+                    <section class="q" aria-labelledby="an-q-prof">
+                        <h2 id="an-q-prof">Does English proficiency matter? <span class="tag">exploratory</span></h2>
+                        <p class="q-lead">At the end, students rated their English from 1 (very limited) to 7 (native-like) in five ways. Do students with stronger English show a closer link between their arrangement and their inferences?</p>
+                        <h3 class="sub">All ratings</h3>
+                        <div id="an-prof-all"></div>
+                        <p class="chart-caption">How much a student’s correlation (own arrangement) changes with each extra rating point, with 95% confidence intervals. 0: no change with English proficiency. Below 0: the link between closeness and inference is stronger with better English. Bold and filled: significant.</p>
+                        <h3 class="sub">One rating in detail</h3>
+                        <fieldset class="seg" id="an-prof-skill">
+                            <legend class="visually-hidden">English rating</legend>
+                            <label><input type="radio" name="an-prof-skill" value="eng_mean" checked><span>Mean of five</span></label>
+                            <label><input type="radio" name="an-prof-skill" value="eng_overall"><span>Overall</span></label>
+                            <label><input type="radio" name="an-prof-skill" value="eng_listening"><span>Listening</span></label>
+                            <label><input type="radio" name="an-prof-skill" value="eng_speaking"><span>Speaking</span></label>
+                            <label><input type="radio" name="an-prof-skill" value="eng_reading"><span>Reading</span></label>
+                            <label><input type="radio" name="an-prof-skill" value="eng_writing"><span>Writing</span></label>
+                        </fieldset>
+                        <div class="multiples an-pair">
+                            <figure class="figure"><h4>Lower vs higher English</h4><div id="an-prof-split"></div></figure>
+                            <figure class="figure"><h4>Correlation by English rating</h4><div id="an-prof-eff"></div></figure>
+                        </div>
+                        <p class="chart-caption" id="an-prof-cap"></p>
+                        <h3 class="sub">English self-ratings</h3>
+                        <div class="table-wrap column" data-label="English self-ratings"><table class="data" id="an-eng"></table></div>
+                        <details class="more">
+                            <summary>Show the numbers</summary>
+                            <div class="table-wrap" data-label="English proficiency tests"><table class="data" id="an-prof-table"></table></div>
+                            <p class="small muted column">Slopes: least squares of each student’s correlation (own arrangement) on their English rating; each student counts once (their first run). Six exploratory tests (five ratings and their mean), not corrected for multiple comparisons. Ratings are self-reports, and the class was not sampled to vary in proficiency.</p>
+                        </details>
+                    </section>
+
+                    <h2>All tests</h2>
+                    <div class="table-wrap" data-label="Animal task tests"><table class="data" id="an-tests"></table></div>
+                    <p class="small muted column" id="an-tests-note"></p>
+                    <div class="actions"><button class="btn-quiet" id="an-csv" type="button">Inferences with distances (CSV)</button></div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -1047,13 +1119,15 @@
         })();
     </script>
     <script src="assets/config.js?v=2"></script>
-    <script src="assets/lab.js?v=9"></script>
+    <script src="assets/lab.js?v=10"></script>
     <script src="assets/fast-stimuli.js?v=6"></script>
     <script src="assets/fast-analysis.js?v=17"></script>
     <script src="assets/fast-charts.js?v=32"></script>
     <script src="assets/bird-items.js?v=1"></script>
     <script src="assets/bird-map.js?v=1"></script>
     <script src="assets/svt-charts.js?v=2"></script>
-    <script src="assets/dashboard.js?v=114"></script>
+    <script src="assets/animal-items.js?v=1"></script>
+    <script src="assets/animal-map.js?v=3"></script>
+    <script src="assets/dashboard.js?v=118"></script>
 </body>
 </html>
