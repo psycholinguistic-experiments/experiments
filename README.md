@@ -20,6 +20,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `bird-task.html` | students | Bird task: how typical 12 pictures are as birds (1–5), mapped as a semantic space |
 | `report-task.html` | students | Report task: crime framed as a beast or a virus (Thibodeau & Boroditsky, 2011), in Chinese or English |
 | `animal-task.html` | students | Animal task: arrange 20 mammals by similarity, then 30 similarity-based inferences (after Douven et al., 2023) |
+| `fluency-task.html` | students | Fluency task (in Chinese): two 120-s semantic fluency blocks (animals; fruits and vegetables), then joyous exploration and deprivation sensitivity from the 5DC |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -49,7 +50,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`; the report task sends no trials, so it has only `report_people`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`; the report task sends no trials, so it has only `report_people`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -112,6 +113,43 @@ stays the same. Copy the changes back into `apps-script/Code.gs`.
 - **After any edit**, bump the `?v=` number on the changed file's `<link>` or
   `<script>` tag so browsers fetch the new version. Then commit and push. The
   site updates within a minute.
+
+## Fluency task (semantic fluency and curiosity)
+
+In Chinese (`fluency-task.html`, `assets/fluency.js`, exp `fluency`). First
+language (Chinese yes/no; "no" sets include = 0). Two 120-s blocks, animals
+and fruits and vegetables, in an order flipped at every opening
+(`?first=animals|fruitveg` forces it; written into the address so a reload
+keeps it). One word per Enter (or "添加"); an Enter that only confirms a
+Chinese input-method candidate is ignored; several words typed together
+(punctuation or spaces) become separate answers; paste is blocked; a word left
+in the box at 120 s counts. Then 10 items of the Five-Dimensional Curiosity
+Scale (Kashdan et al., 2018, Appendix A), in my Chinese translation (not a
+validated version): joy1–5 (joyous exploration) and depriv1–5 (deprivation
+sensitivity), in the published order, 1–7 with all seven labels.
+
+- `fluency_people`: `first`, `an_pos`/`fv_pos`, per block the words
+  (`an_w1`–`an_w4`, '|'-separated, in the order typed) and times in seconds
+  from the block start (`an_t1`–`an_t4`), `*_n`, `*_cut` (answers that did not
+  fit; 0), `*_hidden_ms` (time away from the page), `*_pastes`; the 10 items;
+  `je`, `ds` (4-item sums without joy2 and depriv5, as in the earlier
+  Curiosity Scale Analysis Rmd and the 5DCR; 4–28) and `je5`, `ds5` (5-item
+  sums). `fluency_trials`: one row per answer (category, block, position,
+  response, t_ms, repeat).
+- Results tab (`assets/fluency-analysis.js`): words per student, counted once,
+  either only those in SUBTLEX-CH (`assets/data/subtlex-ch-wf.txt`, Cai &
+  Brysbaert, 2010; loaded when the tab opens) or every different entry; the
+  entries not in SUBTLEX-CH are listed (it misses e.g. 火龙果, 西兰花, 牛油果,
+  考拉, 蓝莓). Curiosity: the 5-item sums (default) or, with the switch, the
+  4-item 5DCR sums of the Rmd; profiles as in the Rmd: high = above the class
+  median, on each subscale. Correlations of words with each subscale, by profile, the
+  class's most frequent answers, order and quality checks. Downloads: every
+  answer (with SUBTLEX-CH status and count), one row per student, and a binary
+  student × answer matrix per category for SemNeT (pid, je, ds, profile, then
+  one column per answer).
+- Tests: `dev/test_fluency.py <port>` (phone and desktop, fake clock);
+  `dev/seed_fluency.py <session> <seed> <port> <n>`; fluency cases in
+  `dev/test_dashboard_edges.py`.
 
 ## Animal task (spatial arrangement and inference)
 
@@ -450,6 +488,7 @@ task).
 | Shape task | Paired t-tests on each student's own percentages: u o vs i e, m n l vs p t k, m n l vs b d g, b d g vs p t k; one-sample t-tests of each sound class against 50% |
 | Judgement task | Welch's t-test, English vs Chinese, for every measure (d = difference ÷ pooled SD); proficiency slopes against 0; interaction = English slope − Chinese slope, Welch–Satterthwaite t |
 | Sentence task | One-sample t-test of each person's typicality effect (low − high median RT) against 0, with d<sub>z</sub>; proficiency: the slope of the effect on each English rating against 0 |
+| Fluency task | Pearson r across students between the number of words (SUBTLEX-CH words, or every different entry) and each curiosity subscale, t-test, 95% CI by Fisher z (six tests, uncorrected); order check: Welch t |
 | Animal task | Per-student Pearson r between inference strength and distance (own arrangement; class arrangement without the student): one-sample t on Fisher z against 0; own vs class: paired t on Fisher z; English: OLS slope of the own-arrangement r on each self-rating (exploratory) |
 | Report task | Differences in the share choosing Punishment (Beast − Virus; English − Chinese; difference of differences): adjusted Wald z test and 95% CI; checks: Welch's t |
 

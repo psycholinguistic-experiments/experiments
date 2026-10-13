@@ -24,7 +24,7 @@
         .tab { white-space: nowrap; }
         /* Eight tabs: one row on a 1440 projector; they wrap rather than overflow on anything narrower. */
         .tabs { flex-wrap: wrap; row-gap: 0; }
-        @media (min-width: 1041px) { .tab { padding-left: 0.72rem; padding-right: 0.72rem; font-size: 0.96rem; } .tab .n { margin-left: 0.25rem; } }
+        @media (min-width: 1041px) { .tab { padding-left: 0.42rem; padding-right: 0.42rem; font-size: 0.88rem; } .tab .n { margin-left: 0.25rem; } }
         @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         /* Phones: one row of tabs that scrolls sideways (after the rule above, which it overrides). */
         @media (max-width: 600px) { .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .tab { flex: 0 0 auto; } }
@@ -48,10 +48,11 @@
         /* Phones: the report tables' label column gets room to read; the numbers scroll beside it. */
         @media (max-width: 900px) {
             #panel-report .table-wrap.scrolls table.data tbody th[scope="row"], #panel-report .table-wrap.scrolls table.data thead tr:first-child th:first-child,
-            #panel-animals .table-wrap.scrolls table.data tbody th[scope="row"], #panel-animals .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
+            #panel-animals .table-wrap.scrolls table.data tbody th[scope="row"], #panel-animals .table-wrap.scrolls table.data thead tr:first-child th:first-child,
+            #panel-fluency .table-wrap.scrolls table.data tbody th[scope="row"], #panel-fluency .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
         }
         /* the strip plots' mean labels stay readable where a grid or zero line crosses them */
-        #panel-animals .chart .mean-label { paint-order: stroke; stroke: var(--bg); stroke-width: 9px; stroke-linejoin: round; }
+        #panel-animals .chart .mean-label, #panel-fluency .chart .mean-label { paint-order: stroke; stroke: var(--bg); stroke-width: 9px; stroke-linejoin: round; }
         .empty { padding: 2rem 0; color: var(--text-light); }
         .fle-multiples { grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); }
         .dash-controls label { flex-wrap: wrap; max-width: 100%; }
@@ -388,6 +389,24 @@
         .v-prof-pair, .an-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
         @media (min-width: 900px) { .v-prof-pair, .an-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .an-pair .figure { max-width: none; }
+        /* Fluency tab */
+        #fl-mode, #fl-scale { margin: 0 0 0.75rem; }
+        #fl-scale { margin-bottom: 1.25rem; }
+        #fl-mode legend, #fl-scale legend { min-width: 5.5rem; float: left; margin: 0 0.75rem 0 0; padding: 0.55rem 0 0; font-weight: 650; color: var(--text); }
+        @media (min-width: 1000px) { .fl-map-fig { display: grid; grid-template-columns: minmax(0, 620px) minmax(14rem, 22rem); gap: 2.5rem; align-items: end; } .fl-map-fig figcaption { margin: 0 0 3rem; } }
+        .fl-top { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+        .fl-top li { display: grid; grid-template-columns: minmax(4.5rem, max-content) 1fr 3rem; align-items: center; gap: 0.75rem; font-variant-numeric: tabular-nums; }
+        .fl-top .w { font-family: 'Open Sans', var(--font-hans), sans-serif; font-size: 1.02rem; color: var(--text); }
+        .fl-top .bar { height: 0.7rem; background: var(--bg-alt); border-radius: 2px; overflow: hidden; }
+        .fl-top .bar i { display: block; height: 100%; background: var(--text); border-radius: 2px; }
+        .fl-top .v { text-align: right; color: var(--text-secondary); font-size: 0.92rem; }
+        .fl-top li.nolex .w { color: var(--text-secondary); }
+        .fl-top li.nolex .w::after { content: '*'; margin-left: 0.15rem; color: var(--text-secondary); }
+        .fl-top li.nolex .bar i { background: var(--text-light); }
+        .fl-nolex { line-height: 2; font-family: 'Open Sans', var(--font-hans), sans-serif; }
+        .fl-checks { padding-left: 1.1rem; color: var(--text-secondary); max-width: var(--measure); }
+        .fl-checks li + li { margin-top: 0.35rem; }
+        .fl-dl { flex-wrap: wrap; gap: 0.5rem 1.5rem; }
         @media (min-width: 1000px) { .an-map-fig { display: grid; grid-template-columns: minmax(0, 620px) minmax(14rem, 22rem); gap: 2.5rem; align-items: end; } .an-map-fig figcaption { margin: 0 0 2.5rem; } }
         .an-fit { font-size: 0.92rem; color: var(--text-secondary); margin-top: 0.4rem; font-variant-numeric: tabular-nums; }
         .an-fit strong { color: var(--text); }
@@ -514,6 +533,7 @@
                 <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird task<span class="n" id="n-birds"></span></button>
                 <button class="tab" role="tab" id="tab-report" aria-controls="panel-report" aria-selected="false" tabindex="-1">Report task<span class="n" id="n-report"></span></button>
                 <button class="tab" role="tab" id="tab-animals" aria-controls="panel-animals" aria-selected="false" tabindex="-1">Animal task<span class="n" id="n-animals"></span></button>
+                <button class="tab" role="tab" id="tab-fluency" aria-controls="panel-fluency" aria-selected="false" tabindex="-1">Fluency task<span class="n" id="n-fluency"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -1103,6 +1123,74 @@
                     <div class="actions"><button class="btn-quiet" id="an-csv" type="button">Inferences with distances (CSV)</button></div>
                 </div>
             </section>
+
+            <!-- Fluency task (semantic fluency in Chinese + two curiosity subscales) -->
+            <section id="panel-fluency" role="tabpanel" aria-labelledby="tab-fluency" hidden>
+                <div class="veil">
+                    <span class="stat-label">Fluency task</span><div class="big" id="veil-fluency">0</div>
+                </div>
+                <div class="results-body">
+                    <section class="summary" aria-labelledby="fl-sum-h"><h2 id="fl-sum-h">Summary</h2><ul id="fl-summary"></ul></section>
+                    <fieldset class="seg" id="fl-mode">
+                        <legend>Count</legend>
+                        <label><input type="radio" name="fl-mode" value="lex" checked><span>Words in SUBTLEX-CH</span></label>
+                        <label><input type="radio" name="fl-mode" value="all"><span>Every different entry</span></label>
+                    </fieldset>
+                    <fieldset class="seg" id="fl-scale">
+                        <legend>Curiosity</legend>
+                        <label><input type="radio" name="fl-scale" value="full" checked><span>5 items (5DC)</span></label>
+                        <label><input type="radio" name="fl-scale" value="short"><span>4 items (5DCR)</span></label>
+                    </fieldset>
+                    <div class="stats" id="fl-stats"></div>
+
+                    <h2>Curiosity profiles</h2>
+                    <figure class="figure fl-map-fig"><div id="fl-map"></div><figcaption class="small muted" id="fl-map-cap"></figcaption></figure>
+
+                    <h2>How many words?</h2>
+                    <figure class="figure"><div id="fl-counts"></div><figcaption class="small muted" id="fl-counts-cap"></figcaption></figure>
+
+                    <h2>Does curiosity go with fluency?</h2>
+                    <fieldset class="seg" id="fl-cat">
+                        <legend class="visually-hidden">Fluency measure</legend>
+                        <label><input type="radio" name="fl-cat" value="both" checked><span>Mean of both</span></label>
+                        <label><input type="radio" name="fl-cat" value="an"><span>Animals</span></label>
+                        <label><input type="radio" name="fl-cat" value="fv"><span>Fruits &amp; vegetables</span></label>
+                    </fieldset>
+                    <div class="multiples an-pair">
+                        <figure class="figure"><h4>Joyous exploration</h4><div id="fl-sc-je"></div><figcaption class="an-fit" id="fl-r-je"></figcaption></figure>
+                        <figure class="figure"><h4>Deprivation sensitivity</h4><div id="fl-sc-ds"></div><figcaption class="an-fit" id="fl-r-ds"></figcaption></figure>
+                    </div>
+                    <p class="chart-caption" id="fl-sc-cap"></p>
+                    <div class="table-wrap" data-label="Correlations"><table class="data" id="fl-corr"></table></div>
+                    <p class="small muted column" id="fl-corr-note"></p>
+                    <h3 class="sub">By profile</h3>
+                    <div class="table-wrap column" data-label="Fluency by curiosity profile"><table class="data" id="fl-prof"></table></div>
+
+                    <h2>The class’s answers</h2>
+                    <div class="multiples an-pair">
+                        <figure class="figure"><h4>Animals</h4><div id="fl-top-an"></div></figure>
+                        <figure class="figure"><h4>Fruits &amp; vegetables</h4><div id="fl-top-fv"></div></figure>
+                    </div>
+                    <p class="chart-caption" id="fl-top-cap"></p>
+                    <details class="more">
+                        <summary>Entries not in SUBTLEX-CH <span class="sum-note" id="fl-nolex-n"></span></summary>
+                        <div class="multiples an-pair">
+                            <div><h4>Animals</h4><p class="fl-nolex" lang="zh-Hans" id="fl-nolex-an"></p></div>
+                            <div><h4>Fruits &amp; vegetables</h4><p class="fl-nolex" lang="zh-Hans" id="fl-nolex-fv"></p></div>
+                        </div>
+                        <p class="small muted column">Each entry with the number of students who gave it. Under “Words in SUBTLEX-CH” these do not count; under “Every different entry” they do.</p>
+                    </details>
+
+                    <h2>Checks</h2>
+                    <ul class="fl-checks small" id="fl-checks"></ul>
+                    <div class="actions fl-dl">
+                        <button class="btn-quiet" id="fl-csv-ans" type="button">Answers (CSV)</button>
+                        <button class="btn-quiet" id="fl-csv-stu" type="button">Students (CSV)</button>
+                        <button class="btn-quiet" id="fl-csv-an" type="button">Animal matrix for SemNeT (CSV)</button>
+                        <button class="btn-quiet" id="fl-csv-fv" type="button">Fruit &amp; vegetable matrix (CSV)</button>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -1128,6 +1216,7 @@
     <script src="assets/svt-charts.js?v=2"></script>
     <script src="assets/animal-items.js?v=1"></script>
     <script src="assets/animal-map.js?v=3"></script>
-    <script src="assets/dashboard.js?v=118"></script>
+    <script src="assets/fluency-analysis.js?v=2"></script>
+    <script src="assets/dashboard.js?v=120"></script>
 </body>
 </html>

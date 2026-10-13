@@ -4,12 +4,12 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency'];
   // Sentence task: the English self-ratings, in the order the results page shows them.
   const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [] },
     timer: null,
     loadedOnce: false
   };
@@ -20,7 +20,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -140,6 +140,8 @@
       if (ws && ws !== state.svtW) { state.svtW = ws; lastKey = ''; render(); }
       const wa = $('#panel-animals').hidden ? 0 : $('#panel-animals').clientWidth;
       if (wa && wa !== state.animalsW) { state.animalsW = wa; lastKey = ''; render(); }
+      const wf = $('#panel-fluency').hidden ? 0 : $('#panel-fluency').clientWidth;
+      if (wf && wf !== state.fluencyW) { state.fluencyW = wf; lastKey = ''; render(); }
       const wr = $('#panel-report').hidden ? 0 : $('#panel-report').clientWidth;
       if (wr && wr !== state.reportW) { state.reportW = wr; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
@@ -156,7 +158,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -176,9 +178,11 @@
     $('#veil-report').textContent = rp.length;   // one total: the hidden view never names the frames
     $('#n-animals').textContent = an.length;
     $('#veil-animals').textContent = an.length;
+    $('#n-fluency').textContent = fl.length;
+    $('#veil-fluency').textContent = fl.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
@@ -189,6 +193,7 @@
     if (!$('#panel-birds').hidden) renderBirds(bd);
     if (!$('#panel-report').hidden) renderReport(rp);
     if (!$('#panel-animals').hidden) renderAnimals(an);
+    if (!$('#panel-fluency').hidden) renderFluency(fl);
     syncScrollers();
   }
 
@@ -2571,6 +2576,134 @@
     if (M.test) items.push(item(M.test, `${lead('English proficiency', M.test)} The own-arrangement correlation changed by ${sl(M.test.diff)} per point of self-rated English, mean of five ${inline(`${LAB.fmtTest(M.test)}, <i>n</i> = ${M.pts.length}${smallTag(M.pts.length)}`)}; exploratory.`));
     else if (res.n) items.push(`<li><strong>English proficiency: not enough rated runs yet.</strong> ${M.pts.length} so far; the test needs at least 3 with different ratings.</li>`);
     $('#an-summary').innerHTML = items.join('');
+  }
+
+  /* ---------- fluency task: semantic fluency in Chinese and two curiosity subscales ----------
+     Analysis in fluency-analysis.js. Each student counts once (their first
+     run); students whose first language is not Chinese are left out. */
+  const FL = window.FLUENCY;
+  const flState = { res: null, lexFailed: false };
+  const segVal = (id, d) => (document.querySelector(`#${id} input:checked`) || {}).value || d;
+  $('#fl-mode').addEventListener('change', () => { lastKey = ''; render(); });
+  $('#fl-cat').addEventListener('change', () => { lastKey = ''; render(); });
+  $('#fl-scale').addEventListener('change', () => { lastKey = ''; render(); });
+  const flCSV = (file, make) => () => { const r = flState.res; if (r && r.all.length) LAB.download(`lt5461-fluency-${file}-${state.session}.csv`, LAB.toCSV(make(r))); };
+  $('#fl-csv-ans').addEventListener('click', flCSV('answers', FL.answerRows));
+  $('#fl-csv-stu').addEventListener('click', flCSV('students', FL.studentRows));
+  $('#fl-csv-an').addEventListener('click', flCSV('animals-matrix', r => FL.matrixRows(r, 'an')));
+  $('#fl-csv-fv').addEventListener('click', flCSV('fruitveg-matrix', r => FL.matrixRows(r, 'fv')));
+
+  function renderFluency(rows) {
+    // the word list (0.6 MB) loads with the tab's first drawing; until then, a note
+    if (!FL.lexReady() && !flState.lexFailed) {
+      FL.loadLex().then(() => { lastKey = ''; render(); }, () => { flState.lexFailed = true; lastKey = ''; render(); });
+      $('#fl-summary').innerHTML = '<li>Loading the SUBTLEX-CH word list…</li>';
+      return;
+    }
+    const lexIn = document.querySelector('#fl-mode input[value=lex]');
+    if (flState.lexFailed) { lexIn.disabled = true; document.querySelector('#fl-mode input[value=all]').checked = true; }
+    const first = new Map();
+    rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(r.pid)) first.set(r.pid, r); });
+    const mode = flState.lexFailed ? 'all' : segVal('fl-mode', 'lex'), cat = segVal('fl-cat', 'both');
+    const res = flState.res = FL.analyse([...first.values()], mode, segVal('fl-scale', 'full')), S = res.S, rg = res.range;
+    const unit = mode === 'all' ? 'different entries' : 'words in SUBTLEX-CH';
+    const NAME = { an: 'Animals', fv: 'Fruits & vegetables', both: 'Mean of both' };
+    const f1 = v => isFinite(v) ? v.toFixed(1) : '–', rr = FL.fmtR;
+    const col = k => S.map(s => s.n[k]).filter(isFinite), sc = k => res.scored.map(s => s[k]);
+    const ITEMS_TXT = res.scale === 'short' ? 'the four items per subscale that the 5DCR keeps (without joy2 and depriv5), as in the class’s earlier analysis' : 'all five items per subscale (5DC)';
+    const sdTxt = a => a.length > 1 ? ` · SD ${f1(LAB.sd(a))}` : '';
+
+    // tiles
+    const tile = (label, value, note) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span><span class="stat-note">${note}</span></div>`;
+    $('#fl-stats').innerHTML =
+      tile('Animals', f1(LAB.mean(col('an'))), `Mean ${unit} in 2 min${sdTxt(col('an'))}`) +
+      tile('Fruits &amp; vegetables', f1(LAB.mean(col('fv'))), `Mean ${unit} in 2 min${sdTxt(col('fv'))}`) +
+      tile('Joyous exploration', f1(LAB.mean(sc('J'))), `Mean of ${rg} · median ${isFinite(res.medJ) ? +res.medJ.toFixed(1) : '–'}`) +
+      tile('Deprivation sensitivity', f1(LAB.mean(sc('D'))), `Mean of ${rg} · median ${isFinite(res.medD) ? +res.medD.toFixed(1) : '–'}`) +
+      tile('Took part', res.n, `students${res.excluded ? ` · ${res.excluded} more not counted (Chinese not a first language)` : ''}`);
+
+    // curiosity profiles
+    if (!res.scored.length) { $('#fl-map').innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#fl-map-cap').textContent = ''; }
+    else {
+      FL.profileMap($('#fl-map'), res);
+      $('#fl-map-cap').textContent = `Each dot is a student (larger: several students with the same two scores). Scores: the sum of ${ITEMS_TXT}, ${rg}. Dashed lines: the class medians; above the median counts as high, so each student falls in one of four profiles (D = deprivation sensitivity, J = joyous exploration).`;
+    }
+
+    // counts
+    const W = id => Math.max(300, Math.min(1000, Math.round($(id).getBoundingClientRect().width) || 1000));
+    if (!S.length) { $('#fl-counts').innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#fl-counts-cap').textContent = ''; }
+    else {
+      const hi = Math.max(10, ...col('an'), ...col('fv'));
+      LAB.stripPlot($('#fl-counts'), [
+        { label: 'Animals', sub: `n = ${col('an').length}`, values: col('an').map(v => ({ v })) },
+        { label: 'Fruits & veg', sub: `n = ${col('fv').length}`, values: col('fv').map(v => ({ v })) }
+      ], { width: W('#fl-counts'), r: W('#fl-counts') < 520 ? 5 : 6, domain: [0, Math.ceil(hi / 5) * 5], fixed: true, signed: false, unit: '', fmt: v => v.toFixed(1),
+        xLabel: W('#fl-counts') < 520 ? 'Words in 2 minutes' : `Number of ${unit} in 2 minutes`, ariaLabel: `Words per student: animals mean ${f1(LAB.mean(col('an')))}, fruits and vegetables mean ${f1(LAB.mean(col('fv')))}` });
+      $('#fl-counts-cap').textContent = `Each dot is a student: the number of ${unit} they wrote (repeats count once). The mark and band: the class mean with its 95% CI.`;
+    }
+
+    // curiosity and fluency
+    const C = res.R[cat], ymax = Math.max(10, ...col(cat === 'both' ? 'an' : cat), ...(cat === 'both' ? col('fv') : []));
+    const rLine = T => isFinite(T.r) ? `<i>r</i> = <strong>${rr(T.r)}</strong>${isFinite(T.ci[0]) ? `, 95% CI ${rr(T.ci[0])} to ${rr(T.ci[1])}` : ''} · ${LAB.fmtTest(T)} · <i>n</i> = ${T.n}` : (T.n ? 'Not enough variation yet.' : '');
+    [['je', `Joyous exploration (${rg})`], ['ds', `Deprivation sensitivity (${rg})`]].forEach(([k, xl]) => {
+      const T = C[k], host = $('#fl-sc-' + k);
+      if (!T.pts.length) { host.innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#fl-r-' + k).innerHTML = ''; return; }
+      LAB.scatterPlot(host, { points: T.pts, fit: T.fit && isFinite(T.r) ? T.fit : null, xDomain: [res.lo, res.hi], yDomain: [0, Math.ceil(ymax / 5) * 5], xStep: res.step, xFmt: v => String(v), yFmt: v => String(v),
+        xLabel: xl, r: 4.5, width: Math.max(300, Math.min(620, Math.round(host.getBoundingClientRect().width) || 620)), height: 300,
+        ariaLabel: `${NAME[cat]}: number of words against ${xl.toLowerCase()}, ${rLine(T).replace(/<[^>]+>/g, '')}` });
+      $('#fl-r-' + k).innerHTML = rLine(T);
+    });
+    $('#fl-sc-cap').textContent = res.scored.length ? `Each dot is a student: up, the number of ${unit} (${NAME[cat].toLowerCase()}${cat === 'both' ? ' categories' : ''}); across, the subscale score. Line: least squares with its 95% band.` : '';
+    const rowC = (k, sub, name) => { const T = res.R[k][sub];
+      return `<tr><th scope="row">${NAME[k]} × ${name}</th><td class="num">${T.n}</td><td class="num"><strong>${rr(T.r)}</strong></td><td class="num">${isFinite(T.ci[0]) ? `${rr(T.ci[0])} to ${rr(T.ci[1])}` : '–'}</td>${tCell(T)}${pCell(T)}${resultCell(T, 0)}</tr>`; };
+    $('#fl-corr').innerHTML = `<thead><tr><th scope="col">Words × curiosity</th><th class="num" scope="col"><i>n</i></th><th class="num" scope="col"><i>r</i></th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
+      ['both', 'an', 'fv'].map(k => rowC(k, 'je', 'joyous exploration') + rowC(k, 'ds', 'deprivation sensitivity')).join('') + '</tbody>';
+    $('#fl-corr-note').innerHTML = `Pearson correlations across students between the number of ${unit} and each subscale score; <i>t</i>-test of the correlation, 95% CI by Fisher <i>z</i>. Mean of both: the average of the two categories. Each student counts once (their first run). Two-tailed, α = .05; six tests, not corrected for multiple comparisons.`;
+    const PROF = [['hiD-hiJ', 'High D · high J'], ['hiD-loJ', 'High D · low J'], ['loD-hiJ', 'Low D · high J'], ['loD-loJ', 'Low D · low J']];
+    const msd = a => a.length ? `${f1(LAB.mean(a))}${a.length > 1 ? ` <span class="muted">(${f1(LAB.sd(a))})</span>` : ''}` : '–';
+    $('#fl-prof').innerHTML = !res.scored.length ? '' : `<thead><tr><th scope="col">Profile</th><th class="num" scope="col"><i>n</i></th><th class="num" scope="col">Animals</th><th class="num" scope="col">Fruits &amp; veg</th><th class="num" scope="col">Mean of both</th></tr></thead><tbody>` +
+      PROF.map(([p, name]) => { const g = res.scored.filter(s => s.profile === p), v = k => g.map(s => s.n[k]).filter(isFinite);
+        return `<tr><th scope="row">${name}</th><td class="num">${g.length}</td><td class="num">${msd(v('an'))}</td><td class="num">${msd(v('fv'))}</td><td class="num">${msd(v('both'))}</td></tr>`; }).join('') + '</tbody>';
+
+    // the class's answers
+    FL.topAnswers($('#fl-top-an'), res.answers.an, res.n, 15);
+    FL.topAnswers($('#fl-top-fv'), res.answers.fv, res.n, 15);
+    $('#fl-top-cap').textContent = res.n ? `The 15 answers given by most students, as a share of the ${res.n} students. * Not in SUBTLEX-CH.` : '';
+    const nolex = c => res.answers[c].filter(a => a.inLex === false);
+    ['an', 'fv'].forEach(c => { const L = nolex(c); $('#fl-nolex-' + c).innerHTML = L.length ? L.map(a => `${a.w}<span class="muted">&nbsp;${a.n}</span>`).join(' · ') : '<span class="muted">None.</span>'; });
+    const nn = nolex('an').length + nolex('fv').length;
+    $('#fl-nolex-n').textContent = `(${nn} different entr${nn === 1 ? 'y' : 'ies'})`;
+
+    // checks
+    const checks = [];
+    FL.CATS.forEach(([c, , name]) => { const T = res.order[c], a = S.filter(s => s.cats[c].pos === 1).map(s => s.n[c]), b = S.filter(s => s.cats[c].pos === 2).map(s => s.n[c]);
+      if (a.length || b.length) checks.push(`<li><strong>${name}, first vs second:</strong> ${f1(LAB.mean(a))} vs ${f1(LAB.mean(b))} ${unit} (<i>n</i> = ${a.length} and ${b.length}${T && isFinite(T.p) ? `; Welch ${LAB.fmtTest(T)}` : ''}).</li>`); });
+    if (S.length) {
+      const rep = c => LAB.mean(S.map(s => s.cats[c].repeats));
+      checks.push(`<li><strong>Repeats</strong> (counted once): ${f1(rep('an'))} per student for animals, ${f1(rep('fv'))} for fruits and vegetables.</li>`);
+      const away = S.filter(s => s.cats.an.hiddenMs > 5000 || s.cats.fv.hiddenMs > 5000).length, paste = S.filter(s => s.cats.an.pastes || s.cats.fv.pastes).length;
+      checks.push(`<li><strong>Left the page</strong> for more than 5 s during a block: ${away} student${away === 1 ? '' : 's'}. Tried to paste (blocked): ${paste}.</li>`);
+    }
+    if (res.excluded) checks.push(`<li><strong>Not counted:</strong> ${res.excluded} student${res.excluded === 1 ? '' : 's'} whose first language is not Chinese (their answers are in the downloads, marked include = 0).</li>`);
+    if (flState.lexFailed) checks.push('<li><strong>The SUBTLEX-CH word list could not be loaded</strong>, so every different entry counts.</li>');
+    $('#fl-checks').innerHTML = checks.join('');
+
+    // summary
+    const items = [];
+    if (!S.length) items.push('<li><strong>No runs yet for this class.</strong> Results appear here as students finish.</li>');
+    else {
+      items.push(`<li><strong>Fluency.</strong> In 2 minutes, students wrote on average ${f1(LAB.mean(col('an')))} animals and ${f1(LAB.mean(col('fv')))} fruits and vegetables ${inline(`${unit}; <i>n</i> = ${S.length}`)}.</li>`);
+      if (res.scored.length) {
+        const cnt = p => res.scored.filter(s => s.profile === p).length;
+        items.push(`<li><strong>Curiosity.</strong> Joyous exploration averaged ${f1(LAB.mean(sc('J')))} and deprivation sensitivity ${f1(LAB.mean(sc('D')))} ${inline(`${rg}, ${res.scale === 'short' ? '4 items each (5DCR)' : '5 items each (5DC)'}`)}. Split at the class medians: ${cnt('hiD-hiJ')} high on both, ${cnt('hiD-loJ')} high in deprivation sensitivity only, ${cnt('loD-hiJ')} high in joyous exploration only, ${cnt('loD-loJ')} low on both.</li>`);
+      }
+      [['je', 'Joyous exploration'], ['ds', 'Deprivation sensitivity']].forEach(([k, name]) => {
+        const T = res.R.both[k];
+        if (!isFinite(T.p)) return;
+        items.push(item(T, `${lead(`${name} and fluency`, T, 0)} ${LAB.isSig(T) ? (T.r > 0 ? `Students higher in ${name.toLowerCase()} wrote more words` : `Students higher in ${name.toLowerCase()} wrote fewer words`) : `The number of words was not significantly related to ${name.toLowerCase()}`} ${inline(`mean of both categories; <i>r</i> = ${rr(T.r)}, 95% CI ${rr(T.ci[0])} to ${rr(T.ci[1])}, ${LAB.fmtTest(T)}, <i>n</i> = ${T.n}${smallTag(T.n)}`)}.`));
+      });
+    }
+    $('#fl-summary').innerHTML = items.join('');
   }
 
   /* ---------- bird task: typicality ratings → semantic map ----------
