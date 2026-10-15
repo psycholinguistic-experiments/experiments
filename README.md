@@ -21,6 +21,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `report-task.html` | students | Report task: crime framed as a beast or a virus (Thibodeau & Boroditsky, 2011), in Chinese or English |
 | `animal-task.html` | students | Animal task: arrange 20 mammals by similarity, then 30 similarity-based inferences (after Douven et al., 2023) |
 | `fluency-task.html` | students | Fluency task (in Chinese): two 120-s semantic fluency blocks (animals; fruits and vegetables), then joyous exploration and deprivation sensitivity from the 5DC |
+| `reading-task.html` | students | Reading task: self-paced reading of 30 passages with or without “because”, a recognition probe and some comprehension questions (after Millis & Just, 1994) |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -50,7 +51,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`; the report task sends no trials, so it has only `report_people`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`, `reading_*`, `reading_start_*`; the report task sends no trials, so it has only `report_people`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -113,6 +114,26 @@ stays the same. Copy the changes back into `apps-script/Code.gs`.
 - **After any edit**, bump the `?v=` number on the changed file's `<link>` or
   `<script>` tag so browsers fetch the new version. Then commit and push. The
   site updates within a minute.
+
+## Reading task (causal connectives, self-paced reading)
+
+In English (`reading-task.html`, `assets/reading.js`, shared parts in
+`assets/reading-core.js`; stimuli in `assets/data/causal-items.csv`, edited
+there). Full design, measures, analysis and limitations:
+`materials/reading/METHODS.md`. 2 practice + 20 critical + 8 filler passages,
+lists A/B (assigned to the smaller list of the class, via exp `reading_start`),
+word-by-word moving window, T/F recognition probe, Y/N questions on 12
+passages. Results tab (`assets/reading-analysis.js`): descriptive comparison,
+five charts, adjustable exclusions with counts, a searchable student table with
+each student's trials and word times, model-based tests on request (by
+students, by items, mixed model of log RT), downloads (trials, words, students,
+conditions, JSON, HTML report) and import of the original HTML's files.
+Tests: `dev/test_reading.py <port>` (fake clock: trial counts, lists, word
+times within one frame, held keys), `dev/test_reading_import.py <port>` (runs
+the original HTML in `dev/orig/` and imports its exports),
+`dev/seed_reading.py <session> <seed> <port> <n>` (SIMULATED class, marked
+simulated = 1; mock server only), reading cases in
+`dev/test_dashboard_edges.py`.
 
 ## Fluency task (semantic fluency and curiosity)
 

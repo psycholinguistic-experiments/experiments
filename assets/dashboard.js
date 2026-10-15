@@ -4,12 +4,12 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency', 'reading', 'reading_start'];
   // Sentence task: the English self-ratings, in the order the results page shows them.
   const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [], reading: [], reading_start: [] },
     timer: null,
     loadedOnce: false
   };
@@ -20,7 +20,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency'), $('#tab-reading')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -142,6 +142,8 @@
       if (wa && wa !== state.animalsW) { state.animalsW = wa; lastKey = ''; render(); }
       const wf = $('#panel-fluency').hidden ? 0 : $('#panel-fluency').clientWidth;
       if (wf && wf !== state.fluencyW) { state.fluencyW = wf; lastKey = ''; render(); }
+      const wrd = $('#panel-reading').hidden ? 0 : $('#panel-reading').clientWidth;
+      if (wrd && wrd !== state.readingW) { state.readingW = wrd; lastKey = ''; render(); }
       const wr = $('#panel-report').hidden ? 0 : $('#panel-report').clientWidth;
       if (wr && wr !== state.reportW) { state.reportW = wr; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
@@ -158,7 +160,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency, rd = state.rows.reading, rs = state.rows.reading_start;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -180,9 +182,11 @@
     $('#veil-animals').textContent = an.length;
     $('#n-fluency').textContent = fl.length;
     $('#veil-fluency').textContent = fl.length;
+    $('#n-reading').textContent = rd.length;
+    $('#veil-reading').textContent = rd.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, rd.map(r => r.pid + r.submitted_at), rs.length, readingKey(), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
@@ -194,6 +198,7 @@
     if (!$('#panel-report').hidden) renderReport(rp);
     if (!$('#panel-animals').hidden) renderAnimals(an);
     if (!$('#panel-fluency').hidden) renderFluency(fl);
+    if (!$('#panel-reading').hidden) renderReading(rd, rs);
     syncScrollers();
   }
 
@@ -2752,6 +2757,198 @@
       if (NA.profiles.length) items.push(`<li><strong>Animal networks</strong> ${inline(`${NA.shared.length} shared words`)}: ${NA.profiles.map(P => `${P.name.replace(/^./, ch => ch.toLowerCase())} CC ${f3(P.cc)}, ASPL ${f3(P.aspl)}, Q ${f3(P.q)}`).join('; ').replace(/^./, ch => ch.toUpperCase())}. Descriptive only.</li>`);
     }
     $('#fl-summary').innerHTML = items.join('');
+  }
+
+  /* ---------- reading task: self-paced reading, causal connectives ----------
+     Analysis and charts in reading-analysis.js. Each student counts once
+     (their first run); students imported from earlier files stay in this
+     browser. Descriptive by default; the model-based tests run only when
+     their section is opened. */
+  const RD = window.READ_RESULTS, RC = window.READING;
+  const rdState = { items: null, failed: false, imported: [], msgs: [], res: null, detail: null, modelKey: '', models: null };
+  function readingKey() { return [rdState.items ? 1 : 0, rdState.imported.length, rdState.detail || '', $('#rd-compare') && $('#rd-compare').checked ? 1 : 0, JSON.stringify(rdFilters()), (document.querySelector('#rd-eff-m input:checked') || {}).value].join('|'); }
+  function rdFilters() {
+    const g = k => document.querySelector(`#rd-filters [data-f="${k}"]`);
+    if (!g('correctOnly')) return RD.DEFAULTS;
+    const on = k => g(k).checked, n = (k, d) => { const v = Number(g(k).value); return isFinite(v) ? v : d; };
+    return { correctOnly: on('correctOnly'), probeMin: on('probeBounds') ? n('probeMin', 200) : 0, probeMax: on('probeBounds') ? n('probeMax', 5000) : Infinity,
+      wordTrim: on('wordTrim'), wordMin: n('wordMin', 100), wordMax: n('wordMax', 3000), focus: on('focus'), incomplete: on('incomplete'), lowComp: on('lowComp'), compMin: n('compMin', 60) };
+  }
+  const rdRender = () => { lastKey = ''; render(); };
+  ['#rd-compare', '#rd-filters', '#rd-eff-m'].forEach(id => $(id).addEventListener('change', rdRender));
+  $('#rd-reset').addEventListener('click', () => {
+    const D = RD.DEFAULTS, set = (k, v) => { const el = document.querySelector(`#rd-filters [data-f="${k}"]`); if (el.type === 'checkbox') el.checked = v; else el.value = v; };
+    ['correctOnly', 'wordTrim', 'focus', 'incomplete', 'lowComp'].forEach(k => set(k, D[k])); set('probeBounds', true);
+    ['probeMin', 'probeMax', 'wordMin', 'wordMax', 'compMin'].forEach(k => set(k, D[k])); rdRender();
+  });
+  $('#rd-q').addEventListener('input', () => rdSearch());
+  function rdSearch() {
+    const q = $('#rd-q').value.trim().toLowerCase();
+    document.querySelectorAll('#rd-people tbody tr').forEach(tr => { tr.hidden = q && !tr.textContent.toLowerCase().includes(q); });
+  }
+  $('#rd-people').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (b) { rdState.detail = rdState.detail === b.dataset.p ? null : b.dataset.p; rdRender(); } });
+  $('#rd-detail').addEventListener('click', e => { if (e.target.closest('[data-close]')) { rdState.detail = null; rdRender(); } });
+  $('#rd-models').addEventListener('toggle', () => { if ($('#rd-models').open) rdModels(); });
+  const rdCSV = (file, make) => () => { const r = rdState.res; if (r && r.parts.length) LAB.download(`lt5461-reading-${file}-${state.session}.csv`, LAB.toCSV(make(r))); };
+  $('#rd-csv-trials').addEventListener('click', rdCSV('trials', RD.trialRows));
+  $('#rd-csv-words').addEventListener('click', rdCSV('words', RD.wordRows));
+  $('#rd-csv-people').addEventListener('click', rdCSV('students', RD.participantRows));
+  $('#rd-csv-cond').addEventListener('click', rdCSV('conditions', RD.conditionRows));
+  $('#rd-json').addEventListener('click', () => { const r = rdState.res; if (!r) return; const b = new Blob([RD.json(r, state.session)], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `lt5461-reading-${state.session}.json`; document.body.appendChild(a); a.click(); a.remove(); });
+  $('#rd-report').addEventListener('click', () => rdReport());
+  $('#rd-file').addEventListener('change', async e => {
+    const files = Array.from(e.target.files || []); e.target.value = '';
+    if (!files.length) return;
+    if (!rdState.items) { try { rdState.items = await RC.loadItems(); } catch (er) { rdState.msgs = ['The passages could not be loaded, so nothing was imported.']; rdRender(); return; } }
+    const server = new Set(state.rows.reading.map(r => String(r.pid)).concat(rdState.imported.map(p => p.pid)));
+    const out = await RD.importFiles(files, rdState.items, server);
+    rdState.imported.push(...out.parts);
+    rdState.msgs = [`${files.length} file${files.length > 1 ? 's' : ''} read: ${out.parts.length} student${out.parts.length === 1 ? '' : 's'} added.`].concat(out.messages);
+    rdRender();
+  });
+  $('#rd-clear').addEventListener('click', () => { rdState.imported = []; rdState.msgs = []; rdRender(); });
+
+  function renderReading(rows, starts) {
+    if (!rdState.items && !rdState.failed) {
+      RC.loadItems().then(it => { rdState.items = it; rdRender(); }, () => { rdState.failed = true; rdRender(); });
+      $('#rd-summary').innerHTML = '<li>Loading the passages…</li>';
+      return;
+    }
+    if (rdState.failed) { $('#rd-summary').innerHTML = '<li><strong>The passages (assets/data/causal-items.csv) could not be loaded,</strong> so the results cannot be shown.</li>'; return; }
+    const byId = new Map(rdState.items.map(it => [it.id, it]));
+    const first = new Map();
+    rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(String(r.pid))) first.set(String(r.pid), r); });
+    const parts = [...first.values()].map(r => RD.parseRow(r, byId)).concat(rdState.imported);
+    const compare = $('#rd-compare').checked;
+    const raw = compare ? RD.analyse(parts, starts, RD.NONE) : null;      // first, so the filtered run's labels and reasons stay on the data
+    const res = rdState.res = RD.analyse(parts, starts, rdFilters()), O = res.overview, C = res.counts;
+    const f0 = v => isFinite(v) ? String(Math.round(v)) : '–', pc = v => isFinite(v) ? Math.round(v * 100) + '%' : '–';
+    const sgn = v => isFinite(v) ? (v < 0 ? '−' : v > 0 ? '+' : '±') + Math.abs(Math.round(v)) : '–';
+    const mmss = ms => isFinite(ms) ? `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}` : '–';
+    const tile = (label, value, note) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span><span class="stat-note">${note}</span></div>`;
+    $('#rd-stats').innerHTML =
+      tile('Started', O.started, `list A ${O.startedLists.A}, B ${O.startedLists.B}`) +
+      tile('Completed', O.completed, `list A ${O.lists.A}, B ${O.lists.B}${O.imported ? ` · ${O.imported} imported` : ''}`) +
+      tile('Time taken', mmss(O.durMean), `mean · median ${mmss(O.durMedian)}`) +
+      tile('Recognition', pc(O.recAcc), 'probes answered correctly (practice left out)') +
+      tile('Comprehension', pc(O.compAcc), 'questions answered correctly') +
+      tile('Valid trials', `${C.recValid}<span class="rd-of">/${C.critTrials}</span>`, `critical trials with a usable recognition RT · ${C.critTrials - C.recValid} left out`);
+    $('#rd-import-note').hidden = !rdState.imported.length && !O.simulated;
+    $('#rd-import-note').className = O.simulated ? 'rd-sim' : 'rd-import-note';
+    $('#rd-import-note').textContent = (O.simulated ? `${O.simulated} of these students are SIMULATED (made by the test script), not real participants. ` : '') + (rdState.imported.length ? `Including ${rdState.imported.length} imported student${rdState.imported.length > 1 ? 's' : ''} (I01 …), held in this browser only.` : '');
+    $('#rd-clear').hidden = !rdState.imported.length;
+    $('#rd-import-msgs').innerHTML = rdState.msgs.map(m => `<li>${m.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</li>`).join('');
+
+    // the comparison table
+    const cell = (M, v) => M.key === 'comp' ? (isFinite(v) ? Math.round(v) + '%' : '–') : f0(v);
+    const condCell = (M, B) => `${cell(M, B.mean)}${M.key === 'rec' && isFinite(B.median) ? ` <span class="muted">(${f0(B.median)})</span>` : ''}`;
+    const diffTxt = (M, D) => isFinite(D.d) ? (M.key === 'comp' ? sgn(D.d) + ' pts' : sgn(D.d) + ' ms') : '–';
+    const ciTxt = (M, D) => isFinite(D.ci[0]) ? `${sgn(D.ci[0])} to ${sgn(D.ci[1])}` : '–';
+    $('#rd-main').innerHTML = `<thead><tr><th scope="col">Measure</th><th class="num" scope="col">With “because”</th><th class="num" scope="col">No connective</th><th class="num sep" scope="col">Difference<br><span class="muted">because − none</span></th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col">Students</th><th class="num" scope="col">Trials</th>` +
+      (raw ? `<th class="num sep" scope="col">Unfiltered:<br>because</th><th class="num" scope="col">none</th><th class="num" scope="col">difference</th>` : '') + `</tr></thead><tbody>` +
+      res.meas.map((M, i) => { const W = raw && raw.meas[i];
+        return `<tr><th scope="row">${M.name}<br><span class="muted rd-what">${M.what}</span></th><td class="num">${condCell(M, M.byCond.because)}</td><td class="num">${condCell(M, M.byCond.none)}</td>` +
+          `<td class="num sep"><strong>${diffTxt(M, M.diff)}</strong></td><td class="num">${ciTxt(M, M.diff)}</td><td class="num sep">${M.diff.n}</td><td class="num">${M.nT}</td>` +
+          (W ? `<td class="num sep">${condCell(W, W.byCond.because)}</td><td class="num">${condCell(W, W.byCond.none)}</td><td class="num">${diffTxt(W, W.diff)}</td>` : '') + '</tr>'; }).join('') + '</tbody>';
+    $('#rd-main-note').innerHTML = 'Condition values are means of the students’ own means (recognition RT: median of their medians in brackets). Difference: the mean of each student’s own difference, with a 95% CI over students; a negative RT difference means faster with “because”. Students: those with data in both conditions; trials: the trials counted. These are descriptions of this class; tests are in the model-based analysis below.' +
+      (raw ? ' Unfiltered: no exclusions at all (incorrect probes, extreme times and trials where the page was left included).' : '');
+
+    // figures
+    const Mrec = res.meas[0], Meff = res.meas.find(m => m.key === ((document.querySelector('#rd-eff-m input:checked') || {}).value || 'rec'));
+    RD.pairPlot($('#rd-fig-rec'), Mrec); RD.regionPlot($('#rd-fig-reg'), res);
+    $('#rd-fig-cap').textContent = 'Light lines: each student’s mean in the two conditions. Dark marks: the condition means, with within-student 95% confidence intervals (Cousineau–Morey), which leave out how fast each student is overall and keep the variation that matters for the comparison.';
+    RD.effectStrip($('#rd-fig-eff'), Meff);
+    const ups = Meff.pairs.filter(([a, b]) => b > a).length;
+    $('#rd-eff-cap').textContent = Meff.pairs.length ? `Each bar is one student: their mean without a connective minus their mean with “because” (${Meff.name.replace(/^./, c => c.toLowerCase())}). Above 0: faster with “because” (${ups} of ${Meff.pairs.length} students).` : '';
+    RD.histogram($('#rd-fig-hist'), res);
+    RD.positionPlot($('#rd-fig-pos'), res);
+    $('#rd-pos-cap').textContent = 'Each point: the mean word reading time of the critical passages at that position in the session, averaged over the students who had a passage of that condition there. A downward drift shows practice; an upward one, fatigue.';
+
+    // exclusions
+    const nS = res.parts.length;
+    const ex = [['Students: incomplete sessions', C.partIncomplete, nS], ['Students: comprehension below the cut-off', C.partLowComp, nS], ['Critical trials: student left the page', C.trialsFocus, C.critTrials],
+      ['Recognition RTs: incorrect response', C.recIncorrect, C.critTrials], ['Recognition RTs: faster than the minimum', C.recFast, C.critTrials], ['Recognition RTs: slower than the maximum', C.recSlow, C.critTrials],
+      ['Word times outside the range', C.wordsTrimmed, C.wordsTotal]];
+    $('#rd-excl').innerHTML = `<thead><tr><th scope="col">Left out</th><th class="num" scope="col">Number</th><th class="num" scope="col">Of</th></tr></thead><tbody>` +
+      ex.map(([n, v, of]) => `<tr><th scope="row">${n}</th><td class="num"><strong>${v}</strong></td><td class="num">${of}</td></tr>`).join('') +
+      `<tr><th scope="row">Recognition RTs counted</th><td class="num"><strong>${C.recValid}</strong></td><td class="num">${C.critTrials}</td></tr></tbody>`;
+
+    // students
+    const pm = (P, k, c) => P.m && P.m[k][c] && isFinite(P.m[k][c].mean) ? Math.round(P.m[k][c].mean) : '–';
+    $('#rd-people').innerHTML = !res.parts.length ? '' : `<thead><tr><th scope="col">Student</th><th scope="col">List</th><th scope="col">Status</th><th class="num" scope="col">Time</th><th class="num" scope="col">Critical</th><th class="num" scope="col">Recog. acc.</th><th class="num" scope="col">Compr. acc.</th>` +
+      `<th class="num sep" scope="col">Recog. RT<br>because</th><th class="num" scope="col">none</th><th class="num sep" scope="col">Early<br>because</th><th class="num" scope="col">none</th><th class="num sep" scope="col">Final<br>because</th><th class="num" scope="col">none</th><th class="num sep" scope="col">Left page</th></tr></thead><tbody>` +
+      res.parts.map(P => `<tr${P.why ? ' class="rd-out"' : ''}><th scope="row"><button type="button" data-p="${P.label}" aria-expanded="${rdState.detail === P.label}">${P.label}</button></th><td>${P.list || '–'}</td>` +
+        `<td>${P.complete ? 'complete' : 'incomplete'}${P.why ? ` · left out (${P.why})` : ''}${P.source === 'imported' ? ' · imported' : ''}</td><td class="num">${mmss(P.durationMs)}</td><td class="num">${P.trials.filter(t => t.type === 'critical').length}</td>` +
+        `<td class="num">${pc(P.recAcc)}</td><td class="num">${pc(P.compAcc)}</td><td class="num sep">${pm(P, 'rec', 'because')}</td><td class="num">${pm(P, 'rec', 'none')}</td>` +
+        `<td class="num sep">${pm(P, 'early', 'because')}</td><td class="num">${pm(P, 'early', 'none')}</td><td class="num sep">${pm(P, 'final', 'because')}</td><td class="num">${pm(P, 'final', 'none')}</td><td class="num sep">${P.focus || 0}</td></tr>`).join('') + '</tbody>';
+    rdSearch();
+    const D = res.parts.find(P => P.label === rdState.detail);
+    $('#rd-detail').hidden = !D;
+    if (D) $('#rd-detail').innerHTML = `<h3>${D.label} · list ${D.list || '–'} · ${D.complete ? 'complete' : 'incomplete'}${D.why ? ` · left out (${D.why})` : ''} <button class="btn-quiet" type="button" data-close>Close</button></h3><div class="table-wrap" data-label="Trials of ${D.label}">${RD.participantDetail(D)}</div><p class="small muted">Greyed rows are left out of the comparison under the current exclusions (for the recognition RT; reading times are kept unless the student left the page).</p>`;
+
+    if ($('#rd-models').open) rdModels();
+
+    // summary (descriptive)
+    const items = [];
+    if (!res.parts.length) items.push(`<li><strong>No runs yet for this class.</strong> ${O.started ? `${O.started} student${O.started > 1 ? 's have' : ' has'} started.` : 'Results appear here as students finish.'}</li>`);
+    else {
+      items.push(`<li><strong>Taking part.</strong> ${O.completed} of ${Math.max(O.started, O.completed)} students who started have finished ${inline(`list A ${O.lists.A}, list B ${O.lists.B}; median time ${mmss(O.durMedian)}`)}${res.inc.length < res.parts.length ? `; ${res.parts.length - res.inc.length} left out (see Data quality)` : ''}.</li>`);
+      const M = res.meas, desc = (m, verb) => isFinite(m.diff.d) ? `${verb} ${f0(m.byCond.because.mean)} ms with “because” and ${f0(m.byCond.none.mean)} ms without ${inline(`difference ${sgn(m.diff.d)} ms, 95% CI ${ciTxt(m, m.diff)}, ${m.diff.n} student${m.diff.n === 1 ? '' : 's'}`)}` : `${verb}: not enough data yet`;
+      items.push(`<li><strong>Recognition.</strong> ${desc(M[0], 'Recognising the first-clause verb took')}.</li>`);
+      items.push(`<li><strong>Reading the second clause.</strong> ${desc(M[1], 'Its first three words took')}; ${desc(M[2], 'its last three')}.</li>`);
+      if (isFinite(M[3].diff.d)) items.push(`<li><strong>Comprehension.</strong> ${Math.round(M[3].byCond.because.mean)}% correct with “because” and ${Math.round(M[3].byCond.none.mean)}% without ${inline(`${M[3].nT} answers from ${M[3].diff.n} student${M[3].diff.n === 1 ? '' : 's'}`)}.</li>`);
+      items.push('<li><strong>These are descriptions.</strong> Whether a difference is reliable is tested in the model-based analysis below, and what each measure can show is set out under “What this design can and cannot show”.</li>');
+    }
+    $('#rd-summary').innerHTML = items.join('');
+  }
+
+  /* Model-based analysis: run when its section is opened, again only when the data or exclusions change. */
+  function rdModels() {
+    const res = rdState.res; if (!res) return;
+    const key = JSON.stringify([res.F, res.inc.map(p => p.pid + p.trials.length)]);
+    const nA = res.inc.filter(p => p.list === 'A').length, nB = res.inc.filter(p => p.list === 'B').length;
+    $('#rd-models-warn').hidden = !(res.inc.length < 12 || nA < 6 || nB < 6);
+    $('#rd-models-warn').textContent = `Only ${res.inc.length} students (list A ${nA}, list B ${nB}): too few for these estimates to be trustworthy. Read them as an illustration of the method, not as a result.`;
+    if (rdState.modelKey !== key) {
+      rdState.modelKey = key;
+      $('#rd-models-table').innerHTML = '<tbody><tr><td>Fitting the models…</td></tr></tbody>';
+      setTimeout(() => { rdState.models = res.meas.map(M => ({ M, f1: M.diff, f2: RD.byItem(res, M.key), lmm: M.key === 'comp' ? null : RD.lmm(res, M.key) })); rdModelTable(); }, 30);
+      return;
+    }
+    rdModelTable();
+  }
+  function rdModelTable() {
+    const sgn = v => isFinite(v) ? (v < 0 ? '−' : v > 0 ? '+' : '±') + Math.abs(Math.round(v)) : '–';
+    const tp = T => T && isFinite(T.t) ? `${LAB.fmtTest({ t: T.t, df: T.df, p: T.p })}` : '–';
+    const unit = M => (M.key === 'comp' ? ' pts' : ' ms');
+    const pair = (M, T) => T && isFinite(T.d) ? `${sgn(T.d)}${unit(M)} <span class="muted">[${sgn(T.ci[0])}, ${sgn(T.ci[1])}]</span><br>${tp(T)}` : '–';
+    const mod = L => !L ? '<span class="muted">not fitted (accuracy)</span>' : !L.ok ? `<span class="muted">${L.reason}</span>` :
+      `×${L.ratio.toFixed(3)} <span class="muted">[${L.ratioCI[0].toFixed(3)}, ${L.ratioCI[1].toFixed(3)}]</span><br>${LAB.fmtTest({ t: L.t, df: L.df, p: L.p })}${L.converged ? '' : ' <span class="muted">(check convergence)</span>'}`;
+    $('#rd-models-table').innerHTML = `<thead><tr><th scope="col">Measure</th><th class="num" scope="col">By students<br><span class="muted">paired t, means</span></th><th class="num" scope="col">By items<br><span class="muted">paired t, item means</span></th><th class="num" scope="col">Mixed model, log RT<br><span class="muted">because ÷ none</span></th></tr></thead><tbody>` +
+      rdState.models.map(({ M, f1, f2, lmm }) => `<tr><th scope="row">${M.name}</th><td class="num">${pair(M, f1)}</td><td class="num">${pair(M, f2)}</td><td class="num">${mod(lmm)}</td></tr>`).join('') + '</tbody>';
+    $('#rd-models-note').innerHTML = 'By students: each student’s mean difference (because − none), paired <i>t</i>-test over students. By items: each item’s mean in the two conditions (from the students who saw it in each), paired <i>t</i>-test over items. Mixed model: log RT ~ connective (because +½, none −½) + (1 | student) + (1 | item), fitted by REML with Satterthwaite degrees of freedom (as lme4/lmerTest); the effect is shown as a ratio (below 1: faster with “because”) with its 95% CI. The same exclusions as above apply. Two-tailed; exploratory, not corrected for the several measures.';
+  }
+
+  // A self-contained HTML report: the summary, the tables and the figures (their styles written into each element).
+  function rdReport() {
+    const res = rdState.res; if (!res) return;
+    const clone = sel => { const el = document.querySelector(sel); if (!el) return ''; const c = el.cloneNode(true);
+      const src = el.querySelectorAll('svg *'), dst = c.querySelectorAll('svg *');
+      src.forEach((s, i) => { const cs = getComputedStyle(s); ['fill', 'stroke', 'stroke-width', 'stroke-opacity', 'fill-opacity', 'opacity', 'font-size', 'font-weight', 'font-family', 'stroke-dasharray', 'stroke-linecap', 'paint-order'].forEach(p => dst[i].style.setProperty(p, cs.getPropertyValue(p))); });
+      c.querySelectorAll('svg').forEach(s => { s.style.maxWidth = '100%'; s.style.height = 'auto'; s.style.background = '#fff'; });
+      return c.outerHTML; };
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Reading task results · ${state.session}</title><style>
+      body{font:15px/1.55 -apple-system,'Segoe UI',Arial,sans-serif;color:#1b1b1b;max-width:980px;margin:2rem auto;padding:0 1rem}h1{font-size:1.5rem}h2{font-size:1.15rem;margin-top:2rem}
+      table{border-collapse:collapse;width:100%;font-size:13px;margin:.5rem 0}th,td{border-bottom:1px solid #ddd;padding:.35rem .5rem;text-align:left;vertical-align:top}td.num,th.num{text-align:right}.muted{color:#666}
+      .stats{display:flex;flex-wrap:wrap;gap:1rem}.stat{border-top:2px solid #1b1b1b;padding:.4rem 0;min-width:10rem}.stat-label{display:block;font-size:12px;color:#555}.stat-value{display:block;font-size:1.5rem;font-weight:700}.stat-note{font-size:12px;color:#555}
+      figure{margin:1rem 0}button{display:none}</style></head><body>
+      <h1>Reading task: causal connectives · class ${state.session}</h1><p class="muted">Exported ${new Date().toLocaleString()} from the LT5461 results page. Exclusions: ${JSON.stringify(res.F)}.</p>
+      <h2>Summary</h2>${clone('#rd-summary')}${clone('#rd-stats')}<h2>“Because” vs no connective</h2>${clone('#rd-main')}${clone('#rd-main-note')}
+      <h2>Figures</h2>${clone('#rd-fig-rec')}${clone('#rd-fig-reg')}${clone('#rd-fig-cap')}${clone('#rd-fig-eff')}${clone('#rd-fig-hist')}${clone('#rd-fig-pos')}
+      <h2>Data quality</h2>${clone('#rd-excl')}${rdState.models ? '<h2>Model-based analysis</h2>' + clone('#rd-models-warn') + clone('#rd-models-table') + clone('#rd-models-note') : ''}
+      <h2>What this design can and cannot show</h2>${clone('.rd-limits')}</body></html>`;
+    const b = new Blob([html], { type: 'text/html' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = `lt5461-reading-report-${state.session}.html`; document.body.appendChild(a); a.click(); a.remove();
   }
 
   /* ---------- bird task: typicality ratings → semantic map ----------

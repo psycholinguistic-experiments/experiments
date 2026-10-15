@@ -24,7 +24,7 @@
         .tab { white-space: nowrap; }
         /* Eight tabs: one row on a 1440 projector; they wrap rather than overflow on anything narrower. */
         .tabs { flex-wrap: wrap; row-gap: 0; }
-        @media (min-width: 1041px) { .tab { padding-left: 0.42rem; padding-right: 0.42rem; font-size: 0.88rem; } .tab .n { margin-left: 0.25rem; } }
+        @media (min-width: 1041px) { .tab { padding-left: 0.26rem; padding-right: 0.26rem; font-size: 0.84rem; } .tab .n { margin-left: 0.25rem; } }
         @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         /* Phones: one row of tabs that scrolls sideways (after the rule above, which it overrides). */
         @media (max-width: 600px) { .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .tab { flex: 0 0 auto; } }
@@ -49,7 +49,8 @@
         @media (max-width: 900px) {
             #panel-report .table-wrap.scrolls table.data tbody th[scope="row"], #panel-report .table-wrap.scrolls table.data thead tr:first-child th:first-child,
             #panel-animals .table-wrap.scrolls table.data tbody th[scope="row"], #panel-animals .table-wrap.scrolls table.data thead tr:first-child th:first-child,
-            #panel-fluency .table-wrap.scrolls table.data tbody th[scope="row"], #panel-fluency .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
+            #panel-fluency .table-wrap.scrolls table.data tbody th[scope="row"], #panel-fluency .table-wrap.scrolls table.data thead tr:first-child th:first-child,
+            #panel-reading .table-wrap.scrolls table.data tbody th[scope="row"], #panel-reading .table-wrap.scrolls table.data thead tr:first-child th:first-child { min-width: min(10rem, 44vw); max-width: min(12rem, 46vw); overflow-wrap: normal; }
         }
         /* the strip plots' mean labels stay readable where a grid or zero line crosses them */
         #panel-animals .chart .mean-label, #panel-fluency .chart .mean-label { paint-order: stroke; stroke: var(--bg); stroke-width: 9px; stroke-linejoin: round; }
@@ -389,6 +390,50 @@
         .v-prof-pair, .an-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
         @media (min-width: 900px) { .v-prof-pair, .an-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .an-pair .figure { max-width: none; }
+        /* Reading tab */
+        :root { --cond-bec: #2f6db5; --cond-non: #c8622a; }
+        .chart.rd line.c-bec, .chart.rd path.c-bec { stroke: var(--cond-bec); } .chart.rd line.c-non, .chart.rd path.c-non { stroke: var(--cond-non); }
+        .chart.rd circle.c-bec, .chart.rd rect.c-bec, .chart.rd text.c-bec { fill: var(--cond-bec); } .chart.rd circle.c-non, .chart.rd rect.c-non, .chart.rd text.c-non { fill: var(--cond-non); }
+        .chart.rd .rd-pair line { stroke: var(--border-strong); stroke-width: 1; } .chart.rd .rd-pair circle { fill: var(--text-light); opacity: 0.6; }
+        .chart.rd .rd-ci { stroke-width: 2.5; stroke-linecap: round; }
+        .chart.rd .rd-line { stroke-width: 2.5; } .chart.rd .rd-line.thin { stroke-width: 1.25; stroke-opacity: 0.7; }
+        .chart.rd .rd-stem { stroke: var(--border-strong); stroke-width: 1.5; }
+        .chart.rd .rd-bar { opacity: 0.85; }
+        .chart.rd .rd-med { stroke: var(--text); stroke-width: 1.5; stroke-dasharray: 3 3; }
+        .chart.rd .rd-note { font-size: 12.5px; fill: var(--text-secondary); }
+        .chart.rd .rd-key { font-size: 13px; }
+        @media (min-width: 1100px) { #rd-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        .rd-of { font-size: 0.55em; font-weight: 600; color: var(--text-secondary); }
+        .rd-what { font-weight: 400; font-size: 0.86em; }
+        .rd-sim { border-left: 3px solid var(--danger); padding: 0.4rem 0.75rem; background: var(--bg-alt); color: var(--text); }
+        .rd-check { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0 1rem; font-size: 0.95rem; color: var(--text); cursor: pointer; }
+        .rd-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--text); }
+        .rd-filters { border: 1px solid var(--border); border-radius: 4px; padding: 0.9rem 1rem; display: grid; gap: 0.55rem; max-width: 52rem; margin: 0.5rem 0 1rem; }
+        .rd-filters label { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0.55rem; font-size: 0.95rem; color: var(--text); line-height: 2; }
+        .rd-filters label input[type=checkbox] { align-self: center; }
+        .rd-filters input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--text); flex: none; }
+        .rd-filters input[type=number] { width: 5.2rem; font: inherit; padding: 0.15rem 0.35rem; border: 1px solid var(--border-input); border-radius: 3px; background: var(--bg); color: var(--text); }
+        .rd-filters .btn-quiet { justify-self: start; }
+        .rd-search { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0 0.75rem; }
+        .rd-search input { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--border-input); border-radius: 4px; min-width: 16rem; background: var(--bg); color: var(--text); }
+        #rd-people tbody th button { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0.2rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; }
+        #rd-people tr.rd-out td, #rd-people tr.rd-out th { color: var(--text-light); }
+        .rd-detail { margin: 1rem 0 1.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+        .rd-detail h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+        .rd-trials td { vertical-align: top; font-size: 0.9rem; }
+        .rd-trials tr.rd-out td { color: var(--text-light); }
+        .rd-pass { line-height: 1.9; min-width: 22rem; }
+        .rd-w { padding: 0.05rem 0.2rem; border-radius: 2px; background: color-mix(in srgb, var(--text) calc(var(--a) * 100%), transparent); color: var(--text); }
+        .rd-w[style*="--a:0.6"], .rd-w[style*="--a:0.7"] { color: var(--bg); }
+        .rd-warn { border-left: 3px solid var(--danger); padding: 0.5rem 0.75rem; background: var(--bg-alt); color: var(--text); max-width: var(--measure); }
+        .rd-limits { padding-left: 1.2rem; color: var(--text-secondary); }
+        .rd-limits li + li { margin-top: 0.45rem; }
+        .rd-dl, .rd-import { flex-wrap: wrap; gap: 0.5rem 1.5rem; display: flex; align-items: center; }
+        .rd-import { margin-top: 0.75rem; }
+        .rd-import label.btn-quiet { cursor: pointer; }
+        .rd-import input:focus-visible + label, .rd-import label:focus-within { outline: 2px solid var(--text); outline-offset: 3px; }
+        .rd-msgs { padding-left: 1.1rem; color: var(--text-secondary); }
+        .rd-import-note { border-left: 3px solid var(--text-light); padding: 0.4rem 0.75rem; background: var(--bg-alt); color: var(--text); }
         /* Fluency tab */
         #fl-mode, #fl-scale { margin: 0 0 0.75rem; }
         #fl-scale { margin-bottom: 1.25rem; }
@@ -550,6 +595,7 @@
                 <button class="tab" role="tab" id="tab-report" aria-controls="panel-report" aria-selected="false" tabindex="-1">Report task<span class="n" id="n-report"></span></button>
                 <button class="tab" role="tab" id="tab-animals" aria-controls="panel-animals" aria-selected="false" tabindex="-1">Animal task<span class="n" id="n-animals"></span></button>
                 <button class="tab" role="tab" id="tab-fluency" aria-controls="panel-fluency" aria-selected="false" tabindex="-1">Fluency task<span class="n" id="n-fluency"></span></button>
+                <button class="tab" role="tab" id="tab-reading" aria-controls="panel-reading" aria-selected="false" tabindex="-1">Reading task<span class="n" id="n-reading"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -1024,6 +1070,98 @@
                     </section>
                 </div>
             </section>
+            <!-- Reading task (self-paced reading, causal connectives; after Millis & Just, 1994) -->
+            <section id="panel-reading" role="tabpanel" aria-labelledby="tab-reading" hidden>
+                <div class="veil">
+                    <span class="stat-label">Reading task</span><div class="big" id="veil-reading">0</div>
+                </div>
+                <div class="results-body">
+                    <section class="summary" aria-labelledby="rd-sum-h"><h2 id="rd-sum-h">Summary</h2><ul id="rd-summary"></ul></section>
+                    <div class="stats" id="rd-stats"></div>
+                    <p class="rd-import-note" id="rd-import-note" hidden></p>
+
+                    <h2>“Because” vs no connective</h2>
+                    <p class="q-lead">Each student read 10 critical passages with “because” and 10 without (lists A and B swap which). Recognition RT is the time to say that the first-clause verb (e.g. <i>congratulated</i>) had appeared.</p>
+                    <div class="table-wrap" data-label="Condition comparison"><table class="data" id="rd-main"></table></div>
+                    <p class="small muted column" id="rd-main-note"></p>
+                    <label class="rd-check"><input type="checkbox" id="rd-compare"><span>Show the unfiltered results alongside</span></label>
+                    <div class="multiples an-pair">
+                        <figure class="figure"><h4>Recognition RT</h4><div id="rd-fig-rec"></div></figure>
+                        <figure class="figure"><h4>Second-clause reading time</h4><div id="rd-fig-reg"></div></figure>
+                    </div>
+                    <p class="chart-caption" id="rd-fig-cap"></p>
+
+                    <h3 class="sub">Each student’s effect</h3>
+                    <fieldset class="seg" id="rd-eff-m">
+                        <legend class="visually-hidden">Measure</legend>
+                        <label><input type="radio" name="rd-eff-m" value="rec" checked><span>Recognition RT</span></label>
+                        <label><input type="radio" name="rd-eff-m" value="early"><span>Early second clause</span></label>
+                        <label><input type="radio" name="rd-eff-m" value="final"><span>Final second clause</span></label>
+                    </fieldset>
+                    <div id="rd-fig-eff"></div>
+                    <p class="chart-caption" id="rd-eff-cap"></p>
+                    <h3 class="sub">Recognition RTs, trial by trial</h3>
+                    <div id="rd-fig-hist"></div>
+                    <p class="chart-caption">Every counted trial (after the exclusions). Dashed line: the median trial; the table above gives the median of the students’ medians, so the two can differ slightly.</p>
+                    <h3 class="sub">Across the session</h3>
+                    <div id="rd-fig-pos"></div>
+                    <p class="chart-caption" id="rd-pos-cap"></p>
+
+                    <h2>Data quality</h2>
+                    <fieldset class="rd-filters" id="rd-filters">
+                        <legend class="visually-hidden">Exclusions</legend>
+                        <label><input type="checkbox" data-f="correctOnly" checked><span>Recognition RT: correct responses only</span></label>
+                        <label><input type="checkbox" data-f="probeBounds" checked><span>Recognition RT between <input type="number" data-f="probeMin" value="200" min="0" step="50" aria-label="minimum recognition RT (ms)"> and <input type="number" data-f="probeMax" value="5000" min="0" step="100" aria-label="maximum recognition RT (ms)"> ms</span></label>
+                        <label><input type="checkbox" data-f="wordTrim" checked><span>Word times between <input type="number" data-f="wordMin" value="100" min="0" step="10" aria-label="minimum word time (ms)"> and <input type="number" data-f="wordMax" value="3000" min="0" step="100" aria-label="maximum word time (ms)"> ms</span></label>
+                        <label><input type="checkbox" data-f="focus" checked><span>Leave out trials during which the student left the page</span></label>
+                        <label><input type="checkbox" data-f="incomplete" checked><span>Leave out incomplete sessions</span></label>
+                        <label><input type="checkbox" data-f="lowComp" checked><span>Leave out students below <input type="number" data-f="compMin" value="60" min="0" max="100" step="5" aria-label="minimum comprehension accuracy (%)"> % comprehension accuracy</span></label>
+                        <button class="btn-quiet" type="button" id="rd-reset">Back to the defaults</button>
+                    </fieldset>
+                    <div class="table-wrap column" data-label="Exclusions"><table class="data" id="rd-excl"></table></div>
+                    <p class="small muted column">Exclusions only change what is counted here; the stored data are never changed, and every download keeps all observations (with the reason a trial was left out).</p>
+
+                    <h2>Students</h2>
+                    <div class="rd-search"><label for="rd-q">Find</label><input id="rd-q" type="search" placeholder="P03, left out, imported …" autocomplete="off"></div>
+                    <div class="table-wrap" data-label="Students"><table class="data" id="rd-people"></table></div>
+                    <div id="rd-detail" class="rd-detail" hidden></div>
+
+                    <section class="q" aria-labelledby="rd-m-h">
+                        <details class="more" id="rd-models">
+                            <summary id="rd-m-h">Model-based analysis <span class="sum-note">by students, by items, and mixed models of log RT</span></summary>
+                            <p class="rd-warn" id="rd-models-warn" hidden></p>
+                            <div class="table-wrap" data-label="Models"><table class="data" id="rd-models-table"></table></div>
+                            <p class="small muted column" id="rd-models-note"></p>
+                        </details>
+                    </section>
+
+                    <h2>What this design can and cannot show</h2>
+                    <ul class="rd-limits column">
+                        <li>“Because” also changes the punctuation and the sentence boundary: with it, the passage is one sentence; without it, two. A difference may come from either.</li>
+                        <li>Every critical probe is a word that did appear (and every filler probe one that did not), so the right answer can be guessed from the trial type, and false alarms on critical items cannot be measured.</li>
+                        <li>Faster recognition shows that the first-clause verb was easier to access; on its own it does not show that the two clauses were causally integrated.</li>
+                        <li>The early and final regions (first and last three words of the second clause) are approximate: the point where the causal link becomes clear differs between passages.</li>
+                        <li>Trial order, item differences and individual reading speed affect reading times; the counterbalanced lists and the by-student and by-item analyses address this only in part. This is a classroom study, not a confirmatory experiment.</li>
+                    </ul>
+
+                    <h2>Data</h2>
+                    <div class="actions rd-dl">
+                        <button class="btn-quiet" id="rd-csv-trials" type="button">Trials (CSV)</button>
+                        <button class="btn-quiet" id="rd-csv-words" type="button">Words (CSV)</button>
+                        <button class="btn-quiet" id="rd-csv-people" type="button">Students (CSV)</button>
+                        <button class="btn-quiet" id="rd-csv-cond" type="button">Conditions (CSV)</button>
+                        <button class="btn-quiet" id="rd-json" type="button">Everything (JSON)</button>
+                        <button class="btn-quiet" id="rd-report" type="button">Report (HTML)</button>
+                    </div>
+                    <div class="rd-import">
+                        <label class="btn-quiet" for="rd-file">Import earlier files (CSV or JSON)</label>
+                        <input id="rd-file" type="file" accept=".csv,.json,text/csv,application/json" multiple class="visually-hidden">
+                        <button class="btn-quiet" type="button" id="rd-clear" hidden>Remove imported data</button>
+                    </div>
+                    <p class="small muted column">Import takes the trial and word CSV files (and the JSON file) saved by the class’s earlier HTML version of this task, or this page’s own downloads. Imported students stay in this browser only (they are not uploaded) and are marked I01, I02 …</p>
+                    <ul class="rd-msgs small" id="rd-import-msgs"></ul>
+                </div>
+            </section>
             <!-- Bird task (typicality ratings → semantic map, as in Bird plot.Rmd) -->
             <section id="panel-birds" class="waiting" role="tabpanel" aria-labelledby="tab-birds" hidden>
                 <div class="veil">
@@ -1265,6 +1403,8 @@
     <script src="assets/animal-map.js?v=3"></script>
     <script src="assets/semnet.js?v=1"></script>
     <script src="assets/fluency-analysis.js?v=5"></script>
-    <script src="assets/dashboard.js?v=123"></script>
+    <script src="assets/reading-core.js?v=1"></script>
+    <script src="assets/reading-analysis.js?v=3"></script>
+    <script src="assets/dashboard.js?v=126"></script>
 </body>
 </html>
