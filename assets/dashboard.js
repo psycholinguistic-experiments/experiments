@@ -2579,45 +2579,51 @@
   }
 
   /* ---------- fluency task: semantic fluency in Chinese and two curiosity subscales ----------
-     Analysis in fluency-analysis.js. Each student counts once (their first
-     run); students whose first language is not Chinese are left out. */
+     Analysis in fluency-analysis.js (networks: semnet.js, ported from SemNeT
+     2.0.0). Each student counts once (their first run); students whose first
+     language is not Chinese are left out. */
   const FL = window.FLUENCY;
   const flState = { res: null, lexFailed: false };
   const segVal = (id, d) => (document.querySelector(`#${id} input:checked`) || {}).value || d;
-  $('#fl-mode').addEventListener('change', () => { lastKey = ''; render(); });
-  $('#fl-cat').addEventListener('change', () => { lastKey = ''; render(); });
-  $('#fl-scale').addEventListener('change', () => { lastKey = ''; render(); });
+  ['#fl-mode', '#fl-scale', '#fl-gcat', '#fl-meas', '#fl-cat'].forEach(id => $(id).addEventListener('change', () => { lastKey = ''; render(); }));
   const flCSV = (file, make) => () => { const r = flState.res; if (r && r.all.length) LAB.download(`lt5461-fluency-${file}-${state.session}.csv`, LAB.toCSV(make(r))); };
   $('#fl-csv-ans').addEventListener('click', flCSV('answers', FL.answerRows));
   $('#fl-csv-stu').addEventListener('click', flCSV('students', FL.studentRows));
   $('#fl-csv-an').addEventListener('click', flCSV('animals-matrix', r => FL.matrixRows(r, 'an')));
   $('#fl-csv-fv').addEventListener('click', flCSV('fruitveg-matrix', r => FL.matrixRows(r, 'fv')));
+  $('#fl-csv-net').addEventListener('click', flCSV('network-measures', r => FL.netTables(r).meas));
+  $('#fl-csv-nodes').addEventListener('click', flCSV('network-nodes', r => FL.netTables(r).nodes));
+  $('#fl-csv-edges').addEventListener('click', flCSV('network-edges', r => FL.netTables(r).edges));
 
   function renderFluency(rows) {
     // the word list (0.6 MB) loads with the tab's first drawing; until then, a note
     if (!FL.lexReady() && !flState.lexFailed) {
       FL.loadLex().then(() => { lastKey = ''; render(); }, () => { flState.lexFailed = true; lastKey = ''; render(); });
-      $('#fl-summary').innerHTML = '<li>Loading the SUBTLEX-CH word list…</li>';
+      $('#fl-summary').innerHTML = '<li>Loading the SUBTLEX-CH word list and the category lists…</li>';
       return;
     }
-    const lexIn = document.querySelector('#fl-mode input[value=lex]');
-    if (flState.lexFailed) { lexIn.disabled = true; document.querySelector('#fl-mode input[value=all]').checked = true; }
+    if (flState.lexFailed) { document.querySelectorAll('#fl-mode input:not([value=all])').forEach(i => { i.disabled = true; }); document.querySelector('#fl-mode input[value=all]').checked = true; }
     const first = new Map();
     rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(r.pid)) first.set(r.pid, r); });
-    const mode = flState.lexFailed ? 'all' : segVal('fl-mode', 'lex'), cat = segVal('fl-cat', 'both');
+    const mode = flState.lexFailed ? 'all' : segVal('fl-mode', 'valid');
     const res = flState.res = FL.analyse([...first.values()], mode, segVal('fl-scale', 'full')), S = res.S, rg = res.range;
-    const unit = mode === 'all' ? 'different entries' : 'words in SUBTLEX-CH';
+    const gcat = segVal('fl-gcat', 'an'), meas = segVal('fl-meas', 'total'), cat = segVal('fl-cat', 'both');
+    const unit = { valid: 'valid words (in SUBTLEX-CH and on the category list)', lex: 'words in SUBTLEX-CH', all: 'different entries' }[mode];
     const NAME = { an: 'Animals', fv: 'Fruits & vegetables', both: 'Mean of both' };
-    const f1 = v => isFinite(v) ? v.toFixed(1) : '–', rr = FL.fmtR;
-    const col = k => S.map(s => s.n[k]).filter(isFinite), sc = k => res.scored.map(s => s[k]);
-    const ITEMS_TXT = res.scale === 'short' ? 'the four items per subscale that the 5DCR keeps (without joy2 and depriv5), as in the class’s earlier analysis' : 'all five items per subscale (5DC)';
+    const f1 = v => isFinite(v) ? v.toFixed(1) : '–', f2 = v => isFinite(v) ? v.toFixed(2) : '–', f3 = v => isFinite(v) ? v.toFixed(3) : '–', rr = FL.fmtR;
+    // slopes: 2 decimals, or 3 when they are small (unique responses are counts of a few words)
+    const sgn = (v, d = 2) => { if (!isFinite(v)) return '–'; const e = 0.5 * 10 ** -d; return (v <= -e ? '−' : v >= e ? '+' : '') + Math.abs(v).toFixed(d); };
+    const col = (f, k) => S.map(s => s[f][k]).filter(isFinite), sc = k => res.scored.map(s => s[k]);
     const sdTxt = a => a.length > 1 ? ` · SD ${f1(LAB.sd(a))}` : '';
+    const msd = a => a.length ? `${f1(LAB.mean(a))}${a.length > 1 ? ` <span class="muted">(${f1(LAB.sd(a))})</span>` : ''}` : '–';
+    const ITEMS_TXT = res.scale === 'short' ? 'the four items per subscale that the 5DCR keeps (without joy2 and depriv5), as in the class’s earlier analysis' : 'all five items per subscale (5DC)';
+    const W = (id, max) => Math.max(300, Math.min(max || 1000, Math.round($(id).getBoundingClientRect().width) || (max || 1000)));
 
     // tiles
     const tile = (label, value, note) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span><span class="stat-note">${note}</span></div>`;
     $('#fl-stats').innerHTML =
-      tile('Animals', f1(LAB.mean(col('an'))), `Mean ${unit} in 2 min${sdTxt(col('an'))}`) +
-      tile('Fruits &amp; vegetables', f1(LAB.mean(col('fv'))), `Mean ${unit} in 2 min${sdTxt(col('fv'))}`) +
+      tile('Animals', f1(LAB.mean(col('n', 'an'))), `Total responses per student${sdTxt(col('n', 'an'))} · unique ${f1(LAB.mean(col('u', 'an')))}`) +
+      tile('Fruits &amp; vegetables', f1(LAB.mean(col('n', 'fv'))), `Total responses per student${sdTxt(col('n', 'fv'))} · unique ${f1(LAB.mean(col('u', 'fv')))}`) +
       tile('Joyous exploration', f1(LAB.mean(sc('J'))), `Mean of ${rg} · median ${isFinite(res.medJ) ? +res.medJ.toFixed(1) : '–'}`) +
       tile('Deprivation sensitivity', f1(LAB.mean(sc('D'))), `Mean of ${rg} · median ${isFinite(res.medD) ? +res.medD.toFixed(1) : '–'}`) +
       tile('Took part', res.n, `students${res.excluded ? ` · ${res.excluded} more not counted (Chinese not a first language)` : ''}`);
@@ -2629,55 +2635,95 @@
       $('#fl-map-cap').textContent = `Each dot is a student (larger: several students with the same two scores). Scores: the sum of ${ITEMS_TXT}, ${rg}. Dashed lines: the class medians; above the median counts as high, so each student falls in one of four profiles (D = deprivation sensitivity, J = joyous exploration).`;
     }
 
-    // counts
-    const W = id => Math.max(300, Math.min(1000, Math.round($(id).getBoundingClientRect().width) || 1000));
-    if (!S.length) { $('#fl-counts').innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#fl-counts-cap').textContent = ''; }
+    // groups: the class and the four profiles, for the chosen category
+    const N = res.scored.length ? FL.networks(res, gcat) : null;
+    const netOf = g => !N ? null : g.key === 'class' ? N.classNet : N.profiles.find(p => p.key === g.key);
+    $('#fl-groups').innerHTML = !res.scored.length ? '' :
+      `<thead><tr><th scope="col">Group</th><th class="num" scope="col"><i>n</i></th><th class="num" scope="col">Total responses</th><th class="num" scope="col">Unique responses</th><th class="num" scope="col">Different words</th>` +
+      `<th class="num sep" scope="col">Nodes</th><th class="num" scope="col">Edges</th><th class="num" scope="col">CC</th><th class="num" scope="col">ASPL</th><th class="num" scope="col">Q</th><th class="num" scope="col">Communities</th></tr></thead><tbody>` +
+      res.groups.map(g => { const G = g.cat[gcat], net = netOf(g), ok = net && net.A;
+        return `<tr${g.key === 'class' ? ' class="fl-classrow"' : ''}><th scope="row">${g.name}</th><td class="num">${g.S.length}</td><td class="num">${msd(G.total)}</td><td class="num">${msd(G.unique)}</td><td class="num">${G.types}</td>` +
+          `<td class="num sep">${ok ? net.nodes : '–'}</td><td class="num">${ok ? net.edges : '–'}</td><td class="num">${ok ? f3(net.cc) : '–'}</td><td class="num">${ok ? f3(net.aspl) : '–'}</td><td class="num">${ok ? f3(net.q) : '–'}</td><td class="num">${ok ? net.communities : '–'}</td></tr>`; }).join('') + '</tbody>';
+    $('#fl-groups-note').innerHTML = res.scored.length ? `${NAME[gcat]}. Total responses: a student’s ${unit}, repeats counted once; unique responses: those of them no other student in the class gave; mean <span class="muted">(SD)</span> per student. Different words: how many different ones the group gave together. ` +
+      `Nodes: words given by at least 2 of the group’s students; for the four profiles, only the words all four share (equated, so their networks have the same nodes), which is why the profiles’ networks are smaller than the class’s.` +
+      (N && N.finalized ? ` Before equating: ${N.finalized.join(', ')} words.` : '') : '';
+
+    // networks
+    const netLead = $('#fl-net-lead');
+    if (!N) { netLead.textContent = ''; ['#fl-net-class', '#fl-net-class-h', '#fl-net-class-m', '#fl-net-grid', '#fl-metrics', '#fl-net-cap'].forEach(id => { $(id).innerHTML = ''; }); }
     else {
-      const hi = Math.max(10, ...col('an'), ...col('fv'));
-      LAB.stripPlot($('#fl-counts'), [
-        { label: 'Animals', sub: `n = ${col('an').length}`, values: col('an').map(v => ({ v })) },
-        { label: 'Fruits & veg', sub: `n = ${col('fv').length}`, values: col('fv').map(v => ({ v })) }
-      ], { width: W('#fl-counts'), r: W('#fl-counts') < 520 ? 5 : 6, domain: [0, Math.ceil(hi / 5) * 5], fixed: true, signed: false, unit: '', fmt: v => v.toFixed(1),
-        xLabel: W('#fl-counts') < 520 ? 'Words in 2 minutes' : `Number of ${unit} in 2 minutes`, ariaLabel: `Words per student: animals mean ${f1(LAB.mean(col('an')))}, fruits and vegetables mean ${f1(LAB.mean(col('fv')))}` });
-      $('#fl-counts-cap').textContent = `Each dot is a student: the number of ${unit} they wrote (repeats count once). The mark and band: the class mean with its 95% CI.`;
+      netLead.innerHTML = 'Built as SemNeT does: for each group, the words given by at least 2 of its students; cosine similarity between words over the students; a Triangulated Maximally Filtered Graph (TMFG). Links are the TMFG’s; thicker and darker = higher cosine similarity. Larger dot = more of the group’s students gave the word.';
+      const metr = n => `CC <b>${f3(n.cc)}</b> · ASPL <b>${f3(n.aspl)}</b> · Q <b>${f3(n.q)}</b> <span class="muted">(${f3(n.qRange[0])}–${f3(n.qRange[1])} over 100 seeds)</span> · ${n.nodes} nodes, ${n.edges} edges`;
+      const C = N.classNet;
+      $('#fl-net-class-h').innerHTML = `Whole class <span class="muted">· ${res.scored.length} students</span>`;
+      if (C && C.A) {
+        const ws = []; for (let i = 0; i < C.A.length; i++) for (let j = i + 1; j < C.A.length; j++) if (C.A[i][j]) ws.push(C.A[i][j]);
+        const narrowNet = W('#fl-net-class') < 620, top = narrowNet && C.nodes > 30 ? 25 : 0;
+        FL.netPanel($('#fl-net-class'), C, C.layout, { max: 1000, ratio: narrowNet ? 1.5 : 0.62, upright: narrowNet, labelTop: top, wRange: [Math.min(...ws), Math.max(...ws)], label: `Semantic network of the whole class, ${NAME[gcat].toLowerCase()}: ${C.nodes} words` });
+        $('#fl-net-class-m').innerHTML = metr(C) + (top ? ` · labels: the ${top} most connected words (tap a dot for its word; all labels on a wider screen)` : '');
+      } else { $('#fl-net-class').innerHTML = `<p class="empty">No class network: ${C ? C.why : N.classNetWhy}.</p>`; $('#fl-net-class-m').textContent = ''; }
+      if (N.profiles.length) {
+        const ws = []; N.profiles.forEach(P => { for (let i = 0; i < P.A.length; i++) for (let j = i + 1; j < P.A.length; j++) if (P.A[i][j]) ws.push(P.A[i][j]); });
+        $('#fl-net-grid').innerHTML = N.profiles.map((P, i) => `<figure class="figure"><figcaption class="fl-net-h">${P.name} <span class="muted">· ${P.students} students</span></figcaption><div id="fl-net-p${i}"></div><p class="fl-net-m">${metr(P)}</p></figure>`).join('');
+        N.profiles.forEach((P, i) => FL.netPanel($('#fl-net-p' + i), P, N.layout, { max: 620, ratio: 0.82, wRange: [Math.min(...ws), Math.max(...ws)], label: `Semantic network, ${P.name}, ${P.students} students: ${P.nodes} words` }));
+        FL.metricPlot($('#fl-metrics'), N.profiles);
+      } else { $('#fl-net-grid').innerHTML = `<p class="empty">No profile networks yet: ${N.why}.</p>`; $('#fl-metrics').innerHTML = ''; }
+      $('#fl-net-cap').innerHTML = 'Measures of the unweighted networks, as SemNeT’s <code>semnetmeas(weighted = FALSE)</code>: CC, each word’s share of linked pairs among its neighbours, averaged; ASPL, the mean number of links on the shortest path between two words; Q, the modularity of a Louvain partition into communities (SemNeT’s own Louvain, seed 1; R’s <code>semnetmeas()</code> picks a new seed each run, so its Q can differ a little, as the range over 100 seeds shows). ' +
+        'The four profiles share one layout (from the network of every student’s answers on the same words), so differences in links are not confounded with positions; the class network has its own. Distance on the page is a layout property, not a measure of semantic distance. ' +
+        'In the dot plots each measure has its own scale, zoomed to the four values, so small differences look large. These are descriptions of four group networks, not tests: with about ten students per profile, differences in CC, ASPL or Q may not hold beyond this class.';
     }
 
-    // curiosity and fluency
-    const C = res.R[cat], ymax = Math.max(10, ...col(cat === 'both' ? 'an' : cat), ...(cat === 'both' ? col('fv') : []));
-    const rLine = T => isFinite(T.r) ? `<i>r</i> = <strong>${rr(T.r)}</strong>${isFinite(T.ci[0]) ? `, 95% CI ${rr(T.ci[0])} to ${rr(T.ci[1])}` : ''} · ${LAB.fmtTest(T)} · <i>n</i> = ${T.n}` : (T.n ? 'Not enough variation yet.' : '');
-    [['je', `Joyous exploration (${rg})`], ['ds', `Deprivation sensitivity (${rg})`]].forEach(([k, xl]) => {
-      const T = C[k], host = $('#fl-sc-' + k);
+    // students: total or unique responses against J, D and J + D
+    const f = meas === 'total' ? 'n' : 'u', mName = meas === 'total' ? 'total responses' : 'unique responses';
+    if (!S.length) { $('#fl-counts').innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#fl-counts-cap').textContent = ''; }
+    else {
+      const a = col(f, 'an'), b = col(f, 'fv'), hi = Math.max(meas === 'total' ? 10 : 4, ...a, ...b), step = hi > 40 ? 10 : hi > 12 ? 5 : hi > 6 ? 2 : 1;
+      LAB.stripPlot($('#fl-counts'), [
+        { label: 'Animals', sub: `n = ${a.length}`, values: a.map(v => ({ v })) },
+        { label: 'Fruits & veg', sub: `n = ${b.length}`, values: b.map(v => ({ v })) }
+      ], { width: W('#fl-counts'), r: W('#fl-counts') < 520 ? 5 : 6, domain: [0, Math.ceil(hi / step) * step], fixed: true, signed: false, unit: '', fmt: v => v.toFixed(1), step,
+        xLabel: W('#fl-counts') < 520 ? (meas === 'total' ? 'Total responses' : 'Unique responses') : (meas === 'total' ? `Total responses (${unit}, repeats once)` : 'Unique responses (given by no other student)'),
+        ariaLabel: `${mName} per student: animals mean ${f1(LAB.mean(a))}, fruits and vegetables mean ${f1(LAB.mean(b))}` });
+      $('#fl-counts-cap').textContent = `Each dot is a student’s ${mName}. The mark and band: the class mean with its 95% CI.`;
+    }
+    const Rm = res.R[meas], Rc = Rm[cat], ymax = Math.max(meas === 'total' ? 10 : 4, ...col(f, cat === 'both' ? 'an' : cat), ...(cat === 'both' ? col(f, 'fv') : []));
+    const rLine = T => isFinite(T.r) ? `<i>r</i> = <strong>${rr(T.r)}</strong>${isFinite(T.ci[0]) ? `, 95% CI ${rr(T.ci[0])} to ${rr(T.ci[1])}` : ''} · ${LAB.fmtTest(T)}` : (T.n ? 'Not enough variation yet.' : '');
+    const yStep = ymax > 40 ? 10 : ymax > 12 ? 5 : ymax > 6 ? 2 : 1;
+    [['J', `Joyous exploration (${rg})`, res.lo, res.hi, res.step], ['D', `Deprivation sensitivity (${rg})`, res.lo, res.hi, res.step], ['C', `J + D (${2 * res.lo}–${2 * res.hi})`, 2 * res.lo, 2 * res.hi, 2 * res.step]].forEach(([k, xl, lo, hi, st]) => {
+      const T = Rc[k], host = $('#fl-sc-' + k);
       if (!T.pts.length) { host.innerHTML = '<p class="empty">No runs yet for this class.</p>'; $('#fl-r-' + k).innerHTML = ''; return; }
-      LAB.scatterPlot(host, { points: T.pts, fit: T.fit && isFinite(T.r) ? T.fit : null, xDomain: [res.lo, res.hi], yDomain: [0, Math.ceil(ymax / 5) * 5], xStep: res.step, xFmt: v => String(v), yFmt: v => String(v),
-        xLabel: xl, r: 4.5, width: Math.max(300, Math.min(620, Math.round(host.getBoundingClientRect().width) || 620)), height: 300,
-        ariaLabel: `${NAME[cat]}: number of words against ${xl.toLowerCase()}, ${rLine(T).replace(/<[^>]+>/g, '')}` });
+      LAB.scatterPlot(host, { points: T.pts, fit: T.fit && isFinite(T.r) ? T.fit : null, xDomain: [lo, hi], yDomain: [0, Math.ceil(ymax / yStep) * yStep], xStep: st, yStep, xFmt: v => String(v), yFmt: v => String(v),
+        xLabel: xl, r: 4, width: W('#fl-sc-' + k, 620), height: 280, ariaLabel: `${NAME[cat]}, ${mName} against ${xl.toLowerCase()}: ${rLine(T).replace(/<[^>]+>/g, '')}` });
       $('#fl-r-' + k).innerHTML = rLine(T);
     });
-    $('#fl-sc-cap').textContent = res.scored.length ? `Each dot is a student: up, the number of ${unit} (${NAME[cat].toLowerCase()}${cat === 'both' ? ' categories' : ''}); across, the subscale score. Line: least squares with its 95% band.` : '';
-    const rowC = (k, sub, name) => { const T = res.R[k][sub];
-      return `<tr><th scope="row">${NAME[k]} × ${name}</th><td class="num">${T.n}</td><td class="num"><strong>${rr(T.r)}</strong></td><td class="num">${isFinite(T.ci[0]) ? `${rr(T.ci[0])} to ${rr(T.ci[1])}` : '–'}</td>${tCell(T)}${pCell(T)}${resultCell(T, 0)}</tr>`; };
-    $('#fl-corr').innerHTML = `<thead><tr><th scope="col">Words × curiosity</th><th class="num" scope="col"><i>n</i></th><th class="num" scope="col"><i>r</i></th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
-      ['both', 'an', 'fv'].map(k => rowC(k, 'je', 'joyous exploration') + rowC(k, 'ds', 'deprivation sensitivity')).join('') + '</tbody>';
-    $('#fl-corr-note').innerHTML = `Pearson correlations across students between the number of ${unit} and each subscale score; <i>t</i>-test of the correlation, 95% CI by Fisher <i>z</i>. Mean of both: the average of the two categories. Each student counts once (their first run). Two-tailed, α = .05; six tests, not corrected for multiple comparisons.`;
-    const PROF = [['hiD-hiJ', 'High D · high J'], ['hiD-loJ', 'High D · low J'], ['loD-hiJ', 'Low D · high J'], ['loD-loJ', 'Low D · low J']];
-    const msd = a => a.length ? `${f1(LAB.mean(a))}${a.length > 1 ? ` <span class="muted">(${f1(LAB.sd(a))})</span>` : ''}` : '–';
-    $('#fl-prof').innerHTML = !res.scored.length ? '' : `<thead><tr><th scope="col">Profile</th><th class="num" scope="col"><i>n</i></th><th class="num" scope="col">Animals</th><th class="num" scope="col">Fruits &amp; veg</th><th class="num" scope="col">Mean of both</th></tr></thead><tbody>` +
-      PROF.map(([p, name]) => { const g = res.scored.filter(s => s.profile === p), v = k => g.map(s => s.n[k]).filter(isFinite);
-        return `<tr><th scope="row">${name}</th><td class="num">${g.length}</td><td class="num">${msd(v('an'))}</td><td class="num">${msd(v('fv'))}</td><td class="num">${msd(v('both'))}</td></tr>`; }).join('') + '</tbody>';
+    $('#fl-sc-cap').textContent = res.scored.length ? `Each dot is a student: up, ${mName} (${NAME[cat].toLowerCase()}${cat === 'both' ? ' categories' : ''}); across, the curiosity score. Line: least squares with its 95% band.` : '';
+    const PRED = [['J', 'joyous exploration'], ['D', 'deprivation sensitivity'], ['C', 'J + D']];
+    $('#fl-corr').innerHTML = `<thead><tr><th scope="col">${meas === 'total' ? 'Total' : 'Unique'} responses × curiosity</th><th class="num" scope="col"><i>n</i></th><th class="num" scope="col"><i>r</i></th><th class="num" scope="col">95% CI</th>${tHead('')}</tr></thead><tbody>` +
+      ['both', 'an', 'fv'].map(k => PRED.map(([p, name]) => { const T = Rm[k][p];
+        return `<tr><th scope="row">${NAME[k]} × ${name}</th><td class="num">${T.n}</td><td class="num"><strong>${rr(T.r)}</strong></td><td class="num">${isFinite(T.ci[0]) ? `${rr(T.ci[0])} to ${rr(T.ci[1])}` : '–'}</td>${tCell(T)}${pCell(T)}${resultCell(T, 0)}</tr>`; }).join('')).join('') + '</tbody>';
+    const regRow = (k, M, p, name) => { const T = M && M[p], d = M && Math.max(Math.abs(M.J.b), Math.abs(M.D.b)) < 0.1 ? 3 : 2;
+      return `<tr><th scope="row">${NAME[k]}: ${name}</th><td class="num"><strong>${T ? sgn(T.b, d) : '–'}</strong></td><td class="num">${T && isFinite(T.ci[0]) ? `${sgn(T.ci[0], d)} to ${sgn(T.ci[1], d)}` : '–'}</td>${tCell(T)}${pCell(T)}${resultCell(T && isFinite(T.p) ? T : null, 0)}` +
+        `<td class="num sep">${p === 'J' && M ? f2(M.r2) : ''}</td><td class="num">${p === 'J' && M && isFinite(M.pF) ? `<i>F</i>(2, ${M.df}) = ${f2(M.F)}, ${LAB.fmtP(M.pF)}` : ''}</td></tr>`; };
+    $('#fl-reg').innerHTML = `<thead><tr><th scope="col">${meas === 'total' ? 'Total' : 'Unique'} responses ~ J + D</th><th class="num" scope="col"><i>b</i></th><th class="num" scope="col">95% CI</th>${tHead('')}<th class="num sep" scope="col"><i>R</i>²</th><th class="num" scope="col">Model</th></tr></thead><tbody>` +
+      ['both', 'an', 'fv'].map(k => regRow(k, Rm[k].model, 'J', 'joyous exploration') + regRow(k, Rm[k].model, 'D', 'deprivation sensitivity')).join('') + '</tbody>';
+    $('#fl-corr-note').innerHTML = `Total responses: a student’s ${unit}, repeats counted once; unique responses: those of them no other student in the class gave. Mean of both: the average of the two categories. ` +
+      'Correlations: Pearson, with the <i>t</i>-test of the correlation and a 95% CI by Fisher <i>z</i>; J + D is the sum of the two subscale scores. Both subscales together: least-squares regression on joyous exploration and deprivation sensitivity, each slope (words per scale point) adjusted for the other, with its <i>t</i>-test; <i>R</i>² and the <i>F</i>-test of the whole model. ' +
+      'Each student counts once (their first run). Two-tailed, α = .05; exploratory, not corrected for multiple comparisons.';
 
     // the class's answers
     FL.topAnswers($('#fl-top-an'), res.answers.an, res.n, 15);
     FL.topAnswers($('#fl-top-fv'), res.answers.fv, res.n, 15);
-    $('#fl-top-cap').textContent = res.n ? `The 15 answers given by most students, as a share of the ${res.n} students. * Not in SUBTLEX-CH.` : '';
-    const nolex = c => res.answers[c].filter(a => a.inLex === false);
-    ['an', 'fv'].forEach(c => { const L = nolex(c); $('#fl-nolex-' + c).innerHTML = L.length ? L.map(a => `${a.w}<span class="muted">&nbsp;${a.n}</span>`).join(' · ') : '<span class="muted">None.</span>'; });
-    const nn = nolex('an').length + nolex('fv').length;
+    $('#fl-top-cap').textContent = res.n ? `The 15 answers given by most students, as a share of the ${res.n} students. * Does not count (see below why).` : '';
+    const out = c => res.answers[c].filter(a => !a.counts);
+    const why = (a, c) => [!a.inLex ? 'not in SUBTLEX-CH' : '', mode === 'valid' && !a.inCat ? (a.other ? `on the ${c === 'an' ? 'fruit and vegetable' : 'animal'} list` : 'not on the category list') : ''].filter(Boolean).join(', ');
+    ['an', 'fv'].forEach(c => { const L = out(c); $('#fl-nolex-' + c).innerHTML = L.length ? L.map(a => `${a.w}<span class="muted">&nbsp;${a.n} · ${why(a, c)}</span>`).join('<br>') : '<span class="muted">None.</span>'; });
+    const nn = out('an').length + out('fv').length;
     $('#fl-nolex-n').textContent = `(${nn} different entr${nn === 1 ? 'y' : 'ies'})`;
 
     // checks
     const checks = [];
     FL.CATS.forEach(([c, , name]) => { const T = res.order[c], a = S.filter(s => s.cats[c].pos === 1).map(s => s.n[c]), b = S.filter(s => s.cats[c].pos === 2).map(s => s.n[c]);
-      if (a.length || b.length) checks.push(`<li><strong>${name}, first vs second:</strong> ${f1(LAB.mean(a))} vs ${f1(LAB.mean(b))} ${unit} (<i>n</i> = ${a.length} and ${b.length}${T && isFinite(T.p) ? `; Welch ${LAB.fmtTest(T)}` : ''}).</li>`); });
+      if (a.length || b.length) checks.push(`<li><strong>${name}, first vs second:</strong> ${f1(LAB.mean(a))} vs ${f1(LAB.mean(b))} total responses (<i>n</i> = ${a.length} and ${b.length}${T && isFinite(T.p) ? `; Welch ${LAB.fmtTest(T)}` : ''}).</li>`); });
     if (S.length) {
       const rep = c => LAB.mean(S.map(s => s.cats[c].repeats));
       checks.push(`<li><strong>Repeats</strong> (counted once): ${f1(rep('an'))} per student for animals, ${f1(rep('fv'))} for fruits and vegetables.</li>`);
@@ -2685,23 +2731,25 @@
       checks.push(`<li><strong>Left the page</strong> for more than 5 s during a block: ${away} student${away === 1 ? '' : 's'}. Tried to paste (blocked): ${paste}.</li>`);
     }
     if (res.excluded) checks.push(`<li><strong>Not counted:</strong> ${res.excluded} student${res.excluded === 1 ? '' : 's'} whose first language is not Chinese (their answers are in the downloads, marked include = 0).</li>`);
-    if (flState.lexFailed) checks.push('<li><strong>The SUBTLEX-CH word list could not be loaded</strong>, so every different entry counts.</li>');
+    if (flState.lexFailed) checks.push('<li><strong>The word lists could not be loaded</strong>, so every different entry counts.</li>');
     $('#fl-checks').innerHTML = checks.join('');
 
     // summary
     const items = [];
     if (!S.length) items.push('<li><strong>No runs yet for this class.</strong> Results appear here as students finish.</li>');
     else {
-      items.push(`<li><strong>Fluency.</strong> In 2 minutes, students wrote on average ${f1(LAB.mean(col('an')))} animals and ${f1(LAB.mean(col('fv')))} fruits and vegetables ${inline(`${unit}; <i>n</i> = ${S.length}`)}.</li>`);
+      items.push(`<li><strong>Fluency.</strong> In 2 minutes, students gave on average ${f1(LAB.mean(col('n', 'an')))} animals and ${f1(LAB.mean(col('n', 'fv')))} fruits and vegetables ${inline(`total responses, ${unit}; <i>n</i> = ${S.length}`)}; ${f1(LAB.mean(col('u', 'an')))} and ${f1(LAB.mean(col('u', 'fv')))} of them were unique (no other student gave them).</li>`);
       if (res.scored.length) {
         const cnt = p => res.scored.filter(s => s.profile === p).length;
         items.push(`<li><strong>Curiosity.</strong> Joyous exploration averaged ${f1(LAB.mean(sc('J')))} and deprivation sensitivity ${f1(LAB.mean(sc('D')))} ${inline(`${rg}, ${res.scale === 'short' ? '4 items each (5DCR)' : '5 items each (5DC)'}`)}. Split at the class medians: ${cnt('hiD-hiJ')} high on both, ${cnt('hiD-loJ')} high in deprivation sensitivity only, ${cnt('loD-hiJ')} high in joyous exploration only, ${cnt('loD-loJ')} low on both.</li>`);
       }
-      [['je', 'Joyous exploration'], ['ds', 'Deprivation sensitivity']].forEach(([k, name]) => {
-        const T = res.R.both[k];
+      [['J', 'Joyous exploration'], ['D', 'Deprivation sensitivity'], ['C', 'Combined curiosity (J + D)']].forEach(([k, name]) => {
+        const T = res.R.total.both[k];
         if (!isFinite(T.p)) return;
-        items.push(item(T, `${lead(`${name} and fluency`, T, 0)} ${LAB.isSig(T) ? (T.r > 0 ? `Students higher in ${name.toLowerCase()} wrote more words` : `Students higher in ${name.toLowerCase()} wrote fewer words`) : `The number of words was not significantly related to ${name.toLowerCase()}`} ${inline(`mean of both categories; <i>r</i> = ${rr(T.r)}, 95% CI ${rr(T.ci[0])} to ${rr(T.ci[1])}, ${LAB.fmtTest(T)}, <i>n</i> = ${T.n}${smallTag(T.n)}`)}.`));
+        items.push(item(T, `${lead(`${name} and total responses`, T, 0)} ${LAB.isSig(T) ? (T.r > 0 ? 'Students with higher scores gave more words' : 'Students with higher scores gave fewer words') : 'The number of words was not significantly related to the score'} ${inline(`mean of both categories; <i>r</i> = ${rr(T.r)}, 95% CI ${rr(T.ci[0])} to ${rr(T.ci[1])}, ${LAB.fmtTest(T)}, <i>n</i> = ${T.n}${smallTag(T.n)}`)}.`));
       });
+      const NA = FL.networks(res, 'an');
+      if (NA.profiles.length) items.push(`<li><strong>Animal networks</strong> ${inline(`${NA.shared.length} shared words`)}: ${NA.profiles.map(P => `${P.name.replace(/^./, ch => ch.toLowerCase())} CC ${f3(P.cc)}, ASPL ${f3(P.aspl)}, Q ${f3(P.q)}`).join('; ').replace(/^./, ch => ch.toUpperCase())}. Descriptive only.</li>`);
     }
     $('#fl-summary').innerHTML = items.join('');
   }

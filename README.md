@@ -136,17 +136,47 @@ sensitivity), in the published order, 1–7 with all seven labels.
   Curiosity Scale Analysis Rmd and the 5DCR; 4–28) and `je5`, `ds5` (5-item
   sums). `fluency_trials`: one row per answer (category, block, position,
   response, t_ms, repeat).
-- Results tab (`assets/fluency-analysis.js`): words per student, counted once,
-  either only those in SUBTLEX-CH (`assets/data/subtlex-ch-wf.txt`, Cai &
-  Brysbaert, 2010; loaded when the tab opens) or every different entry; the
-  entries not in SUBTLEX-CH are listed (it misses e.g. 火龙果, 西兰花, 牛油果,
-  考拉, 蓝莓). Curiosity: the 5-item sums (default) or, with the switch, the
-  4-item 5DCR sums of the Rmd; profiles as in the Rmd: high = above the class
-  median, on each subscale. Correlations of words with each subscale, by profile, the
-  class's most frequent answers, order and quality checks. Downloads: every
-  answer (with SUBTLEX-CH status and count), one row per student, and a binary
-  student × answer matrix per category for SemNeT (pid, je, ds, profile, then
-  one column per answer).
+- Results tab (`assets/fluency-analysis.js`): a student's total responses are
+  their different valid words (repeats once); unique responses are those no
+  other student in the class gave. Valid (default): in SUBTLEX-CH
+  (`assets/data/subtlex-ch-wf.txt`, Cai & Brysbaert, 2010) and on the list for
+  the block's category (`assets/data/category-animals.txt`, 3,957 words;
+  `category-fruitveg.txt`, 1,580 words); the switch also offers SUBTLEX-CH only
+  or every different entry. Every entry that does not count is listed with
+  the reason (not in SUBTLEX-CH, e.g. 考拉, 蓝莓, 火龙果, 西兰花, 牛油果; not on
+  the list, e.g. 动物, 桌子; on the other category's list).
+  - The category lists (`materials/fluency/categories/`): rules in
+    `RULES.md`; `candidates.py` picks the 5,082 SUBTLEX-CH words with animal or
+    fruit/vegetable characters, each judged against the rules
+    (`review/classified_*.tsv`); `lists/` adds names listed domain by domain
+    (mammals and birds; other animals; fruits and nuts; vegetables), so the
+    lists also hold words SUBTLEX-CH lacks; `build.py` merges them, applies
+    the exclusions again and writes the two files. Edit `RULES.md` or the
+    inputs and rerun `python3 materials/fluency/categories/build.py`. Curiosity: the 5-item sums (default) or,
+  with the switch, the 4-item 5DCR sums of the Rmd; profiles as in the Rmd:
+  high = above the class median, on each subscale.
+  - Groups (whole class and the four profiles), per category: mean total and
+    unique responses, different words, and a semantic network built as SemNeT
+    2.0.0 does (`assets/semnet.js`, a port: finalize(minimum_cases = 2), the
+    four profiles equated, cosine similarity, TMFG; unweighted CC, ASPL and Q
+    as semnetmeas(weighted = FALSE)). SemNeT's Louvain is ported with its
+    xoshiro256++ generator; Q uses seed 1 and the range over seeds 1–100 is
+    shown, because semnetmeas() passes no seed and SemNeT then seeds from the
+    clock (its Q changes slightly between runs). Checked against R: 480 random
+    networks identical in edges, CC, ASPL, partitions and Q (seeds 1, 7, 123);
+    and the page's own networks rebuilt by `materials/fluency/networks.R` from
+    its matrix downloads match exactly. Drawn with one layout shared by the
+    four profiles (from the network of every student's answers on the equated
+    words); edges by cosine weight; descriptive, no tests.
+  - Students: total or unique responses against joyous exploration,
+    deprivation sensitivity and their sum (Pearson r, t-test, Fisher-z CI), and
+    a regression on both subscales (each adjusted for the other; R², F).
+  - The class's most frequent answers, order and quality checks. Downloads:
+    every answer (SUBTLEX-CH status, whether it counts, unique), one row per
+    student (totals, uniques, scores), a binary student × word matrix per
+    category for SemNeT, and the networks' measures, nodes and edges.
+  - `Rscript materials/fluency/networks.R <folder>` rebuilds the ten networks
+    from the two matrix CSVs with SemNeT and writes the same three tables.
 - Tests: `dev/test_fluency.py <port>` (phone and desktop, fake clock);
   `dev/seed_fluency.py <session> <seed> <port> <n>`; fluency cases in
   `dev/test_dashboard_edges.py`.

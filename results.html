@@ -403,10 +403,26 @@
         .fl-top li.nolex .w { color: var(--text-secondary); }
         .fl-top li.nolex .w::after { content: '*'; margin-left: 0.15rem; color: var(--text-secondary); }
         .fl-top li.nolex .bar i { background: var(--text-light); }
-        .fl-nolex { line-height: 2; font-family: 'Open Sans', var(--font-hans), sans-serif; }
+        .fl-nolex { line-height: 1.75; font-family: 'Open Sans', var(--font-hans), sans-serif; }
         .fl-checks { padding-left: 1.1rem; color: var(--text-secondary); max-width: var(--measure); }
         .fl-checks li + li { margin-top: 0.35rem; }
         .fl-dl { flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+        .fl-segs { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin: 0.5rem 0 1rem; }
+        .fl-segs .seg { margin: 0; }
+        #fl-gcat { margin: 0.5rem 0 1rem; }
+        .fl-three { grid-template-columns: minmax(0, 1fr); gap: 1rem 2rem; }
+        @media (min-width: 1100px) { .fl-three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .fl-three .figure { max-width: none; }
+        .fl-net-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem 2.5rem; margin-top: 1.5rem; }
+        @media (min-width: 900px) { .fl-net-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .fl-net-grid .figure, .fl-netfig { max-width: none; margin: 0; }
+        .fl-net-h { font-weight: 650; color: var(--text); margin: 0 0 0.25rem; caption-side: top; }
+        .fl-net-h .muted { font-weight: 400; }
+        .fl-net-m { margin: 0.2rem 0 0; font-size: 0.92rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+        .fl-net-m b { color: var(--text); font-weight: 650; }
+        .chart.fl-net line { stroke: var(--text-secondary); stroke-linecap: round; }
+        .chart.fl-net .fl-node { fill: var(--text); fill-opacity: 0.85; stroke: var(--bg); stroke-width: 1.5; }
+        .chart.fl-net .fl-lab { fill: var(--text); font-weight: 600; font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; }
         @media (min-width: 1000px) { .an-map-fig { display: grid; grid-template-columns: minmax(0, 620px) minmax(14rem, 22rem); gap: 2.5rem; align-items: end; } .an-map-fig figcaption { margin: 0 0 2.5rem; } }
         .an-fit { font-size: 0.92rem; color: var(--text-secondary); margin-top: 0.4rem; font-variant-numeric: tabular-nums; }
         .an-fit strong { color: var(--text); }
@@ -1133,7 +1149,8 @@
                     <section class="summary" aria-labelledby="fl-sum-h"><h2 id="fl-sum-h">Summary</h2><ul id="fl-summary"></ul></section>
                     <fieldset class="seg" id="fl-mode">
                         <legend>Count</legend>
-                        <label><input type="radio" name="fl-mode" value="lex" checked><span>Words in SUBTLEX-CH</span></label>
+                        <label><input type="radio" name="fl-mode" value="valid" checked><span>SUBTLEX-CH + category list</span></label>
+                        <label><input type="radio" name="fl-mode" value="lex"><span>SUBTLEX-CH only</span></label>
                         <label><input type="radio" name="fl-mode" value="all"><span>Every different entry</span></label>
                     </fieldset>
                     <fieldset class="seg" id="fl-scale">
@@ -1146,25 +1163,52 @@
                     <h2>Curiosity profiles</h2>
                     <figure class="figure fl-map-fig"><div id="fl-map"></div><figcaption class="small muted" id="fl-map-cap"></figcaption></figure>
 
-                    <h2>How many words?</h2>
-                    <figure class="figure"><div id="fl-counts"></div><figcaption class="small muted" id="fl-counts-cap"></figcaption></figure>
+                    <section class="q" aria-labelledby="fl-g-h">
+                        <h2 id="fl-g-h">The class and the four profiles</h2>
+                        <fieldset class="seg" id="fl-gcat">
+                            <legend class="visually-hidden">Category</legend>
+                            <label><input type="radio" name="fl-gcat" value="an" checked><span>Animals</span></label>
+                            <label><input type="radio" name="fl-gcat" value="fv"><span>Fruits &amp; vegetables</span></label>
+                        </fieldset>
+                        <div class="table-wrap" data-label="Groups"><table class="data" id="fl-groups"></table></div>
+                        <p class="small muted column" id="fl-groups-note"></p>
+                        <h3 class="sub">Semantic networks</h3>
+                        <p class="q-lead" id="fl-net-lead"></p>
+                        <figure class="figure fl-netfig"><figcaption class="fl-net-h" id="fl-net-class-h"></figcaption><div id="fl-net-class"></div><p class="fl-net-m" id="fl-net-class-m"></p></figure>
+                        <div class="fl-net-grid" id="fl-net-grid"></div>
+                        <h3 class="sub">CC, ASPL and Q across the profiles</h3>
+                        <div id="fl-metrics"></div>
+                        <p class="chart-caption" id="fl-net-cap"></p>
+                    </section>
 
-                    <h2>Does curiosity go with fluency?</h2>
-                    <fieldset class="seg" id="fl-cat">
-                        <legend class="visually-hidden">Fluency measure</legend>
-                        <label><input type="radio" name="fl-cat" value="both" checked><span>Mean of both</span></label>
-                        <label><input type="radio" name="fl-cat" value="an"><span>Animals</span></label>
-                        <label><input type="radio" name="fl-cat" value="fv"><span>Fruits &amp; vegetables</span></label>
-                    </fieldset>
-                    <div class="multiples an-pair">
-                        <figure class="figure"><h4>Joyous exploration</h4><div id="fl-sc-je"></div><figcaption class="an-fit" id="fl-r-je"></figcaption></figure>
-                        <figure class="figure"><h4>Deprivation sensitivity</h4><div id="fl-sc-ds"></div><figcaption class="an-fit" id="fl-r-ds"></figcaption></figure>
-                    </div>
-                    <p class="chart-caption" id="fl-sc-cap"></p>
-                    <div class="table-wrap" data-label="Correlations"><table class="data" id="fl-corr"></table></div>
-                    <p class="small muted column" id="fl-corr-note"></p>
-                    <h3 class="sub">By profile</h3>
-                    <div class="table-wrap column" data-label="Fluency by curiosity profile"><table class="data" id="fl-prof"></table></div>
+                    <section class="q" aria-labelledby="fl-i-h">
+                        <h2 id="fl-i-h">Students: does curiosity go with fluency?</h2>
+                        <div class="fl-segs">
+                            <fieldset class="seg" id="fl-meas">
+                                <legend class="visually-hidden">Measure</legend>
+                                <label><input type="radio" name="fl-meas" value="total" checked><span>Total responses</span></label>
+                                <label><input type="radio" name="fl-meas" value="unique"><span>Unique responses</span></label>
+                            </fieldset>
+                            <fieldset class="seg" id="fl-cat">
+                                <legend class="visually-hidden">Fluency measure</legend>
+                                <label><input type="radio" name="fl-cat" value="both" checked><span>Mean of both</span></label>
+                                <label><input type="radio" name="fl-cat" value="an"><span>Animals</span></label>
+                                <label><input type="radio" name="fl-cat" value="fv"><span>Fruits &amp; vegetables</span></label>
+                            </fieldset>
+                        </div>
+                        <figure class="figure"><div id="fl-counts"></div><figcaption class="small muted" id="fl-counts-cap"></figcaption></figure>
+                        <div class="multiples fl-three">
+                            <figure class="figure"><h4>Joyous exploration</h4><div id="fl-sc-J"></div><figcaption class="an-fit" id="fl-r-J"></figcaption></figure>
+                            <figure class="figure"><h4>Deprivation sensitivity</h4><div id="fl-sc-D"></div><figcaption class="an-fit" id="fl-r-D"></figcaption></figure>
+                            <figure class="figure"><h4>Combined (J + D)</h4><div id="fl-sc-C"></div><figcaption class="an-fit" id="fl-r-C"></figcaption></figure>
+                        </div>
+                        <p class="chart-caption" id="fl-sc-cap"></p>
+                        <h3 class="sub">Correlations</h3>
+                        <div class="table-wrap" data-label="Correlations"><table class="data" id="fl-corr"></table></div>
+                        <h3 class="sub">Both subscales together</h3>
+                        <div class="table-wrap" data-label="Regression"><table class="data" id="fl-reg"></table></div>
+                        <p class="small muted column" id="fl-corr-note"></p>
+                    </section>
 
                     <h2>The class’s answers</h2>
                     <div class="multiples an-pair">
@@ -1173,12 +1217,12 @@
                     </div>
                     <p class="chart-caption" id="fl-top-cap"></p>
                     <details class="more">
-                        <summary>Entries not in SUBTLEX-CH <span class="sum-note" id="fl-nolex-n"></span></summary>
+                        <summary>Entries that do not count <span class="sum-note" id="fl-nolex-n"></span></summary>
                         <div class="multiples an-pair">
                             <div><h4>Animals</h4><p class="fl-nolex" lang="zh-Hans" id="fl-nolex-an"></p></div>
                             <div><h4>Fruits &amp; vegetables</h4><p class="fl-nolex" lang="zh-Hans" id="fl-nolex-fv"></p></div>
                         </div>
-                        <p class="small muted column">Each entry with the number of students who gave it. Under “Words in SUBTLEX-CH” these do not count; under “Every different entry” they do.</p>
+                        <p class="small muted column">Each entry with the number of students who gave it and why it does not count under the chosen Count. Valid words are in SUBTLEX-CH and on the list for their block (animals; fruits and vegetables); the lists and their rules are in the repository (materials/fluency/categories).</p>
                     </details>
 
                     <h2>Checks</h2>
@@ -1188,6 +1232,9 @@
                         <button class="btn-quiet" id="fl-csv-stu" type="button">Students (CSV)</button>
                         <button class="btn-quiet" id="fl-csv-an" type="button">Animal matrix for SemNeT (CSV)</button>
                         <button class="btn-quiet" id="fl-csv-fv" type="button">Fruit &amp; vegetable matrix (CSV)</button>
+                        <button class="btn-quiet" id="fl-csv-net" type="button">Network measures (CSV)</button>
+                        <button class="btn-quiet" id="fl-csv-nodes" type="button">Network nodes (CSV)</button>
+                        <button class="btn-quiet" id="fl-csv-edges" type="button">Network edges (CSV)</button>
                     </div>
                 </div>
             </section>
@@ -1216,7 +1263,8 @@
     <script src="assets/svt-charts.js?v=2"></script>
     <script src="assets/animal-items.js?v=1"></script>
     <script src="assets/animal-map.js?v=3"></script>
-    <script src="assets/fluency-analysis.js?v=2"></script>
-    <script src="assets/dashboard.js?v=120"></script>
+    <script src="assets/semnet.js?v=1"></script>
+    <script src="assets/fluency-analysis.js?v=5"></script>
+    <script src="assets/dashboard.js?v=123"></script>
 </body>
 </html>
