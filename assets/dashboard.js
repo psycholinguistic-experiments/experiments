@@ -2892,7 +2892,7 @@
     const items = [];
     if (!res.parts.length) items.push(`<li><strong>No runs yet for this class.</strong> ${O.started ? `${O.started} student${O.started > 1 ? 's have' : ' has'} started.` : 'Results appear here as students finish.'}</li>`);
     else {
-      items.push(`<li><strong>Taking part.</strong> ${O.completed} of ${Math.max(O.started, O.completed)} students who started have finished ${inline(`list A ${O.lists.A}, list B ${O.lists.B}; median time ${mmss(O.durMedian)}`)}${res.inc.length < res.parts.length ? `; ${res.parts.length - res.inc.length} left out (see Data quality)` : ''}.</li>`);
+      items.push(`<li><strong>Taking part.</strong> ${O.completed} of ${Math.max(O.started, O.completed)} student${Math.max(O.started, O.completed) === 1 ? '' : 's'} who started ${O.completed === 1 ? 'has' : 'have'} finished ${inline(`list A ${O.lists.A}, list B ${O.lists.B}; median time ${mmss(O.durMedian)}`)}${res.inc.length < res.parts.length ? `; ${res.parts.length - res.inc.length} left out (see Data quality)` : ''}.</li>`);
       const M = res.meas, desc = (m, verb) => isFinite(m.diff.d) ? `${verb} ${f0(m.byCond.because.mean)} ms with “because” and ${f0(m.byCond.none.mean)} ms without ${inline(`difference ${sgn(m.diff.d)} ms, 95% CI ${ciTxt(m, m.diff)}, ${m.diff.n} student${m.diff.n === 1 ? '' : 's'}`)}` : `${verb}: not enough data yet`;
       items.push(`<li><strong>Recognition.</strong> ${desc(M[0], 'Recognising the first-clause verb took')}.</li>`);
       items.push(`<li><strong>Reading the second clause.</strong> ${desc(M[1], 'Its first three words took')}; ${desc(M[2], 'its last three')}.</li>`);
@@ -2908,7 +2908,7 @@
     const key = JSON.stringify([res.F, res.inc.map(p => p.pid + p.trials.length)]);
     const nA = res.inc.filter(p => p.list === 'A').length, nB = res.inc.filter(p => p.list === 'B').length;
     $('#rd-models-warn').hidden = !(res.inc.length < 12 || nA < 6 || nB < 6);
-    $('#rd-models-warn').textContent = `Only ${res.inc.length} students (list A ${nA}, list B ${nB}): too few for these estimates to be trustworthy. Read them as an illustration of the method, not as a result.`;
+    $('#rd-models-warn').textContent = `Only ${res.inc.length} student${res.inc.length === 1 ? '' : 's'} (list A ${nA}, list B ${nB}): too few for these estimates to be trustworthy. Read them as an illustration of the method, not as a result.`;
     if (rdState.modelKey !== key) {
       rdState.modelKey = key;
       $('#rd-models-table').innerHTML = '<tbody><tr><td>Fitting the models…</td></tr></tbody>';
