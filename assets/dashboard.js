@@ -4,12 +4,12 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency', 'reading', 'reading_start'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency', 'reading', 'reading_start', 'colour', 'colour_start'];
   // Sentence task: the English self-ratings, in the order the results page shows them.
   const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [], reading: [], reading_start: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [], reading: [], reading_start: [], colour: [], colour_start: [] },
     timer: null,
     loadedOnce: false
   };
@@ -20,7 +20,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency'), $('#tab-reading')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency'), $('#tab-reading'), $('#tab-colour')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -144,6 +144,8 @@
       if (wf && wf !== state.fluencyW) { state.fluencyW = wf; lastKey = ''; render(); }
       const wrd = $('#panel-reading').hidden ? 0 : $('#panel-reading').clientWidth;
       if (wrd && wrd !== state.readingW) { state.readingW = wrd; lastKey = ''; render(); }
+      const wco = $('#panel-colour').hidden ? 0 : $('#panel-colour').clientWidth;
+      if (wco && wco !== state.colourW) { state.colourW = wco; lastKey = ''; render(); }
       const wr = $('#panel-report').hidden ? 0 : $('#panel-report').clientWidth;
       if (wr && wr !== state.reportW) { state.reportW = wr; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
@@ -160,7 +162,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency, rd = state.rows.reading, rs = state.rows.reading_start;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency, rd = state.rows.reading, rs = state.rows.reading_start, co = state.rows.colour, cs = state.rows.colour_start;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -184,9 +186,11 @@
     $('#veil-fluency').textContent = fl.length;
     $('#n-reading').textContent = rd.length;
     $('#veil-reading').textContent = rd.length;
+    $('#n-colour').textContent = CO_DEMO ? 45 : co.length;
+    $('#veil-colour').textContent = CO_DEMO ? 45 : co.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, rd.map(r => r.pid + r.submitted_at), rs.length, readingKey(), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, rd.map(r => r.pid + r.submitted_at), rs.length, readingKey(), co.map(r => r.pid + r.submitted_at), cs.length, colourKey(), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
@@ -199,6 +203,7 @@
     if (!$('#panel-animals').hidden) renderAnimals(an);
     if (!$('#panel-fluency').hidden) renderFluency(fl);
     if (!$('#panel-reading').hidden) renderReading(rd, rs);
+    if (!$('#panel-colour').hidden) renderColour(co, cs);
     syncScrollers();
   }
 
@@ -2949,6 +2954,119 @@
       <h2>What this design can and cannot show</h2>${clone('.rd-limits')}</body></html>`;
     const b = new Blob([html], { type: 'text/html' }), a = document.createElement('a');
     a.href = URL.createObjectURL(b); a.download = `lt5461-reading-report-${state.session}.html`; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  /* ---------- colour task: naming + colour matching ----------
+     Analysis and charts in colour-analysis.js (the student's own page uses the
+     same code). ?demo shows 45 simulated students made in this browser
+     (never stored, never mixed with the class). */
+  const CO = window.COLOUR, CO_DEMO = LAB.params.has('demo');
+  const coState = { C: null, view: null, sort: ['label', 1], modelKey: '' };
+  function colourKey() { return [coState.view || '', coState.sort.join(), ($('#co-q') || {}).value || ''].join('|'); }
+  const coRender = () => { lastKey = ''; render(); };
+  $('#co-q').addEventListener('input', () => coSearch());
+  function coSearch() { const q = $('#co-q').value.trim().toLowerCase(); document.querySelectorAll('#co-people tbody tr').forEach(tr => { tr.hidden = q && !tr.textContent.toLowerCase().includes(q); }); }
+  $('#co-people').addEventListener('click', e => {
+    const so = e.target.closest('button.co-sort'); if (so) { const k = so.dataset.k; coState.sort = [k, coState.sort[0] === k ? -coState.sort[1] : 1]; coRender(); return; }
+    const b = e.target.closest('button[data-p]'); if (b) { coState.view = b.dataset.p; coRender(); $('#co-view').scrollIntoView({ block: 'start' }); }
+  });
+  $('#co-pick').addEventListener('change', () => { coState.view = $('#co-pick').value; coRender(); });
+  const coStep = d => { const L = coState.C ? coState.C.parts.map(p => p.label) : []; const i = L.indexOf(coState.view); if (i >= 0 && L.length) { coState.view = L[(i + d + L.length) % L.length]; coRender(); } };
+  $('#co-prev').addEventListener('click', () => coStep(-1)); $('#co-next').addEventListener('click', () => coStep(1));
+  $('#co-close').addEventListener('click', () => { coState.view = null; coRender(); });
+  $('#co-model').addEventListener('toggle', () => { if ($('#co-model').open) coModel(); });
+  const coCSV = (file, make) => () => { const C = coState.C; if (C && C.parts.length) LAB.download(`lt5461-colour-${file}-${CO_DEMO ? 'SIMULATED' : state.session}.csv`, LAB.toCSV(make(C.parts))); };
+  $('#co-csv-names').addEventListener('click', coCSV('naming', CO.namingRows));
+  $('#co-csv-disc').addEventListener('click', coCSV('matching', CO.discRows));
+  $('#co-csv-people').addEventListener('click', coCSV('students', CO.summaryRows));
+  $('#co-csv-all').addEventListener('click', coCSV('combined', parts => { const S = new Map(CO.summaryRows(parts).map(r => [r.pid, r])); return CO.discRows(parts).map(r => Object.assign({}, r, { naming_consistency: S.get(r.pid).naming_consistency, student_labels: S.get(r.pid).labels, enough_data: S.get(r.pid).enough_data, category_advantage_ms: S.get(r.pid).category_advantage_ms })); }));
+  $('#co-codebook').addEventListener('click', () => { const b = new Blob([CO.CODEBOOK], { type: 'text/plain;charset=utf-8' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'lt5461-colour-codebook.txt'; document.body.appendChild(a); a.click(); a.remove(); });
+  let coSim = null;
+
+  function renderColour(rows, starts) {
+    $('#co-demo').hidden = !CO_DEMO;
+    let parts;
+    if (CO_DEMO) parts = (coSim = coSim || CO.simulate(45, 11)).map(p => Object.assign({}, p));
+    else {
+      const first = new Map();
+      rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(String(r.pid))) first.set(String(r.pid), r); });
+      parts = [...first.values()].map(CO.parseRow);
+    }
+    parts.forEach((p, i) => { p.label = 'P' + String(i + 1).padStart(2, '0'); });
+    const C = coState.C = CO.classStats(parts, CO_DEMO ? [] : starts);
+    const pc = v => isFinite(v) ? Math.round(v * 100) + '%' : '–', ms = v => isFinite(v) ? `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(Math.round(v))} ms` : '–', m0 = v => isFinite(v) ? Math.round(v) + ' ms' : '–';
+    const tile = (label, value, note) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span><span class="stat-note">${note}</span></div>`;
+    $('#co-stats').innerHTML =
+      tile('Started', CO_DEMO ? C.parts.length : C.started, 'students') + tile('Completed', C.completed, 'all 28 namings and 60 trials') +
+      tile('Enough data', C.enough, `at least ${CO.MIN_VALID} usable trials in both conditions`) + tile('Accuracy', pc(C.accuracy), 'all matching trials') +
+      tile('Category advantage', ms(C.advMedian), `median · mean ${ms(C.advMean)}`) + tile('Positive advantage', C.ok.length ? pc(C.positive / C.ok.length) : '–', `${C.positive} of ${C.ok.length} students`);
+
+    // class RTs, in the same chart as the students' own page
+    const Wt = $('#co-rt'); CO.rtBars(Wt, C.within.rt, C.between.rt);
+    $('#co-adv').className = 'cl-adv' + (C.ok.length ? '' : ' none');
+    $('#co-adv').innerHTML = `<span class="cl-adv-label">Class category advantage</span><span class="cl-adv-value">${C.ok.length ? ms(C.advMedian) : 'Insufficient data'}</span><span class="cl-adv-note">${C.ok.length ? `median of ${C.ok.length} students’ advantages · mean ${ms(C.advMean)}` : 'no student has enough usable trials yet'}</span>`;
+    const accP = c => C[c].n ? Math.round(C[c].correct / C[c].n * 100) + '%' : '–';
+    $('#co-rt-table').innerHTML = `<thead><tr><th scope="col"></th><th class="num" scope="col">Same label</th><th class="num" scope="col">Different labels</th></tr></thead><tbody>` +
+      `<tr><th scope="row">Mean of students’ medians</th><td class="num"><strong>${m0(C.within.rt)}</strong></td><td class="num"><strong>${m0(C.between.rt)}</strong></td></tr>` +
+      `<tr><th scope="row">Median of students’ medians</th><td class="num">${m0(C.within.medOfMed)}</td><td class="num">${m0(C.between.medOfMed)}</td></tr>` +
+      `<tr><th scope="row">Accuracy (all students)</th><td class="num">${accP('within')}</td><td class="num">${accP('between')}</td></tr>` +
+      `<tr><th scope="row">Trials (all) · used for RT</th><td class="num">${C.within.n} · ${C.within.valid}</td><td class="num">${C.between.n} · ${C.between.valid}</td></tr></tbody>`;
+    $('#co-rt-note').textContent = `Each student’s median RT in each condition (correct responses, ${CO.MIN_RT} ms – 3 s), from the ${C.ok.length} students with at least ${CO.MIN_VALID} such trials in both; the bars show the mean of those medians. Accuracy and trial counts include every student. A descriptive comparison: the exploratory model below is the test.`;
+
+    CO.advHist($('#co-hist'), C);
+    $('#co-hist-cap').textContent = C.ok.length ? `Students with enough data (${C.ok.length}): median ${ms(C.advMedian)}, mean ${ms(C.advMean)}; ${C.positive} (${pc(C.positive / C.ok.length)}) above 0. Hover over a bar for the students and their exact values; ${C.parts.length - C.ok.length} student${C.parts.length - C.ok.length === 1 ? '' : 's'} without enough data ${C.parts.length - C.ok.length === 1 ? 'is' : 'are'} not shown.` : '';
+    CO.namesChart($('#co-names'), C); CO.gapsChart($('#co-gaps'), C);
+    const topQ = C.qingByColour.map((n, i) => [n, i]).filter(x => x[0]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([n, i]) => `${COK.STIM[i].id} (${n})`).join(', ');
+    const cuts = C.parts.map(p => { const ch = p.boundaries.map((b, i) => b === 'change' ? i + 1.5 : null).filter(x => x !== null); return ch; });
+    const single = cuts.filter(c => c.length === 1).map(c => c[0]);
+    $('#co-facts').innerHTML = !C.parts.length ? '' : [
+      `<li><strong>青:</strong> ${C.qingUsers} of ${C.parts.length} students used 青 on its own at least once (${C.qingAny} used a word containing 青)${topQ ? `; most often for ${topQ} (namings)` : ''}.</li>`,
+      `<li><strong>Consistency:</strong> students gave the same name both times to ${pc(C.consistencyMedian)} of the colours (median; mean ${pc(C.consistencyMean)}).</li>`,
+      `<li><strong>Boundaries:</strong> ${single.length} student${single.length === 1 ? '' : 's'} had exactly one change of name along the 14 colours${single.length ? `, between colours ${Math.min(...single) - 0.5}|${Math.min(...single) + 0.5} and ${Math.max(...single) - 0.5}|${Math.max(...single) + 0.5} (median ${CO.median(single) - 0.5}|${CO.median(single) + 0.5})` : ''}; ${cuts.filter(c => c.length > 1).length} had more than one; for ${cuts.filter(c => !c.length).length} no change is visible between two neighbouring colours that both had a stable name (usually because the colours where their name changes were named differently the two times).</li>`].join('');
+
+    // students
+    const K_ = { label: p => p.label, done: p => (p.complete ? 1 : 0), cons: p => p.consistency, cats: p => p.nCats, w: p => p.within.median, b: p => p.between.median, adv: p => p.enough ? p.adv : -Infinity, acc: p => p.accuracy, nw: p => p.within.valid, nb: p => p.between.valid };
+    const [sk, sd] = coState.sort, val = K_[sk] || K_.label;
+    const rowsP = C.parts.slice().sort((x, y) => { const a = val(x), b = val(y); return (typeof a === 'string' ? a.localeCompare(b) : (isFinite(a) ? a : -1e9) - (isFinite(b) ? b : -1e9)) * sd; });
+    const head = [['label', 'Student'], ['done', 'Status'], ['cons', 'Naming consistency'], ['cats', 'Stable names'], ['w', 'Same-label RT'], ['b', 'Different-label RT'], ['adv', 'Advantage'], ['acc', 'Accuracy'], ['nw', 'Used: same'], ['nb', 'Used: different']];
+    $('#co-people').innerHTML = !C.parts.length ? '' : `<thead><tr>${head.map(([k, l], i) => `<th scope="col"${i > 1 ? ' class="num"' : ''}><button type="button" class="co-sort" data-k="${k}" aria-sort="${sk === k ? (sd > 0 ? 'ascending' : 'descending') : 'none'}">${l}</button></th>`).join('')}</tr></thead><tbody>` +
+      rowsP.map(p => `<tr${p.enough ? '' : ' class="co-short"'}><th scope="row"><button type="button" data-p="${p.label}">${p.label}</button></th><td>${p.complete ? 'complete' : 'incomplete'}${p.enough ? '' : ' · insufficient'}${p.simulated ? ' · simulated' : ''}</td>` +
+        `<td class="num">${pc(p.consistency)}</td><td class="num">${p.nCats}</td><td class="num">${m0(p.within.median)}</td><td class="num">${m0(p.between.median)}</td><td class="num"><strong>${p.enough ? ms(p.adv) : '–'}</strong></td><td class="num">${pc(p.accuracy)}</td><td class="num">${p.within.valid}</td><td class="num">${p.between.valid}</td></tr>`).join('') + '</tbody>';
+    coSearch();
+    const V = C.parts.find(p => p.label === coState.view);
+    $('#co-view').hidden = !V;
+    if (V) {
+      $('#co-pick').innerHTML = C.parts.map(p => `<option value="${p.label}"${p === V ? ' selected' : ''}>${p.label}${p.enough ? ` · ${ms(p.adv)}` : ' · insufficient'}</option>`).join('');
+      CO.mountPersonal($('#co-person'), V);
+    }
+    if ($('#co-model').open) coModel();
+
+    // summary
+    const items = [];
+    if (!C.parts.length) items.push(`<li><strong>No runs yet for this class.</strong> ${C.started ? `${C.started} student${C.started > 1 ? 's have' : ' has'} started.` : 'Results appear here as students finish.'}</li>`);
+    else {
+      items.push(`<li><strong>Taking part.</strong> ${C.completed} finished${CO_DEMO ? ' (simulated)' : ` of ${Math.max(C.started, C.completed)} who started`}; ${C.enough} had enough usable trials in both conditions to compare.</li>`);
+      if (C.ok.length) items.push(`<li><strong>Category advantage.</strong> Median ${ms(C.advMedian)} ${inline(`mean ${ms(C.advMean)}; ${C.positive} of ${C.ok.length} student${C.ok.length === 1 ? '' : 's'} faster with different labels`)}. Same label ${m0(C.within.rt)}, different labels ${m0(C.between.rt)} (mean of the students’ medians).</li>`);
+      items.push(`<li><strong>Names.</strong> ${C.qingUsers} student${C.qingUsers === 1 ? '' : 's'} used 青; names were consistent across the two namings for ${pc(C.consistencyMedian)} of the colours (median).</li>`);
+      items.push('<li><strong>These are descriptions.</strong> Whether different labels go with faster responses after accounting for colour distance is in the exploratory model below.</li>');
+    }
+    $('#co-summary').innerHTML = items.join('');
+  }
+  const COK = window.COLOUR_CORE;
+  function coModel() {
+    const C = coState.C; if (!C) return;
+    const key = JSON.stringify([CO_DEMO, C.parts.map(p => p.pid + p.trials.length)]);
+    if (coState.modelKey === key && coState.modelHTML) { $('#co-model-out').innerHTML = coState.modelHTML; return; }
+    coState.modelKey = key; $('#co-model-out').innerHTML = '<p class="cl-small">Fitting the model…</p>';
+    setTimeout(() => {
+      const M = CO.model(C);
+      const pct = r => { const v = (r - 1) * 100; return `${v < -0.05 ? '−' : v > 0.05 ? '+' : '±'}${Math.abs(v).toFixed(1)}%`; };
+      coState.modelHTML = !M.ok ? `<p class="cl-small">Not fitted: ${M.reason}.</p>` :
+        `<div class="table-wrap" data-label="Model"><table class="data"><thead><tr><th scope="col">Term</th><th class="num" scope="col">Change in RT</th><th class="num" scope="col">95% CI</th><th class="num sep" scope="col"><i>t</i> (df)</th><th class="num" scope="col"><i>p</i></th></tr></thead><tbody>` +
+        M.coef.map(c => `<tr><th scope="row">${c.name}</th><td class="num"><strong>${pct(Math.exp(c.b))}</strong></td><td class="num">${pct(Math.exp(c.ci[0]))} to ${pct(Math.exp(c.ci[1]))}</td><td class="num sep">${c.stat < 0 ? '−' : ''}${Math.abs(c.stat).toFixed(2)} (${c.df ? c.df.toFixed(1) : '–'})</td><td class="num">${LAB.fmtPval(c.p)}</td></tr>`).join('') + '</tbody></table></div>' +
+        `<p class="cl-small">${M.n} correct trials from ${M.nP} students and ${M.nPairs} colour pairs (unclassified trials left out). In plain words: the model asks whether a student was faster on pairs they named differently than on pairs they named alike, comparing like with like — it allows for pairs three steps apart being easier than pairs two steps apart, for getting faster (or slower) over the session, for some students being faster overall, and for some colour pairs being easier. “Different labels” is the estimated change in reaction time for a different-label pair, as a percentage (negative = faster). Fitted on log RT by REML with Satterthwaite degrees of freedom (as lme4/lmerTest): log RT ~ different labels + three steps + trial + (1 | student) + (1 | pair).${M.converged ? '' : ' The fit may not have converged; treat with caution.'} Exploratory; with few students it is imprecise.</p>`;
+      $('#co-model-out').innerHTML = coState.modelHTML;
+    }, 30);
   }
 
   /* ---------- bird task: typicality ratings → semantic map ----------

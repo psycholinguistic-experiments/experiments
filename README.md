@@ -22,6 +22,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `animal-task.html` | students | Animal task: arrange 20 mammals by similarity, then 30 similarity-based inferences (after Douven et al., 2023) |
 | `fluency-task.html` | students | Fluency task (in Chinese): two 120-s semantic fluency blocks (animals; fruits and vegetables), then joyous exploration and deprivation sensitivity from the 5DC |
 | `reading-task.html` | students | Reading task: self-paced reading of 30 passages with or without “because”, a recognition probe and some comprehension questions (after Millis & Just, 1994) |
+| `colour-task.html` | students | Colour task (Mandarin): name 14 blue-green colours twice, then 60 colour-matching trials; are pairs with different names matched faster? |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -51,7 +52,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`, `reading_*`, `reading_start_*`; the report task sends no trials, so it has only `report_people`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`, `reading_*`, `reading_start_*`, `colour_*`, `colour_start_*`; the report task sends no trials, so it has only `report_people`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -134,6 +135,33 @@ the original HTML in `dev/orig/` and imports its exports),
 `dev/seed_reading.py <session> <seed> <port> <n>` (SIMULATED class, marked
 simulated = 1; mock server only), reading cases in
 `dev/test_dashboard_edges.py`.
+
+## Colour task (colour names and colour matching)
+
+In Mandarin naming, English instructions (`colour-task.html`, `assets/colour.js`,
+exp `colour`; start pings go to `colour_start`). Shared parts in
+`assets/colour-core.js` (stimuli, trial list, label normalisation) and
+`assets/colour-analysis.js` (per-student classification, personal results,
+class charts, exports, simulation). Stimuli are made and checked by
+`materials/colour/make_stimuli.py` (`stimuli.json`). Full design, measures,
+analysis and cautions: `materials/colour/METHODS.md`.
+
+14 colours (OKLCH L 0.70, C 0.10, hue 160°–264°), each named twice; 8 practice
+matches with feedback; 60 fixed matches (30 two steps apart, 30 three steps),
+order and side of the match randomised. Each student's own stable names decide
+whether a pair is "same label", "different labels" or unclassified. Progress is
+saved after every trial, so a reload resumes. Results tab "Colour": class
+summary, pooled reaction times, each student's advantage, how the class named
+the colours, where the names change, a student table with each student's
+personal page, an exploratory mixed model, and downloads (naming trials,
+matching trials, students, combined, codebook).
+
+Demo: `results.html?demo` shows 45 simulated students (made in the browser,
+nothing stored). `colour-task.html?test&demo` adds a button that fills the rest
+of a rehearsal run with simulated answers (marked simulated = 1, test class).
+Tests: `dev/test_colour.py <port>` (fake clock: trial counts, field limits,
+resume after reload, timeouts, double presses, page = recount),
+colour cases in `dev/test_dashboard_edges.py`.
 
 ## Fluency task (semantic fluency and curiosity)
 

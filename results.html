@@ -8,6 +8,7 @@
     <meta name="description" content="Live, anonymous class results for the LT5461 in-class experiments.">
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="assets/lab.css?v=9">
+    <link rel="stylesheet" href="assets/colour.css?v=1">
     <style>
         :root { --wide: 76rem; }
         .dash-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--border); }
@@ -24,7 +25,7 @@
         .tab { white-space: nowrap; }
         /* Eight tabs: one row on a 1440 projector; they wrap rather than overflow on anything narrower. */
         .tabs { flex-wrap: wrap; row-gap: 0; }
-        @media (min-width: 1041px) { .tab { padding-left: 0.26rem; padding-right: 0.26rem; font-size: 0.84rem; } .tab .n { margin-left: 0.25rem; } }
+        @media (min-width: 1041px) { .tab { padding-left: 0.6rem; padding-right: 0.6rem; font-size: 0.94rem; } .tab .n { margin-left: 0.25rem; } }
         @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         /* Phones: one row of tabs that scrolls sideways (after the rule above, which it overrides). */
         @media (max-width: 600px) { .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .tab { flex: 0 0 auto; } }
@@ -390,6 +391,20 @@
         .v-prof-pair, .an-pair { grid-template-columns: minmax(0, 1fr); gap: 1rem 2.5rem; }
         @media (min-width: 900px) { .v-prof-pair, .an-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .an-pair .figure { max-width: none; }
+        /* Colour tab */
+        @media (min-width: 1100px) { #co-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        .co-rt .cl-table { margin-top: 0.5rem; }
+        .co-facts { padding-left: 1.1rem; max-width: var(--measure); }
+        .co-facts li + li { margin-top: 0.35rem; }
+        #co-people th button.co-sort { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+        #co-people th button.co-sort[aria-sort]::after { content: ' ↕'; color: var(--text-light); font-weight: 400; }
+        #co-people tbody th button { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0.2rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; }
+        #co-people tr.co-short td, #co-people tr.co-short th { color: var(--text-light); }
+        .co-view { margin: 1.25rem 0; padding: 1rem 0 0; border-top: 3px solid var(--text); }
+        .co-view-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.5rem; }
+        .co-view-bar select { font: inherit; padding: 0.3rem 0.5rem; border: 1px solid var(--border-input); border-radius: 4px; background: var(--bg); color: var(--text); }
+        .chart.co .g-qing { fill: var(--g-qing); } .chart.co .g-lan { fill: var(--g-lan); } .chart.co .g-lv { fill: var(--g-lv); } .chart.co .g-other { fill: var(--g-other); } .chart.co .g-unc { fill: var(--g-unc); }
+        .chart.co .co-bar { fill: var(--cl-teal); } .chart.co .co-bar0 { fill: var(--cl-grey); }
         /* Reading tab */
         :root { --cond-bec: #2f6db5; --cond-non: #c8622a; }
         .chart.rd line.c-bec, .chart.rd path.c-bec { stroke: var(--cond-bec); } .chart.rd line.c-non, .chart.rd path.c-non { stroke: var(--cond-non); }
@@ -586,16 +601,17 @@
             <p class="note warn" id="not-connected" hidden>This page is not connected to the class data yet. Paste the Apps Script web-app URL into <code>assets/config.js</code> (see README).</p>
 
             <div class="tabs" role="tablist" aria-label="Experiment">
-                <button class="tab" role="tab" id="tab-words" aria-controls="panel-words" aria-selected="true">Word tasks<span class="n" id="n-words"></span></button>
-                <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape task<span class="n" id="n-shapes"></span></button>
-                <button class="tab" role="tab" id="tab-fle" aria-controls="panel-fle" aria-selected="false" tabindex="-1">Judgement task<span class="n" id="n-fle"></span></button>
-                <button class="tab" role="tab" id="tab-fast" aria-controls="panel-fast" aria-selected="false" tabindex="-1">Association task<span class="n" id="n-fast"></span></button>
-                <button class="tab" role="tab" id="tab-svt" aria-controls="panel-svt" aria-selected="false" tabindex="-1">Sentence task<span class="n" id="n-svt"></span></button>
-                <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird task<span class="n" id="n-birds"></span></button>
-                <button class="tab" role="tab" id="tab-report" aria-controls="panel-report" aria-selected="false" tabindex="-1">Report task<span class="n" id="n-report"></span></button>
-                <button class="tab" role="tab" id="tab-animals" aria-controls="panel-animals" aria-selected="false" tabindex="-1">Animal task<span class="n" id="n-animals"></span></button>
-                <button class="tab" role="tab" id="tab-fluency" aria-controls="panel-fluency" aria-selected="false" tabindex="-1">Fluency task<span class="n" id="n-fluency"></span></button>
-                <button class="tab" role="tab" id="tab-reading" aria-controls="panel-reading" aria-selected="false" tabindex="-1">Reading task<span class="n" id="n-reading"></span></button>
+                <button class="tab" role="tab" id="tab-words" aria-controls="panel-words" aria-selected="true">Word<span class="n" id="n-words"></span></button>
+                <button class="tab" role="tab" id="tab-shapes" aria-controls="panel-shapes" aria-selected="false" tabindex="-1">Shape<span class="n" id="n-shapes"></span></button>
+                <button class="tab" role="tab" id="tab-fle" aria-controls="panel-fle" aria-selected="false" tabindex="-1">Judgement<span class="n" id="n-fle"></span></button>
+                <button class="tab" role="tab" id="tab-fast" aria-controls="panel-fast" aria-selected="false" tabindex="-1">Association<span class="n" id="n-fast"></span></button>
+                <button class="tab" role="tab" id="tab-svt" aria-controls="panel-svt" aria-selected="false" tabindex="-1">Sentence<span class="n" id="n-svt"></span></button>
+                <button class="tab" role="tab" id="tab-birds" aria-controls="panel-birds" aria-selected="false" tabindex="-1">Bird<span class="n" id="n-birds"></span></button>
+                <button class="tab" role="tab" id="tab-report" aria-controls="panel-report" aria-selected="false" tabindex="-1">Report<span class="n" id="n-report"></span></button>
+                <button class="tab" role="tab" id="tab-animals" aria-controls="panel-animals" aria-selected="false" tabindex="-1">Animal<span class="n" id="n-animals"></span></button>
+                <button class="tab" role="tab" id="tab-fluency" aria-controls="panel-fluency" aria-selected="false" tabindex="-1">Fluency<span class="n" id="n-fluency"></span></button>
+                <button class="tab" role="tab" id="tab-reading" aria-controls="panel-reading" aria-selected="false" tabindex="-1">Reading<span class="n" id="n-reading"></span></button>
+                <button class="tab" role="tab" id="tab-colour" aria-controls="panel-colour" aria-selected="false" tabindex="-1">Colour<span class="n" id="n-colour"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -1162,6 +1178,70 @@
                     <ul class="rd-msgs small" id="rd-import-msgs"></ul>
                 </div>
             </section>
+            <!-- Colour task ("Do colour names shape perception?": naming + colour matching) -->
+            <section id="panel-colour" role="tabpanel" aria-labelledby="tab-colour" hidden>
+                <div class="veil">
+                    <span class="stat-label">Colour task</span><div class="big" id="veil-colour">0</div>
+                </div>
+                <div class="results-body">
+                    <p class="cl-demo" id="co-demo" hidden>Simulated data: 45 made-up students, generated in this browser for trying the dashboard. Nothing here is real or stored. Remove <code>?demo</code> from the address for the real class.</p>
+                    <section class="summary" aria-labelledby="co-sum-h"><h2 id="co-sum-h">Summary</h2><ul id="co-summary"></ul></section>
+                    <div class="stats" id="co-stats"></div>
+
+                    <h2>Reaction times: same label vs different labels</h2>
+                    <div class="cl-panel co-rt"><div class="cl-rt"><div id="co-rt"></div><div class="cl-adv" id="co-adv"></div></div>
+                        <div class="table-wrap" data-label="Class reaction times"><table class="data cl-table" id="co-rt-table"></table></div>
+                        <p class="cl-small" id="co-rt-note"></p></div>
+
+                    <h2>Each student’s category advantage</h2>
+                    <div id="co-hist"></div>
+                    <p class="chart-caption" id="co-hist-cap"></p>
+
+                    <h2>How the class named the colours</h2>
+                    <div id="co-names"></div>
+                    <p class="chart-caption">For each colour, the share of students whose name was 青, 蓝, 绿 or another word both times, or who named it differently the two times (uncertain).</p>
+                    <h3 class="sub">Where the names change</h3>
+                    <div id="co-gaps"></div>
+                    <p class="chart-caption">For each pair of neighbouring colours, the share of students whose (stable) names differ there — where the class draws its boundaries, and how much they vary.</p>
+                    <ul class="co-facts" id="co-facts"></ul>
+
+                    <h2>Students</h2>
+                    <div class="rd-search"><label for="co-q">Find</label><input id="co-q" type="search" placeholder="P03, insufficient …" autocomplete="off"></div>
+                    <div class="table-wrap" data-label="Students"><table class="data co-people" id="co-people"></table></div>
+                    <div class="co-view" id="co-view" hidden>
+                        <div class="co-view-bar"><label for="co-pick">Student</label><select id="co-pick"></select><button class="btn-quiet" type="button" id="co-prev">← Previous</button><button class="btn-quiet" type="button" id="co-next">Next →</button><button class="btn-quiet" type="button" id="co-close">Close</button></div>
+                        <div id="co-person"></div>
+                    </div>
+
+                    <section class="q" aria-labelledby="co-m-h">
+                        <details class="more" id="co-model">
+                            <summary id="co-m-h">Exploratory model <span class="sum-note">different labels, after accounting for colour distance</span></summary>
+                            <div id="co-model-out"></div>
+                        </details>
+                    </section>
+
+                    <h2>Cautions</h2>
+                    <ul class="rd-limits column">
+                        <li>Colour naming differs between people: each student’s comparison rests on their own names, so students contribute different numbers of same- and different-label trials, and some cannot be compared at all.</li>
+                        <li>Screens are not calibrated: the same colour codes look different on different devices, brightness settings and lighting.</li>
+                        <li>Different-label pairs are not a random sample of pairs: they sit where names change, which may also be where colours are easier or harder to tell apart. The exploratory model accounts for the colour distance (two or three steps) and the particular pair, not for everything.</li>
+                        <li>Fast and wrong is possible: check accuracy alongside the reaction times (speed–accuracy trade-off).</li>
+                        <li>Few trials per student (60, fewer per condition): individual advantages are noisy.</li>
+                        <li>Naming the colours first may have made the names more active during matching.</li>
+                        <li>This is an observational classroom exercise: an association between names and speed cannot show that language causes a change in perception.</li>
+                    </ul>
+
+                    <h2>Data</h2>
+                    <div class="actions rd-dl">
+                        <button class="btn-quiet" id="co-csv-names" type="button">Naming trials (CSV)</button>
+                        <button class="btn-quiet" id="co-csv-disc" type="button">Matching trials (CSV)</button>
+                        <button class="btn-quiet" id="co-csv-people" type="button">Students (CSV)</button>
+                        <button class="btn-quiet" id="co-csv-all" type="button">Combined (CSV)</button>
+                        <button class="btn-quiet" id="co-codebook" type="button">Codebook (TXT)</button>
+                    </div>
+                    <p class="small muted column">The matching and combined files give each trial with the student’s own names for the two colours and its classification, so every result here can be recomputed. The stimuli’s colour values are in every file.</p>
+                </div>
+            </section>
             <!-- Bird task (typicality ratings → semantic map, as in Bird plot.Rmd) -->
             <section id="panel-birds" class="waiting" role="tabpanel" aria-labelledby="tab-birds" hidden>
                 <div class="veil">
@@ -1405,6 +1485,8 @@
     <script src="assets/fluency-analysis.js?v=5"></script>
     <script src="assets/reading-core.js?v=1"></script>
     <script src="assets/reading-analysis.js?v=3"></script>
-    <script src="assets/dashboard.js?v=127"></script>
+    <script src="assets/colour-core.js?v=1"></script>
+    <script src="assets/colour-analysis.js?v=2"></script>
+    <script src="assets/dashboard.js?v=129"></script>
 </body>
 </html>
