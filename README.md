@@ -23,6 +23,7 @@ into a Google Sheet, and the class results update live on the projector.
 | `fluency-task.html` | students | Fluency task (in Chinese): two 120-s semantic fluency blocks (animals; fruits and vegetables), then joyous exploration and deprivation sensitivity from the 5DC |
 | `reading-task.html` | students | Reading task: self-paced reading of 30 passages with or without “because”, a recognition probe and some comprehension questions (after Millis & Just, 1994) |
 | `colour-task.html` | students | Colour task (Mandarin): name 14 blue-green colours twice, then 60 colour-matching trials; are pairs with different names matched faster? |
+| `emotion-task.html` | students | Emotion task (in Chinese): arrange 47 emotion words by meaning, as in Chaouch-Orozco, Li & Li (2026) |
 | `results.html` | you | Live class results for the projector |
 | `apps-script/Code.gs` | you | The Google Apps Script behind the data |
 
@@ -52,7 +53,7 @@ Hong Kong date on which the students did the tasks.
 ## The data
 
 All data go into the Google Sheet (personal Gmail) that the Apps Script is
-attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`, `reading_*`, `reading_start_*`, `colour_*`, `colour_start_*`; the report task sends no trials, so it has only `report_people`):
+attached to. There are two tabs per task (`masked_*`, `visible_*`, `bouba_*`, `fle_*`, `fast_*`, `svt_*`, `birds_*`, `report_*`, `animals_*`, `fluency_*`, `reading_*`, `reading_start_*`, `colour_*`, `colour_start_*`, `emotion_*`; the report task sends no trials, so it has only `report_people`):
 
 - `*_people`: one row per student, with the numbers the results page uses.
   - Word tasks: priming effect, condition means, accuracy, screen refresh rate,
@@ -135,6 +136,35 @@ the original HTML in `dev/orig/` and imports its exports),
 `dev/seed_reading.py <session> <seed> <port> <n>` (SIMULATED class, marked
 simulated = 1; mock server only), reading cases in
 `dev/test_dashboard_edges.py`.
+
+## Emotion task (spatial arrangement of emotion words)
+
+In Chinese (`emotion-task.html`, `assets/emotion.js`, exp `emotion`; shared parts
+in `assets/emotion-core.js`). The 47 emotion words of Chaouch-Orozco, Li & Li
+(2026), in the Chinese of the paper's Appendix A, plus 灾难 twice (the paper's
+attention check), start in the middle of a screen-filling box; students drag
+them so that words closer in meaning sit closer together, and must move every
+word. Progress is kept on the device after every move, so a reload resumes.
+Students see only "已提交" at the end. Full design and analysis:
+`materials/emotion/METHODS.md`.
+
+Results tab "Emotion" (`assets/emotion-analysis.js`): the paper's checks (灾难
+together, at least 100 s, time within 3 SD; switchable), the class map (MDS,
+aligned to the paper's Chinese map, with arrows on request), the class against
+the paper's 15 languages, the relation with long-term orientation and distance
+across the other 14, agreement (students with the class and with the paper,
+against the paper's own Chinese speakers), the words placed most differently,
+a student table with each student's own arrangement, and downloads (distances
+in the paper's OSF format, positions, students, class matrix, codebook). The
+paper's per-language mean matrices are in `assets/data/emotion-paper.json`,
+built from its OSF files by `materials/emotion/build_paper_data.py`.
+
+Demo: `results.html?demo` shows 40 simulated students (made in the browser from
+the paper's Chinese map; nothing stored). Tests: `dev/test_emotion.py <port>`
+(two runs incl. a reload, taps, arrow keys and a failed check; stored positions
+= screen; the tab's numbers = a scipy recount), `dev/check_emotion.py <folder>`
+(recomputes the tab from its downloads), emotion cases in
+`dev/test_dashboard_edges.py`. Mantel test, MDS and Procrustes match R's vegan.
 
 ## Colour task (colour names and colour matching)
 

@@ -4,12 +4,12 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const num = LAB.num;
-  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency', 'reading', 'reading_start', 'colour', 'colour_start'];
+  const EXPS = ['masked', 'visible', 'bouba', 'fle', 'fast', 'svt', 'birds', 'report', 'animals', 'fluency', 'reading', 'reading_start', 'colour', 'colour_start', 'emotion'];
   // Sentence task: the English self-ratings, in the order the results page shows them.
   const SVT_SKILLS = [['eng_mean', 'Mean of five'], ['eng_overall', 'Overall'], ['eng_listening', 'Listening'], ['eng_speaking', 'Speaking'], ['eng_reading', 'Reading'], ['eng_writing', 'Writing']];
   const state = {
     session: LAB.params.get('session') || LAB.hkDate(),
-    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [], reading: [], reading_start: [], colour: [], colour_start: [] },
+    rows: { masked: [], visible: [], bouba: [], fle: [], fast: [], svt: [], birds: [], report: [], animals: [], fluency: [], reading: [], reading_start: [], colour: [], colour_start: [], emotion: [] },
     timer: null,
     loadedOnce: false
   };
@@ -20,7 +20,7 @@
   const fmtCI = a => isFinite(a[0]) ? `${LAB.signed(a[0])}\u00a0to\u00a0${LAB.signed(a[1])}` : '–';
 
   /* ---------- tabs ---------- */
-  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency'), $('#tab-reading'), $('#tab-colour')];
+  const tabs = [$('#tab-words'), $('#tab-shapes'), $('#tab-fle'), $('#tab-fast'), $('#tab-svt'), $('#tab-birds'), $('#tab-report'), $('#tab-animals'), $('#tab-fluency'), $('#tab-reading'), $('#tab-colour'), $('#tab-emotion')];
   function selectTab(t) {
     tabs.forEach(x => {
       const on = x === t;
@@ -146,6 +146,8 @@
       if (wrd && wrd !== state.readingW) { state.readingW = wrd; lastKey = ''; render(); }
       const wco = $('#panel-colour').hidden ? 0 : $('#panel-colour').clientWidth;
       if (wco && wco !== state.colourW) { state.colourW = wco; lastKey = ''; render(); }
+      const wem = $('#panel-emotion').hidden ? 0 : $('#panel-emotion').clientWidth;
+      if (wem && wem !== state.emotionW) { state.emotionW = wem; lastKey = ''; render(); }
       const wr = $('#panel-report').hidden ? 0 : $('#panel-report').clientWidth;
       if (wr && wr !== state.reportW) { state.reportW = wr; lastKey = ''; render(); }
       const wb = $('#panel-birds').hidden ? 0 : $('#panel-birds').clientWidth;
@@ -162,7 +164,7 @@
 
   /* ---------- rendering ---------- */
   function render() {
-    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency, rd = state.rows.reading, rs = state.rows.reading_start, co = state.rows.colour, cs = state.rows.colour_start;
+    const m = state.rows.masked, v = state.rows.visible, b = state.rows.bouba, f = state.rows.fle, a = state.rows.fast, sv = state.rows.svt, bd = state.rows.birds, rp = state.rows.report, an = state.rows.animals, fl = state.rows.fluency, rd = state.rows.reading, rs = state.rows.reading_start, co = state.rows.colour, cs = state.rows.colour_start, em = state.rows.emotion;
     $('#n-words').textContent = m.length + v.length;
     $('#n-shapes').textContent = b.length;
     $('#n-fle').textContent = f.length;
@@ -188,9 +190,11 @@
     $('#veil-reading').textContent = rd.length;
     $('#n-colour').textContent = CO_DEMO ? 45 : co.length;
     $('#veil-colour').textContent = CO_DEMO ? 45 : co.length;
+    $('#n-emotion').textContent = CO_DEMO ? 40 : em.length;
+    $('#veil-emotion').textContent = CO_DEMO ? 40 : em.length;
     // Redraw charts only when the data changed, so the dot animation does not
     // replay every five seconds.
-    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, rd.map(r => r.pid + r.submitted_at), rs.length, readingKey(), co.map(r => r.pid + r.submitted_at), cs.length, colourKey(), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
+    const key = JSON.stringify([state.session, m.length, v.length, b.length, m.map(r => r.pid + r.effect), v.map(r => r.pid + r.effect), b.map(r => r.pid), f.map(r => r.pid + r.lang), a.map(r => r.pid + r.session), sv.map(r => r.pid + r.run + r.effect), fastState.norms ? 1 : 0, bd.map(r => r.pid + r.submitted_at), rp.map(r => r.pid + r.submitted_at), an.map(r => r.pid + r.submitted_at), fl.map(r => r.pid + r.submitted_at), window.FLUENCY.lexReady() ? 1 : 0, rd.map(r => r.pid + r.submitted_at), rs.length, readingKey(), co.map(r => r.pid + r.submitted_at), cs.length, colourKey(), em.map(r => r.pid + r.submitted_at), emotionKey(), state.fetched ? 1 : 0]) + tabs.find(t => t.getAttribute('aria-selected') === 'true').id;
     if (key === lastKey) return;
     lastKey = key;
     if (!$('#panel-words').hidden) renderWords(m, v);
@@ -204,6 +208,7 @@
     if (!$('#panel-fluency').hidden) renderFluency(fl);
     if (!$('#panel-reading').hidden) renderReading(rd, rs);
     if (!$('#panel-colour').hidden) renderColour(co, cs);
+    if (!$('#panel-emotion').hidden) renderEmotion(em);
     syncScrollers();
   }
 
@@ -3068,6 +3073,127 @@
       $('#co-model-out').innerHTML = coState.modelHTML;
     }, 30);
   }
+
+  /* ---------- emotion task: spatial arrangement of 47 emotion words ----------
+     Analysis and charts in emotion-analysis.js; the paper's 15 languages come
+     from assets/data/emotion-paper.json, loaded the first time the tab opens.
+     ?demo shows 40 simulated students made in this browser (never stored). */
+  const EM = window.EMOTION;
+  const emState = { P: null, err: '', loading: false, A: null, view: null, sort: ['label', 1], map: 'class', sim: null };
+  function emotionKey() { return [emState.P ? 1 : 0, emState.err, emState.view || '', emState.sort.join(), emState.map, $('#em-apply').checked ? 1 : 0, $('#em-words-more').open ? 1 : 0].join('|'); }
+  const emRender = () => { lastKey = ''; render(); };
+  $('#em-apply').addEventListener('change', emRender);
+  ['class', 'paper'].forEach(v => $('#em-view-' + v).addEventListener('click', () => { emState.map = v; emRender(); }));
+  $('#em-words-more').addEventListener('toggle', emRender);
+  $('#em-q').addEventListener('input', () => emSearch());
+  function emSearch() { const q = $('#em-q').value.trim().toLowerCase(); document.querySelectorAll('#em-people tbody tr').forEach(tr => { tr.hidden = q && !tr.textContent.toLowerCase().includes(q); }); }
+  $('#em-people').addEventListener('click', e => {
+    const so = e.target.closest('button.co-sort'); if (so) { const k = so.dataset.k; emState.sort = [k, emState.sort[0] === k ? -emState.sort[1] : 1]; emRender(); return; }
+    const b = e.target.closest('button[data-p]'); if (b) { emState.view = b.dataset.p; emRender(); $('#em-view').scrollIntoView({ block: 'start' }); }
+  });
+  $('#em-pick').addEventListener('change', () => { emState.view = $('#em-pick').value; emRender(); });
+  const emStep = d => { const L = emState.A ? emState.A.parts.map(p => p.label) : []; const i = L.indexOf(emState.view); if (i >= 0 && L.length) { emState.view = L[(i + d + L.length) % L.length]; emRender(); } };
+  $('#em-prev').addEventListener('click', () => emStep(-1)); $('#em-next').addEventListener('click', () => emStep(1));
+  $('#em-close').addEventListener('click', () => { emState.view = null; emRender(); });
+  const emCSV = (file, make) => () => { const A = emState.A; if (A && A.parts.length) { const rows = make(A); if (rows.length) LAB.download(`lt5461-emotion-${file}-${CO_DEMO ? 'SIMULATED' : state.session}.csv`, LAB.toCSV(rows)); } };
+  $('#em-csv-dist').addEventListener('click', emCSV('distances', A => EM.distRows(A.parts)));
+  $('#em-csv-pos').addEventListener('click', emCSV('positions', A => EM.posRows(A.parts)));
+  $('#em-csv-people').addEventListener('click', emCSV('students', A => EM.studentRows(A.parts)));
+  $('#em-csv-matrix').addEventListener('click', emCSV('class-matrix', A => A.mean ? EM.matrixRows(A) : []));
+  $('#em-codebook').addEventListener('click', () => { const b = new Blob([EM.CODEBOOK], { type: 'text/plain;charset=utf-8' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'lt5461-emotion-codebook.txt'; document.body.appendChild(a); a.click(); a.remove(); });
+
+  function renderEmotion(rows) {
+    $('#em-demo').hidden = !CO_DEMO;
+    const r2 = EM.r2, plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    if (!emState.P) {
+      if (!emState.loading && !emState.err) {
+        emState.loading = true;
+        EM.loadPaper().then(P => { emState.P = P; emState.loading = false; emRender(); }).catch(e => { emState.err = String(e && e.message || e); emState.loading = false; emRender(); });
+      }
+      $('#em-summary').innerHTML = emState.err ? `<li><strong>The paper’s data could not be loaded</strong> (${EM.esc(emState.err)}). Reload the page.</li>` : '<li>Loading the paper’s data…</li>';
+      $('#em-body').hidden = true; $('#em-stats').innerHTML = ''; return;
+    }
+    const P = emState.P;
+    let src;
+    if (CO_DEMO) src = emState.sim = emState.sim || EM.simulate(40, 23, P);
+    else {
+      const first = new Map();
+      rows.slice().sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at))).forEach(r => { if (!first.has(String(r.pid))) first.set(String(r.pid), r); });
+      src = [...first.values()];
+    }
+    const parts = src.map(EM.parseRow).filter(Boolean), unread = src.length - parts.length;
+    parts.forEach((p, i) => { p.label = 'P' + String(i + 1).padStart(2, '0'); });
+    const apply = $('#em-apply').checked, A = emState.A = EM.analyse(parts, P, { apply });
+    const nOut = parts.filter(p => !p.passes).length;
+    $('#em-apply-note').textContent = parts.length ? `(灾难 together, at least 100 s, time within 3 SD: ${parts.length - nOut} of ${parts.length} pass)` : '';
+    const minutes = ms => isFinite(ms) ? `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}` : '–';
+    const tile = (label, value, note) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span><span class="stat-note">${note}</span></div>`;
+
+    // summary
+    const items = [];
+    if (!parts.length) items.push(`<li><strong>No runs yet for this class.</strong> Results appear here as students finish.${unread ? ` (${plural(unread, 'run')} could not be read.)` : ''}</li>`);
+    else {
+      const reasons = [[A.checks.cat, '灾难 apart'], [A.checks.fast, 'under 100 s'], [A.checks.outlier, 'time more than 3 SD from the mean']].filter(x => x[0]).map(([n, w]) => `${n} ${w}`).join(', ');
+      items.push(`<li><strong>Taking part.</strong> ${plural(parts.length, 'arrangement')}${CO_DEMO ? ' (simulated)' : ''}; ${A.n} analysed${apply ? (nOut ? ` (left out by the paper’s checks: ${reasons})` : ' (everyone passes the paper’s checks)') : ' (checks switched off)'}.${unread ? ` ${plural(unread, 'run')} could not be read.` : ''}</li>`);
+      if (A.n) {
+        items.push(`<li><strong>Same language.</strong> The class’s arrangement matches the paper’s Chinese speakers’ at ρ = ${r2(A.chinese.r)} ${inline(`Mantel <i>p</i> ${A.mantel.p < 0.001 ? '&lt; .001' : '= ' + LAB.fmtPval(A.mantel.p)}, 999 permutations`)}; of the paper’s 15 languages, Chinese comes ${ordinal(A.chinese.rank)}${A.chinese.rank > 1 ? ` (closest: ${A.langs[0].label}, ${r2(A.langs[0].r)})` : ''}.</li>`);
+        // r < 0: languages of cultures closer to China in long-term orientation are arranged more like the class
+        const rel = (T, who) => {
+          const st = inline(`r = ${r2(T.r)}, 95% CI ${r2(T.ci[0])} to ${r2(T.ci[1])}, ${LAB.fmtP(T.p)}`);
+          if (!isFinite(T.p)) return `${who}: too little variation to test`;
+          return T.p < 0.05 ? `${who}: ${T.r < 0 ? 'more' : 'less'} alike for languages whose cultures are closer to China’s ${st}` : `${who}: no clear relation ${st}`;
+        };
+        items.push(`<li><strong>Long-term orientation.</strong> Across the paper’s 14 other languages (Pearson, as the paper’s Fig. 3). ${cap(rel(A.rel.lto, 'the class'))}; ${rel(A.rel.ltoPaper, 'the paper’s Chinese speakers')}.</li>`);
+        if (A.rClass.length) items.push(`<li><strong>Agreement.</strong> Students match the rest of the class at a median ρ of ${r2(LAB.median(A.rClass))} and the paper’s Chinese speakers at ${r2(LAB.median(A.rPaper))}; the paper’s Chinese speakers match each other at ${r2(LAB.median(P.chinese_loo))}.</li>`);
+        items.push(`<li><strong>Words.</strong> Placed least like the paper’s Chinese speakers: ${A.words.slice(0, 3).map(w => `${w.zh} ${w.key} (${r2(w.r)})`).join(', ')}.</li>`);
+      }
+    }
+    $('#em-summary').innerHTML = items.join('');
+    $('#em-stats').innerHTML = !parts.length ? '' :
+      tile('Arrangements', parts.length, CO_DEMO ? 'simulated students' : 'students finished') + tile('Analysed', A.n, apply ? 'pass the paper’s checks' : 'checks switched off') +
+      tile('Class vs paper', A.n ? r2(A.chinese.r) : '–', 'ρ with the paper’s Chinese speakers') + tile('Closest language', A.n ? A.langs[0].label : '–', A.n ? `ρ ${r2(A.langs[0].r)} · Chinese ${ordinal(A.chinese.rank)} of 15` : '') +
+      tile('Students vs class', A.rClass && A.rClass.length ? r2(LAB.median(A.rClass)) : '–', 'median ρ with the rest of the class') + tile('Arranging time', minutes(LAB.median(parts.map(p => p.ms).filter(isFinite))), 'median, min:s');
+
+    $('#em-body').hidden = !A.n;
+    if (A.n) {
+      ['class', 'paper'].forEach(v => $('#em-view-' + v).setAttribute('aria-pressed', String(emState.map === v)));
+      EM.mapChart($('#em-map'), A, P, { arrows: emState.map === 'paper' });
+      const pct = v => isFinite(v) ? Math.round(v * 100) + '%' : '–';
+      const far = A.words.slice().sort((a, b) => b.shift - a.shift).slice(0, 3);
+      $('#em-map-cap').textContent = emState.map === 'paper'
+        ? `Lines run from where the paper’s 50 Chinese speakers put each word (○) to where the class put it, after turning, flipping and scaling the class’s map to fit the paper’s (Procrustes). Longest: ${far.map(w => `${w.zh} ${w.key}`).join(', ')}.`
+        : `The mean of ${plural(A.n, 'student')}’s arrangements, placed in two dimensions (classical multidimensional scaling; the two dimensions keep ${pct(A.map.share)} of the structure) and turned to line up with the paper’s Chinese map. Hover over a word for its English label.`;
+      EM.langChart($('#em-langs'), A);
+      $('#em-langs-cap').innerHTML = `Spearman correlation between the class’s mean distances and each language’s, over the 1,081 word pairs (●), and the paper’s Chinese speakers’ correlation with the same language (○). Higher = arranged more alike. The paper’s languages have 12–50 speakers each.`;
+      EM.relChart($('#em-rel-lto'), A, 'lto'); EM.relChart($('#em-rel-geo'), A, 'geo');
+      const T = A.rel, f = X => `r = ${r2(X.r)} ${inline(`95% CI ${r2(X.ci[0])} to ${r2(X.ci[1])}, ${LAB.fmtP(X.p)}`)}`;
+      $('#em-rel-cap').innerHTML = `Each dot is one of the paper’s 14 other languages: how alike its arrangement is to the class’s (●, solid line) and to the paper’s Chinese speakers’ (○, dashed), against how far its country is from China in long-term orientation (left; China scores 77) and in kilometres (right). Class: long-term orientation ${f(T.lto)}; distance ${f(T.geo)}. Paper’s Chinese speakers: ${f(T.ltoPaper)}; ${f(T.geoPaper)}. Pearson, n = 14. A negative r means closer cultures, more alike arrangements, as in the paper.`;
+      EM.agreeChart($('#em-agree'), A, P);
+      $('#em-agree-cap').textContent = `Each dot compares one arrangement with a group’s mean (Spearman ρ over the 1,081 word pairs); the tick marks the median. The first row is the benchmark: how much the paper’s own Chinese speakers agree with each other.`;
+      const lo = A.words.slice(0, 5), hi = A.words.slice(-5).reverse(), wl = L => L.map(w => `<span lang="zh-Hans">${w.zh}</span> ${w.key} (${r2(w.r)})`).join(', ');
+      $('#em-words-text').innerHTML = `For each word, the correlation between its distances to the other 46 words in the class and among the paper’s Chinese speakers. Least alike: ${wl(lo)}. Most alike: ${wl(hi)}. Mean for the ${A.valence.nNeg} negative words ${r2(A.valence.neg)}, for the ${A.valence.nPos} positive words ${r2(A.valence.pos)} (descriptive).`;
+      if ($('#em-words-more').open) EM.wordsChart($('#em-words'), A);
+    }
+
+    // students
+    const why = p => [p.checkOk ? '' : '灾难 apart', p.fast ? 'under 100 s' : '', p.outlier ? 'time outlier' : ''].filter(Boolean).join(', ');
+    const K_ = { label: p => p.label, st: p => (p.used ? 1 : 0), t: p => p.ms, mv: p => p.moves, cat: p => p.check, rc: p => p.rClass, rp: p => p.rPaper };
+    const [sk, sd] = emState.sort, val = K_[sk] || K_.label;
+    const rowsP = parts.slice().sort((x, y) => { const a = val(x), b = val(y); return (typeof a === 'string' ? a.localeCompare(b) : (isFinite(a) ? a : -1e9) - (isFinite(b) ? b : -1e9)) * sd; });
+    const head = [['label', 'Student'], ['st', 'Status'], ['t', 'Time'], ['mv', 'Moves'], ['cat', '灾难 apart'], ['rc', 'ρ with class'], ['rp', 'ρ with paper']];
+    $('#em-people').innerHTML = !parts.length ? '' : `<thead><tr>${head.map(([k, l], i) => `<th scope="col"${i > 1 ? ' class="num"' : ''}><button type="button" class="co-sort" data-k="${k}" aria-sort="${sk === k ? (sd > 0 ? 'ascending' : 'descending') : 'none'}">${l}</button></th>`).join('')}</tr></thead><tbody>` +
+      rowsP.map(p => `<tr${p.used ? '' : ' class="em-out"'}><th scope="row"><button type="button" data-p="${p.label}">${p.label}</button></th><td>${p.used ? 'analysed' : 'left out'}${why(p) ? ` · <span class="em-bad">${why(p)}</span>` : ''}${p.l1 === 'no' ? ' · Chinese not first language' : ''}${p.simulated ? ' · simulated' : ''}</td>` +
+        `<td class="num">${minutes(p.ms)}</td><td class="num">${isFinite(p.moves) ? p.moves : '–'}</td><td class="num">${Math.round(p.check * 100)}%</td><td class="num"><strong>${r2(p.rClass)}</strong></td><td class="num">${r2(p.rPaper)}</td></tr>`).join('') + '</tbody>';
+    emSearch();
+    const V = parts.find(p => p.label === emState.view);
+    $('#em-view').hidden = !V;
+    if (V) {
+      $('#em-pick').innerHTML = parts.map(p => `<option value="${p.label}"${p === V ? ' selected' : ''}>${p.label}${p.used ? '' : ' · left out'}</option>`).join('');
+      $('#em-person-note').innerHTML = `${V.label}’s arrangement as they left the box (${V.W} × ${V.H} px): ${minutes(V.ms)} arranging, ${isFinite(V.moves) ? V.moves : '–'} moves. The two 灾难 (underlined, joined by the dashed line) are ${Math.round(V.check * 100)}% of the box’s diagonal apart (${V.checkOk ? 'together' : '<span class="em-bad">apart: fails the check</span>'}). ρ with the rest of the class ${r2(V.rClass)}, with the paper’s Chinese speakers ${r2(V.rPaper)}.`;
+      EM.personMap($('#em-person'), V, P);
+    }
+  }
+  const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
   /* ---------- bird task: typicality ratings → semantic map ----------
      The analysis of Bird plot.Rmd, run in the browser (bird-map.js): mean and

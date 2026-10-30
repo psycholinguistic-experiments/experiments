@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>情绪词任务 · LT5461</title>
+    <meta name="description" content="An in-class task for LT5461 at City University of Hong Kong.">
+    <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/lab.css?v=9">
+    <style>
+        /* Chinese page: CJK punctuation from the system's Chinese font (full width), Latin and digits from Open Sans. */
+        @font-face { font-family: 'CJK Punct'; src: local('PingFang SC'), local('PingFangSC-Regular'), local('Noto Sans CJK SC'), local('Source Han Sans SC'), local('Microsoft YaHei'); unicode-range: U+2018-2019, U+201C-201D, U+2026, U+3000-303F, U+FF01-FF1F; }
+        html:lang(zh-Hans) body { font-family: 'CJK Punct', 'Open Sans', var(--font-hans), sans-serif; }
+        .lead, legend { text-wrap: pretty; }
+        fieldset.missing legend { color: var(--danger); }
+        fieldset.missing .choice > span { border-color: var(--danger); }
+        .resume { margin: 1.5rem 0 0; padding: 1rem 1.1rem; background: var(--bg-alt); border-radius: 4px; }
+        .resume p { margin: 0; }
+        .resume .actions, .confirm .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; margin-top: 0.6rem; }
+
+        /* The box fills the screen below one line of instructions. */
+        .arrange-wrap { max-width: 76rem; margin: 0 auto; padding: 0.75rem 1rem 0; }
+        .arrange-bar { display: flex; align-items: center; gap: 0.5rem 1rem; margin: 0 0 0.6rem; font-variant-numeric: tabular-nums; color: var(--text-secondary); font-weight: 600; }
+        .arrange-h { font-size: 1.05rem; margin: 0 auto 0 0; color: var(--text); }
+        .arrange-bar .btn { margin: 0; }
+        #moved-count, .arrange-h { white-space: nowrap; }
+        @media (max-width: 420px) { .arrange-bar { gap: 0.5rem; font-size: 0.86rem; } .arrange-h { font-size: 0.88rem; } .arrange-bar .btn { padding-left: 0.9rem; padding-right: 0.9rem; } }
+        .arena { position: relative; width: 100%; height: 560px; border: 1.5px solid var(--border-input); border-radius: 4px; background: var(--bg); touch-action: none; overflow: hidden; }
+        .emo-word { position: absolute; transform: translate(-50%, -50%); padding: 0.28rem 0.55rem; min-height: 1.9rem; min-width: 2.4rem; font: inherit; font-size: 1rem; font-weight: 600; line-height: 1.2; white-space: nowrap;
+            color: var(--text); background: var(--bg); border: 1.5px solid var(--text); border-radius: 4px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+        .emo-word.unmoved { border-style: dashed; border-color: var(--text-light); color: var(--text-secondary); background: var(--bg-alt); }
+        .emo-word.selected { background: var(--text); color: var(--bg); border-style: solid; border-color: var(--text); }
+        .emo-word.dragging { cursor: grabbing; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18); }
+        .emo-word:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+        @media (max-width: 560px) { .emo-word { font-size: 0.86rem; padding: 0.2rem 0.3rem; min-width: 2rem; min-height: 1.6rem; } }
+        .confirm { margin: 0.75rem 0 1rem; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="brand" href="./">LT5461</a>
+            <span class="masthead-meta">情绪词任务</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="screen page" id="s-intro"></section>
+        <section class="screen page" id="s-part" hidden></section>
+        <section class="screen" id="s-arrange" hidden></section>
+        <section class="screen page" id="s-done" hidden></section>
+    </main>
+
+    <footer class="footer">
+        <div class="page">LT5461</div>
+    </footer>
+
+    <script src="assets/config.js?v=2"></script>
+    <script src="assets/lab.js?v=10"></script>
+    <script src="assets/emotion-core.js?v=1"></script>
+    <script src="assets/emotion.js?v=2"></script>
+</body>
+</html>

@@ -9,6 +9,7 @@
     <link rel="preload" href="assets/fonts/OpenSans-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="assets/lab.css?v=9">
     <link rel="stylesheet" href="assets/colour.css?v=1">
+    <link rel="stylesheet" href="assets/emotion.css?v=2">
     <style>
         :root { --wide: 76rem; }
         .dash-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--border); }
@@ -25,7 +26,7 @@
         .tab { white-space: nowrap; }
         /* Eight tabs: one row on a 1440 projector; they wrap rather than overflow on anything narrower. */
         .tabs { flex-wrap: wrap; row-gap: 0; }
-        @media (min-width: 1041px) { .tab { padding-left: 0.6rem; padding-right: 0.6rem; font-size: 0.94rem; } .tab .n { margin-left: 0.25rem; } }
+        @media (min-width: 1041px) { .tabs { gap: 0.1rem; } .tab { padding-left: 0.5rem; padding-right: 0.5rem; font-size: 0.9rem; } .tab .n { margin-left: 0.2rem; } }
         @media (max-width: 1040px) { .tabs { flex-wrap: wrap; row-gap: 0; } .tab { padding: 0.6rem 0.65rem 0.5rem; font-size: 0.95rem; } }
         /* Phones: one row of tabs that scrolls sideways (after the rule above, which it overrides). */
         @media (max-width: 600px) { .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .tab { flex: 0 0 auto; } }
@@ -392,13 +393,13 @@
         @media (min-width: 900px) { .v-prof-pair, .an-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .an-pair .figure { max-width: none; }
         /* Colour tab */
-        @media (min-width: 1100px) { #co-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        @media (min-width: 1100px) { #co-stats, #em-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
         .co-rt .cl-table { margin-top: 0.5rem; }
         .co-facts { padding-left: 1.1rem; max-width: var(--measure); }
         .co-facts li + li { margin-top: 0.35rem; }
-        #co-people th button.co-sort { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
-        #co-people th button.co-sort[aria-sort]::after { content: ' ↕'; color: var(--text-light); font-weight: 400; }
-        #co-people tbody th button { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0.2rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; }
+        #co-people th button.co-sort, #em-people th button.co-sort { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+        #co-people th button.co-sort[aria-sort]::after, #em-people th button.co-sort[aria-sort]::after { content: ' ↕'; color: var(--text-light); font-weight: 400; }
+        #co-people tbody th button, #em-people tbody th button { font: inherit; font-weight: 650; color: var(--text); background: none; border: 0; padding: 0.2rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; }
         #co-people tr.co-short td, #co-people tr.co-short th { color: var(--text-light); }
         .co-view { margin: 1.25rem 0; padding: 1rem 0 0; border-top: 3px solid var(--text); }
         .co-view-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.5rem; }
@@ -612,6 +613,7 @@
                 <button class="tab" role="tab" id="tab-fluency" aria-controls="panel-fluency" aria-selected="false" tabindex="-1">Fluency<span class="n" id="n-fluency"></span></button>
                 <button class="tab" role="tab" id="tab-reading" aria-controls="panel-reading" aria-selected="false" tabindex="-1">Reading<span class="n" id="n-reading"></span></button>
                 <button class="tab" role="tab" id="tab-colour" aria-controls="panel-colour" aria-selected="false" tabindex="-1">Colour<span class="n" id="n-colour"></span></button>
+                <button class="tab" role="tab" id="tab-emotion" aria-controls="panel-emotion" aria-selected="false" tabindex="-1">Emotion<span class="n" id="n-emotion"></span></button>
             </div>
 
             <!-- Word tasks -->
@@ -1242,6 +1244,75 @@
                     <p class="small muted column">The matching and combined files give each trial with the student’s own names for the two colours and its classification, so every result here can be recomputed. The stimuli’s colour values are in every file.</p>
                 </div>
             </section>
+            <!-- Emotion task (spatial arrangement of 47 emotion words, after Chaouch-Orozco, Li & Li, 2026) -->
+            <section id="panel-emotion" role="tabpanel" aria-labelledby="tab-emotion" hidden>
+                <div class="veil">
+                    <span class="stat-label">Emotion task</span><div class="big" id="veil-emotion">0</div>
+                </div>
+                <div class="results-body">
+                    <p class="cl-demo" id="em-demo" hidden>Simulated data: 40 made-up students, generated in this browser from the paper’s Chinese speakers for trying the dashboard. Nothing here is real or stored. Remove <code>?demo</code> from the address for the real class.</p>
+                    <section class="summary" aria-labelledby="em-sum-h"><h2 id="em-sum-h">Summary</h2><ul id="em-summary"></ul></section>
+                    <div class="stats" id="em-stats"></div>
+                    <label class="em-apply"><input type="checkbox" id="em-apply" checked> Use only students who pass the paper’s checks <span class="sum-note" id="em-apply-note"></span></label>
+
+                    <div id="em-body">
+                    <h2>The class’s emotion space</h2>
+                    <div class="em-toolbar" role="group" aria-label="Map view">
+                        <button type="button" class="em-seg" id="em-view-class" aria-pressed="true">Our class</button>
+                        <button type="button" class="em-seg" id="em-view-paper" aria-pressed="false">Compared with the paper’s Chinese speakers</button>
+                    </div>
+                    <figure class="figure">
+                        <div id="em-map"></div>
+                        <figcaption><span class="em-key"><span><i class="em-sw neg"></i>negative</span> <span><i class="em-sw pos"></i>positive</span> <span>(valence of the English word, Warriner et al., 2013)</span></span> <span id="em-map-cap"></span></figcaption>
+                    </figure>
+
+                    <h2>Our class and the paper’s 15 languages</h2>
+                    <div id="em-langs"></div>
+                    <p class="chart-caption" id="em-langs-cap"></p>
+
+                    <h3 class="sub">Is the class closer to languages of cultures like China’s?</h3>
+                    <div class="em-pair"><div id="em-rel-lto"></div><div id="em-rel-geo"></div></div>
+                    <p class="chart-caption" id="em-rel-cap"></p>
+
+                    <h2>How much do the arrangements agree?</h2>
+                    <div id="em-agree"></div>
+                    <p class="chart-caption" id="em-agree-cap"></p>
+
+                    <h2>Which words did the class place differently?</h2>
+                    <p class="column" id="em-words-text"></p>
+                    <details class="more" id="em-words-more"><summary>All 47 words <span class="sum-note">least like the paper’s Chinese speakers first</span></summary><div id="em-words"></div></details>
+                    </div>
+
+                    <h2>Students</h2>
+                    <div class="rd-search"><label for="em-q">Find</label><input id="em-q" type="search" placeholder="P03, check …" autocomplete="off"></div>
+                    <div class="table-wrap" data-label="Students"><table class="data em-people" id="em-people"></table></div>
+                    <div class="co-view" id="em-view" hidden>
+                        <div class="co-view-bar"><label for="em-pick">Student</label><select id="em-pick"></select><button class="btn-quiet" type="button" id="em-prev">← Previous</button><button class="btn-quiet" type="button" id="em-next">Next →</button><button class="btn-quiet" type="button" id="em-close">Close</button></div>
+                        <p class="cl-small" id="em-person-note"></p>
+                        <div id="em-person"></div>
+                    </div>
+
+                    <h2>Cautions</h2>
+                    <ul class="rd-limits column">
+                        <li>The paper compares languages of different cultures; a class of Chinese speakers is one more sample of one language. Its similarity to the 15 languages is a description, not a new test of the paper.</li>
+                        <li>The relation with long-term orientation rests on 14 languages; with so few points one language can move it a lot.</li>
+                        <li>The paper’s participants used Q-SpAM in Qualtrics; this box differs in size and shape, and laptops differ in screen size. Correlations use ranks, so the scale of the distances does not matter, but layout habits might.</li>
+                        <li>A two-dimensional box forces a two-dimensional answer: emotions that differ in more than two ways cannot all be shown faithfully.</li>
+                        <li>Students are not the paper’s participants: they are younger, study linguistics, live in Hong Kong and know English well.</li>
+                        <li>Valence colours come from English ratings of the English labels (as in the paper); a Chinese word’s valence can differ (羡慕 is milder than “envy”).</li>
+                    </ul>
+
+                    <h2>Data</h2>
+                    <div class="actions rd-dl">
+                        <button class="btn-quiet" id="em-csv-dist" type="button">Distances, paper’s format (CSV)</button>
+                        <button class="btn-quiet" id="em-csv-pos" type="button">Positions (CSV)</button>
+                        <button class="btn-quiet" id="em-csv-people" type="button">Students (CSV)</button>
+                        <button class="btn-quiet" id="em-csv-matrix" type="button">Class matrix (CSV)</button>
+                        <button class="btn-quiet" id="em-codebook" type="button">Codebook (TXT)</button>
+                    </div>
+                    <p class="small muted column">The distances file has the columns of the paper’s <code>emotion_data.csv</code>, so the paper’s R code can read the class’s data. The paper’s data: Chaouch-Orozco, Li &amp; Li (2026), <a href="https://doi.org/10.1057/s41599-026-06623-3">Humanities and Social Sciences Communications 13:387</a>, <a href="https://osf.io/pjzbx/">OSF</a>.</p>
+                </div>
+            </section>
             <!-- Bird task (typicality ratings → semantic map, as in Bird plot.Rmd) -->
             <section id="panel-birds" class="waiting" role="tabpanel" aria-labelledby="tab-birds" hidden>
                 <div class="veil">
@@ -1487,6 +1558,8 @@
     <script src="assets/reading-analysis.js?v=3"></script>
     <script src="assets/colour-core.js?v=1"></script>
     <script src="assets/colour-analysis.js?v=2"></script>
-    <script src="assets/dashboard.js?v=129"></script>
+    <script src="assets/emotion-core.js?v=1"></script>
+    <script src="assets/emotion-analysis.js?v=3"></script>
+    <script src="assets/dashboard.js?v=131"></script>
 </body>
 </html>

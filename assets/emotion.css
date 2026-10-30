@@ -1,0 +1,41 @@
+/* LT5461 — emotion task results tab. Valence: two hues, both ≥ 5:1 on white
+   and ≥ 19 OKLab ΔE apart under all three colour-vision deficiencies. */
+:root { --em-neg: #c2452d; --em-pos: #2b6cb0; }
+
+.chart.em .em-frame { fill: none; stroke: var(--border); }
+.chart.em .em-neg { fill: var(--em-neg); stroke: #fff; stroke-width: 1.5; }
+.chart.em .em-pos { fill: var(--em-pos); stroke: #fff; stroke-width: 1.5; }
+.chart.em .em-label { fill: var(--text); font-size: 14px; font-weight: 600; font-family: var(--font-hans); paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.chart.em .em-pt:hover .em-label { fill: #000; font-weight: 750; }
+.chart.em .hit { fill: transparent; }
+.chart.em .em-arrow { stroke: var(--text-light); stroke-width: 1; opacity: 0.6; }
+.chart.em .em-paper { fill: #fff; stroke: var(--text-light); stroke-width: 1.25; }
+.chart.em .em-class-dot { fill: var(--text); stroke: #fff; stroke-width: 1.5; }
+.chart.em .em-paper-dot { fill: #fff; stroke: var(--text-light); stroke-width: 1.5; }
+.chart.em .em-link { stroke: var(--border-strong); stroke-width: 2; }
+.chart.em .em-legend-b { fill: var(--text-secondary); font-size: 13px; }
+.chart.em .em-small { font-size: 11.5px; fill: var(--text-secondary); }
+.chart.em .em-word { font-size: 14px; font-weight: 650; font-family: var(--font-hans); paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.chart.em .em-neg-t { fill: var(--em-neg); }
+.chart.em .em-pos-t { fill: var(--em-pos); }
+.chart.em .em-chk { fill: var(--text); text-decoration: underline; }
+.chart.em .em-check { stroke: var(--text); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.chart.em .em-check.bad { stroke: var(--danger); stroke-width: 2; }
+
+.em-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.4rem; margin-right: 0.4rem; color: var(--text-secondary); }
+.em-sw { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.3rem; vertical-align: -0.05rem; }
+.em-sw.neg { background: var(--em-neg); } .em-sw.pos { background: var(--em-pos); }
+.em-key > span:not(:last-child) { white-space: nowrap; }
+
+.em-toolbar { display: inline-flex; flex-wrap: wrap; gap: 0; margin: 0.25rem 0 0.75rem; border: 1.5px solid var(--text); border-radius: 4px; overflow: hidden; }
+.em-seg { font: inherit; font-size: 0.9rem; font-weight: 650; padding: 0.4rem 0.85rem; min-height: 2.25rem; background: var(--bg); color: var(--text); border: 0; cursor: pointer; }
+.em-seg + .em-seg { border-left: 1.5px solid var(--text); }
+.em-seg[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.em-seg:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.em-apply { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.5rem; margin: 0.75rem 0 0; font-weight: 600; color: var(--text); cursor: pointer; }
+.em-apply input { width: 1.1rem; height: 1.1rem; accent-color: var(--text); align-self: center; }
+.em-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem 2rem; }
+@media (min-width: 900px) { .em-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.em-people .em-bad { color: var(--danger); font-weight: 650; }
+.em-people tr.em-out th, .em-people tr.em-out td { color: var(--text-light); }
